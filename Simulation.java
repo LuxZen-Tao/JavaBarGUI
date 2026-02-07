@@ -107,6 +107,7 @@ public class Simulation {
             "says the music's a perfect volume.",
             "notes the bartender's quick with jokes.",
             "says the pub is the night's highlight."
+            "says the seats are prime real estate."
     );
     private static final List<String> OBS_NAMES = List.of(
             "Jamie", "Alex", "Casey", "Morgan", "Taylor", "Riley", "Sam", "Jordan"

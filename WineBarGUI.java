@@ -1587,12 +1587,18 @@ public class WineBarGUI {
         staffLabel.setText("Staff: " + state.staff().summaryLine() + " | Serve cap " + cap);
         reportLabel.setText("Report: " + state.reports().summaryLine());
         String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
-        observationLabel.setText("<html>In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
-                + "<br>" + forecastLine + "</html>");
-        String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
-                ? state.observationLine
-                : "";
-        serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
+String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
+
+// OBS box = traffic only (2 lines max)
+observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
+        + "<br>📈 " + forecastLine + "</html>");
+
+// Middle grey box = quips only (no serve cap here)
+String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
+        ? state.observationLine
+        : "";
+serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
+
 
         payDebtBtn.setEnabled(state.debt > 0 && state.cash > 0);
         boolean emergencySupplierAllowed = state.canEmergencyRestock();
