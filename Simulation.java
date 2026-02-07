@@ -2,6 +2,36 @@ import java.util.List;
 
 public class Simulation {
 
+    private static final List<String> OBS_QUIPS = List.of(
+            "checks the taps like they're a sommelier.",
+            "orders a round and tips in good cheer.",
+            "reckons the jukebox is haunted.",
+            "says the crisps are a national treasure.",
+            "claims to know the bouncer from school.",
+            "starts a quiz night without permission.",
+            "swears the darts board is cursed.",
+            "suggests a toast to the regulars.",
+            "calls the snug their 'office'.",
+            "insists the stout tastes like victory.",
+            "keeps score of every round.",
+            "asks if the kitchen has snacks.",
+            "compliments the glassware shine.",
+            "declares this the coziest corner.",
+            "vouches for the house wine.",
+            "notes the music is just right.",
+            "says the crowd feels lively tonight.",
+            "smiles at the chalkboard specials.",
+            "remarks on the friendly buzz.",
+            "orders a half and means it.",
+            "cheers the staff by name.",
+            "claims the rain brought everyone in.",
+            "keeps an eye on the dart league.",
+            "says the seats are prime real estate."
+    );
+    private static final List<String> OBS_NAMES = List.of(
+            "Jamie", "Alex", "Casey", "Morgan", "Taylor", "Riley", "Sam", "Jordan"
+    );
+
     private final GameState s;
     private final UILogger log;
 
@@ -560,6 +590,13 @@ public class Simulation {
         double tipRate = staff.tipRate() + s.upgradeTipBonusPct + activities.tipBonusPct() + identityTip;
 
         // 5b) Arrivals sometimes happen mid-night (respect bar cap)
+        double expectedArrivals = expectedArrivals(trafficMult, riskyWeekend);
+        int forecastMin = (int) Math.floor(expectedArrivals * 0.85);
+        int forecastMax = (int) Math.ceil(expectedArrivals * 1.15);
+        forecastMin = Math.max(0, forecastMin);
+        forecastMax = Math.max(forecastMin, forecastMax);
+        s.trafficForecastLine = "Forecast: " + forecastMin + "–" + forecastMax + " tonight";
+
         int arrivals = rollArrivals(trafficMult, riskyWeekend);
         int added = arrivals > 0 ? punters.addArrivals(arrivals) : 0;
         int leftNaturally = punters.applyNaturalDepartures();
@@ -600,6 +637,9 @@ public class Simulation {
 
         int removed = punters.cleanupDeparted();
         if (removed > 0) log.info("Bar cleared: -" + removed + " (now " + s.nightPunters.size() + "/" + s.maxBarOccupancy + ")");
+        s.lastTrafficIn = added;
+        s.lastTrafficOut = removed;
+        s.observationLine = buildObservationQuip();
 
         log.info("Round summary: bar " + barCount
                 + " | demand " + demand
@@ -1492,18 +1532,49 @@ public class Simulation {
     }
 
 
+    private double expectedArrivals(double trafficMult, boolean weekend) {
+        // Base arrivals... scaled by traffic multiplier.
+        double base = weekend ? 2.8 : 1.9;
+        return base * Math.max(0.65, Math.min(1.60, trafficMult));
+    }
+
     private int rollArrivals(double trafficMult, boolean weekend) {
         int capLeft = Math.max(0, s.maxBarOccupancy - s.nightPunters.size());
         if (capLeft <= 0) return 0;
 
-        // Base arrivals... scaled by traffic multiplier.
-        double base = weekend ? 2.8 : 1.9;
-        double expect = base * Math.max(0.65, Math.min(1.60, trafficMult));
+        double expect = expectedArrivals(trafficMult, weekend);
 
         // Add mild randomness and clamp to remaining capacity.
         int arrivals = (int) Math.round(expect + (s.random.nextDouble() * 2.0 - 1.0));
         arrivals = Math.max(0, Math.min(capLeft, arrivals));
         return arrivals;
+    }
+
+    private String buildObservationQuip() {
+        if (s.random.nextInt(100) >= 25) return null;
+        String name = pickObservationName();
+        String quip = OBS_QUIPS.get(s.random.nextInt(OBS_QUIPS.size()));
+        String combined = (name + " " + quip).trim();
+        return trimObservation(combined, 44);
+    }
+
+    private String pickObservationName() {
+        if (!s.nightPunters.isEmpty()) {
+            for (int i = 0; i < 4; i++) {
+                Punter candidate = s.nightPunters.get(s.random.nextInt(s.nightPunters.size()));
+                if (!candidate.isBanned() && !candidate.hasLeftBar()) {
+                    String name = candidate.getName();
+                    if (name != null && !name.isBlank()) return name;
+                }
+            }
+        }
+        return OBS_NAMES.get(s.random.nextInt(OBS_NAMES.size()));
+    }
+
+    private String trimObservation(String text, int maxLength) {
+        if (text == null) return null;
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, Math.max(0, maxLength - 1)).trim() + "…";
     }
 
 
