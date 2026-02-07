@@ -20,6 +20,7 @@ public class WineBarGUI {
     private static final Color REPORT_BG = new Color(92, 84, 124);
     private static final Color STAFF_BG = new Color(86, 122, 120);
     private static final Color SERVE_BG = new Color(92, 102, 122);
+    private static final Color OBS_BG = new Color(72, 88, 126);
     private static final Color FLASH_GREEN = new Color(68, 168, 110);
     private static final Color FLASH_RED = new Color(210, 80, 88);
 
@@ -28,7 +29,7 @@ public class WineBarGUI {
 
     private final JFrame frame = new JFrame("Pub Landlord Idle");
     private final JPanel root = new JPanel(new BorderLayout(10, 10));
-    private final JPanel hud = new JPanel(new GridLayout(0, 3, 12, 8));
+    private final JPanel hud = new JPanel(new GridLayout(0, 3, 6, 3));
     private final JPanel controls = new JPanel();
     private final JToggleButton happyHourBtn = new JToggleButton("Happy Hour: OFF");
     private final JCheckBox logTimestampToggle = new JCheckBox("Timestamps");
@@ -92,6 +93,7 @@ public class WineBarGUI {
     private final JLabel staffLabel = new JLabel();
     private final JLabel reportLabel = new JLabel();
     private final JLabel serveCapLabel = new JLabel();
+    private final JLabel observationLabel = new JLabel();
     private JLabel nightIndicator;
     private JPanel cashBadge;
     private JPanel debtBadge;
@@ -102,6 +104,7 @@ public class WineBarGUI {
     private JPanel serveBadge;
     private JPanel nightBadge;
     private JPanel pubNameBadge;
+    private JPanel observationBadge;
 
 
     // Buttons
@@ -207,13 +210,13 @@ public class WineBarGUI {
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
         controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
 
-        hud.setBorder(new EmptyBorder(8, 8, 8, 8));
+        hud.setBorder(new EmptyBorder(2, 4, 2, 4));
         hud.setOpaque(false);
         controls.setOpaque(false);
         cashBadge = createBadge(CASH_BG, cashLabel);
         debtBadge = createBadge(DEBT_BG, debtLabel);
         JPanel repBadge = createBadge(REP_BG, repLabel);
-        pubNameLabel.setFont(pubNameLabel.getFont().deriveFont(Font.BOLD, pubNameLabel.getFont().getSize() + 2f));
+        pubNameLabel.setFont(pubNameLabel.getFont().deriveFont(Font.BOLD));
         pubNameBadge = createBadge(new Color(70, 110, 160), pubNameLabel);
         JPanel invoiceBadge = createBadge(REPORT_BG, invoiceDueLabel);
         securityBadge = createBadge(SECURITY_BG, securityLabel);
@@ -221,6 +224,19 @@ public class WineBarGUI {
         reportBadge = createBadge(REPORT_BG, reportLabel);
         staffBadge = createBadge(STAFF_BG, staffLabel);
         serveBadge = createBadge(SERVE_BG, serveCapLabel);
+        observationLabel.setVerticalAlignment(SwingConstants.TOP);
+        Font obsFont = observationLabel.getFont();
+        float obsSize = Math.max(10f, obsFont.getSize() - 2f);
+        observationLabel.setFont(obsFont.deriveFont(obsSize));
+        observationLabel.setPreferredSize(new Dimension(220, 32));
+        observationLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        observationBadge = createBadge(OBS_BG, observationLabel);
+        serveCapLabel.setVerticalAlignment(SwingConstants.TOP);
+        Font quipFont = serveCapLabel.getFont();
+        float quipSize = Math.max(10f, quipFont.getSize() - 2f);
+        serveCapLabel.setFont(quipFont.deriveFont(quipSize));
+        serveCapLabel.setPreferredSize(new Dimension(220, 32));
+        serveCapLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         nightBadge = createNightBadge();
 
         hud.add(pubNameBadge);
@@ -234,6 +250,7 @@ public class WineBarGUI {
         hud.add(staffBadge);
         hud.add(nightBadge);
         hud.add(serveBadge);
+        hud.add(observationBadge);
 
         // Price multiplier control (0.50x to 2.50x)
         priceLabel = new JLabel("Price x" + String.format("%.2f", state.priceMultiplier));
@@ -309,7 +326,7 @@ public class WineBarGUI {
 
     private JPanel createBadge(Color bg, JComponent content) {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(new EmptyBorder(6, 10, 6, 10));
+        panel.setBorder(new EmptyBorder(3, 7, 3, 7));
         panel.setOpaque(true);
         panel.setBackground(bg);
         panel.putClientProperty("FlatLaf.style", "arc: 16");
@@ -417,6 +434,7 @@ public class WineBarGUI {
 
         JPanel summary = new JPanel(new GridLayout(0, 2, 6, 4));
         summary.setBorder(new EmptyBorder(4, 4, 4, 4));
+        summary.setPreferredSize(new Dimension(0, 116));
         reportSummaryCash = new JLabel();
         reportSummaryDebt = new JLabel();
         reportSummaryRep = new JLabel();
@@ -434,14 +452,16 @@ public class WineBarGUI {
         summary.add(reportSummaryRefunds);
         summary.add(reportSummaryInvoice);
 
-        reportArea = new JTextArea(16, 30);
+        reportArea = new JTextArea(14, 30);
         reportArea.setEditable(false);
         reportArea.setFont(UIManager.getFont("TextArea.font"));
         reportArea.setLineWrap(false);
+        JScrollPane reportScroll = new JScrollPane(reportArea);
+        reportScroll.setPreferredSize(new Dimension(0, 240));
 
         p.add(header, BorderLayout.NORTH);
         p.add(summary, BorderLayout.CENTER);
-        p.add(new JScrollPane(reportArea), BorderLayout.SOUTH);
+        p.add(reportScroll, BorderLayout.SOUTH);
         return p;
     }
 
@@ -1551,7 +1571,6 @@ public class WineBarGUI {
         calendarLabel.setText("Week " + state.weekCount + "  " + state.dayName() + " | Night " + state.nightCount);
 
         int cap = sim.peekServeCapacity();
-        serveCapLabel.setText("Can serve (per round): " + cap);
 
         roundLabel.setText(state.nightOpen
                 ? ("Night OPEN  Round " + state.roundInNight + "/" + state.closingRound
@@ -1567,6 +1586,13 @@ public class WineBarGUI {
 
         staffLabel.setText("Staff: " + state.staff().summaryLine() + " | Serve cap " + cap);
         reportLabel.setText("Report: " + state.reports().summaryLine());
+        String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
+        observationLabel.setText("<html>In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
+                + "<br>" + forecastLine + "</html>");
+        String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
+                ? state.observationLine
+                : "";
+        serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
 
         payDebtBtn.setEnabled(state.debt > 0 && state.cash > 0);
         boolean emergencySupplierAllowed = state.canEmergencyRestock();

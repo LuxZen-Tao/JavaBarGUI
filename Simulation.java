@@ -2,6 +2,116 @@ import java.util.List;
 
 public class Simulation {
 
+    private static final List<String> OBS_QUIPS = List.of(
+            "checks the taps like they're a sommelier.",
+            "orders a round and tips in good cheer.",
+            "reckons the jukebox is haunted.",
+            "says the crisps are a national treasure.",
+            "claims to know the bouncer from school.",
+            "starts a quiz night without permission.",
+            "swears the darts board is cursed.",
+            "suggests a toast to the regulars.",
+            "calls the snug their 'office'.",
+            "insists the stout tastes like victory.",
+            "keeps score of every round.",
+            "asks if the kitchen has snacks.",
+            "compliments the glassware shine.",
+            "declares this the coziest corner.",
+            "vouches for the house wine.",
+            "notes the music is just right.",
+            "says the crowd feels lively tonight.",
+            "smiles at the chalkboard specials.",
+            "remarks on the friendly buzz.",
+            "orders a half and means it.",
+            "cheers the staff by name.",
+            "claims the rain brought everyone in.",
+            "keeps an eye on the dart league.",
+            "says the seats are prime real estate.",
+            "asks for the local ale recommendation.",
+            "says the fireplace is working wonders.",
+            "calls last call their favorite phrase.",
+            "confirms the pub cat is a legend.",
+            "says the bar stools have stories.",
+            "asks for a top-up and a wink.",
+            "requests a song from 'the old days'.",
+            "complains about the weather, then laughs.",
+            "says the chalkboard art is class.",
+            "praises the pour on the lager.",
+            "mentions the quiz team's hot streak.",
+            "declares the crisps pair perfectly.",
+            "waves at the regulars table.",
+            "tips the bartender with a grin.",
+            "asks if the darts finals are on.",
+            "says the music's got a good groove.",
+            "toasts the staff for a smooth night.",
+            "orders water between rounds 💧.",
+            "claims the corner booth is lucky.",
+            "asks for the house red, neat.",
+            "says the vibe is properly cozy.",
+            "mentions the roast smelled amazing.",
+            "orders a shandy and smiles.",
+            "says the bar's humming tonight.",
+            "calls the pint glass 'perfectly chilled'.",
+            "notes the crowd is friendly and chill.",
+            "asks for crisps and a quiet chat.",
+            "says the chairs are comfy for once.",
+            "praises the staff's quick service.",
+            "asks if it's live music later.",
+            "says the pub sign looks sharp.",
+            "shares a joke about the rain ☔.",
+            "orders a cider and keeps it simple.",
+            "compliments the tidy bar top.",
+            "declares it's a proper local.",
+            "asks if the snug is free.",
+            "says the jukebox has taste 🎵.",
+            "claims the Guinness is spot on.",
+            "orders a gin and tonic with lime.",
+            "says the spirit shelf is impressive.",
+            "wants a quiet corner for a chat.",
+            "asks for a pint with a tight head.",
+            "says the staff know their regulars.",
+            "mentions the quiz prizes are decent.",
+            "orders a soft drink and relaxes.",
+            "says the pub smells like fresh chips.",
+            "waves over a friend from the bar.",
+            "asks the bartender for a surprise.",
+            "says the lights are just right 💡.",
+            "asks if the match is on.",
+            "says the crowd is in good spirits.",
+            "claims the toasties are legendary.",
+            "orders a stout and nods approval.",
+            "thanks the staff for the quick pour.",
+            "says the playlist hits the spot.",
+            "mentions the darts board is busy.",
+            "orders a pint and a packet of nuts.",
+            "says the pub feels like home.",
+            "asks for a warm seat near the wall.",
+            "says the bar snacks are top tier.",
+            "orders a half and chats with locals.",
+            "notes the bustle is friendly tonight.",
+            "says the staff are on their game.",
+            "asks for a top-shelf lemonade.",
+            "says the taps are flowing smoothly.",
+            "claims the window seat is prime.",
+            "orders a round for the table 🎉.",
+            "says the pub feels lively but calm.",
+            "asks for a cider with extra ice.",
+            "thanks the kitchen for a quick bite.",
+            "says the quiz master is on form.",
+            "orders a pint and a smile 😄.",
+            "mentions the doors kept the chill out.",
+            "says the crowd brought good energy.",
+            "asks for a refill and a napkin.",
+            "says the regulars are in fine fettle.",
+            "orders a porter and takes a seat.",
+            "says the music's a perfect volume.",
+            "notes the bartender's quick with jokes.",
+            "says the pub is the night's highlight."
+    );
+    private static final List<String> OBS_NAMES = List.of(
+            "Jamie", "Alex", "Casey", "Morgan", "Taylor", "Riley", "Sam", "Jordan"
+    );
+
     private final GameState s;
     private final UILogger log;
 
@@ -560,6 +670,13 @@ public class Simulation {
         double tipRate = staff.tipRate() + s.upgradeTipBonusPct + activities.tipBonusPct() + identityTip;
 
         // 5b) Arrivals sometimes happen mid-night (respect bar cap)
+        double expectedArrivals = expectedArrivals(trafficMult, riskyWeekend);
+        int forecastMin = (int) Math.floor(expectedArrivals * 0.85);
+        int forecastMax = (int) Math.ceil(expectedArrivals * 1.15);
+        forecastMin = Math.max(0, forecastMin);
+        forecastMax = Math.max(forecastMin, forecastMax);
+        s.trafficForecastLine = "Forecast: " + forecastMin + "–" + forecastMax + " tonight";
+
         int arrivals = rollArrivals(trafficMult, riskyWeekend);
         int added = arrivals > 0 ? punters.addArrivals(arrivals) : 0;
         int leftNaturally = punters.applyNaturalDepartures();
@@ -600,6 +717,9 @@ public class Simulation {
 
         int removed = punters.cleanupDeparted();
         if (removed > 0) log.info("Bar cleared: -" + removed + " (now " + s.nightPunters.size() + "/" + s.maxBarOccupancy + ")");
+        s.lastTrafficIn = added;
+        s.lastTrafficOut = removed;
+        s.observationLine = buildObservationQuip();
 
         log.info("Round summary: bar " + barCount
                 + " | demand " + demand
@@ -1492,18 +1612,49 @@ public class Simulation {
     }
 
 
+    private double expectedArrivals(double trafficMult, boolean weekend) {
+        // Base arrivals... scaled by traffic multiplier.
+        double base = weekend ? 2.8 : 1.9;
+        return base * Math.max(0.65, Math.min(1.60, trafficMult));
+    }
+
     private int rollArrivals(double trafficMult, boolean weekend) {
         int capLeft = Math.max(0, s.maxBarOccupancy - s.nightPunters.size());
         if (capLeft <= 0) return 0;
 
-        // Base arrivals... scaled by traffic multiplier.
-        double base = weekend ? 2.8 : 1.9;
-        double expect = base * Math.max(0.65, Math.min(1.60, trafficMult));
+        double expect = expectedArrivals(trafficMult, weekend);
 
         // Add mild randomness and clamp to remaining capacity.
         int arrivals = (int) Math.round(expect + (s.random.nextDouble() * 2.0 - 1.0));
         arrivals = Math.max(0, Math.min(capLeft, arrivals));
         return arrivals;
+    }
+
+    private String buildObservationQuip() {
+        if (s.random.nextInt(100) >= 25) return null;
+        String name = pickObservationName();
+        String quip = OBS_QUIPS.get(s.random.nextInt(OBS_QUIPS.size()));
+        String combined = (name + " " + quip).trim();
+        return trimObservation(combined, 44);
+    }
+
+    private String pickObservationName() {
+        if (!s.nightPunters.isEmpty()) {
+            for (int i = 0; i < 4; i++) {
+                Punter candidate = s.nightPunters.get(s.random.nextInt(s.nightPunters.size()));
+                if (!candidate.isBanned() && !candidate.hasLeftBar()) {
+                    String name = candidate.getName();
+                    if (name != null && !name.isBlank()) return name;
+                }
+            }
+        }
+        return OBS_NAMES.get(s.random.nextInt(OBS_NAMES.size()));
+    }
+
+    private String trimObservation(String text, int maxLength) {
+        if (text == null) return null;
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, Math.max(0, maxLength - 1)).trim() + "…";
     }
 
 

@@ -1,4 +1,12 @@
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 public class GameState {
 
@@ -92,6 +100,10 @@ public class GameState {
     public int roundsSinceLastEvent = 0;
     public int foodSpoiledLastNight = 0;
     public final Map<String, Integer> nightItemSales = new HashMap<>();
+    public int lastTrafficIn = 0;
+    public int lastTrafficOut = 0;
+    public String trafficForecastLine = "Forecast: 0–0 tonight";
+    public String observationLine = null;
 
     // weekly chaos
     public int fightsThisWeek = 0;
