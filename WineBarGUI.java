@@ -231,6 +231,12 @@ public class WineBarGUI {
         observationLabel.setPreferredSize(new Dimension(220, 32));
         observationLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         observationBadge = createBadge(OBS_BG, observationLabel);
+        serveCapLabel.setVerticalAlignment(SwingConstants.TOP);
+        Font quipFont = serveCapLabel.getFont();
+        float quipSize = Math.max(10f, quipFont.getSize() - 2f);
+        serveCapLabel.setFont(quipFont.deriveFont(quipSize));
+        serveCapLabel.setPreferredSize(new Dimension(220, 32));
+        serveCapLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         nightBadge = createNightBadge();
 
         hud.add(pubNameBadge);
@@ -428,6 +434,7 @@ public class WineBarGUI {
 
         JPanel summary = new JPanel(new GridLayout(0, 2, 6, 4));
         summary.setBorder(new EmptyBorder(4, 4, 4, 4));
+        summary.setPreferredSize(new Dimension(0, 116));
         reportSummaryCash = new JLabel();
         reportSummaryDebt = new JLabel();
         reportSummaryRep = new JLabel();
@@ -445,14 +452,16 @@ public class WineBarGUI {
         summary.add(reportSummaryRefunds);
         summary.add(reportSummaryInvoice);
 
-        reportArea = new JTextArea(16, 30);
+        reportArea = new JTextArea(14, 30);
         reportArea.setEditable(false);
         reportArea.setFont(UIManager.getFont("TextArea.font"));
         reportArea.setLineWrap(false);
+        JScrollPane reportScroll = new JScrollPane(reportArea);
+        reportScroll.setPreferredSize(new Dimension(0, 240));
 
         p.add(header, BorderLayout.NORTH);
         p.add(summary, BorderLayout.CENTER);
-        p.add(new JScrollPane(reportArea), BorderLayout.SOUTH);
+        p.add(reportScroll, BorderLayout.SOUTH);
         return p;
     }
 
@@ -1562,7 +1571,6 @@ public class WineBarGUI {
         calendarLabel.setText("Week " + state.weekCount + "  " + state.dayName() + " | Night " + state.nightCount);
 
         int cap = sim.peekServeCapacity();
-        serveCapLabel.setText("Can serve (per round): " + cap);
 
         roundLabel.setText(state.nightOpen
                 ? ("Night OPEN  Round " + state.roundInNight + "/" + state.closingRound
@@ -1579,12 +1587,18 @@ public class WineBarGUI {
         staffLabel.setText("Staff: " + state.staff().summaryLine() + " | Serve cap " + cap);
         reportLabel.setText("Report: " + state.reports().summaryLine());
         String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
-        String observationLine = "📈 " + forecastLine;
-        if (state.observationLine != null && !state.observationLine.isBlank()) {
-            observationLine += " · 👀 " + state.observationLine;
-        }
-        observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
-                + "<br>" + observationLine + "</html>");
+String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
+
+// OBS box = traffic only (2 lines max)
+observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
+        + "<br>📈 " + forecastLine + "</html>");
+
+// Middle grey box = quips only (no serve cap here)
+String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
+        ? state.observationLine
+        : "";
+serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
+
 
         payDebtBtn.setEnabled(state.debt > 0 && state.cash > 0);
         boolean emergencySupplierAllowed = state.canEmergencyRestock();
