@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
+@SuppressWarnings({"unused", "FieldCanBeLocal", "DuplicatedCode"})
 public class WineBarGUI {
     private static final Color CASH_BG = new Color(36, 130, 92);
     private static final Color DEBT_BG = new Color(170, 60, 72);
@@ -868,13 +869,10 @@ public class WineBarGUI {
         for (Component rowC : kitchenSupplierListPanel.getComponents()) {
             if (!(rowC instanceof JPanel row)) continue;
 
-            Food rowFood = null;
-
             for (Component c : row.getComponents()) {
                 if (c instanceof JLabel lbl) {
                     Food f = (Food) lbl.getClientProperty("food");
                     if (f == null) continue;
-                    rowFood = f;
                     lbl.setText(f.getName()
                             + " | 1x " + money2(f.getBaseCost())
                             + " | sell " + money2(f.getBasePrice())
@@ -1314,7 +1312,7 @@ public class WineBarGUI {
             if (state.activityTonight == a) txt = " RUNNING  " + txt;
             if (state.scheduledActivity != null) {
                 int daysLeft = Math.max(0, state.scheduledActivity.startAbsDayIndex() - state.absDayIndex());
-                txt = " SCHEDULED (" + daysLeft + "d)  " + state.scheduledActivity.activity().toString();
+                txt = " SCHEDULED (" + daysLeft + "d)  " + state.scheduledActivity.activity();
                 b.setEnabled(false);
             }
             b.setText(txt);
