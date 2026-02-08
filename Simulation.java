@@ -106,7 +106,7 @@ public class Simulation {
             "orders a porter and takes a seat.",
             "says the music's a perfect volume.",
             "notes the bartender's quick with jokes.",
-            "says the pub is the night's highlight."
+            "says the pub is the night's highlight.",
             "says the seats are prime real estate."
     );
     private static final List<String> OBS_NAMES = List.of(
@@ -194,9 +194,10 @@ public class Simulation {
         s.upgradeTipBonusPct = upgrades.tipBonusPct();
         s.upgradeEventDamageReductionPct = upgrades.eventDamageReductionPct();
         s.upgradeRiskReductionPct = upgrades.riskReductionPct();
+        s.upgradeFoodRackCapBonus = upgrades.foodRackCapBonus();
 
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
-        s.foodRack.setCapacity(s.baseFoodRackCapacity + (headChefs * 5));
+        s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
     }
 
     // GUI helper: show true supplier buy cost (rep + deal)
@@ -205,6 +206,11 @@ public class Simulation {
     public double peekSupplierCost(Wine w, int qty) {
         if (w == null) return 0.0;
         qty = Math.max(1, qty);
+        if (s.nightOpen && s.canEmergencyRestock()) {
+            double markup = s.isWeekend() ? 1.7 : 1.3;
+            double baseCost = w.getBaseCost() * qty;
+            return Math.max(0.0, baseCost * markup);
+        }
         double repMult = inv.repToSupplierCostMultiplier();
         double cost = supplierSystem.supplierBuyCost(w, repMult, qty);
         return Math.max(0.0, cost);
@@ -277,9 +283,10 @@ public class Simulation {
                 return;
             }
             boolean weekend = s.isWeekend();
-            double markup = weekend ? 1.7 : 1.4;
-            int roundsDelay = weekend ? 4 : 3;
-            double markedCost = cost * markup;
+            double markup = weekend ? 1.7 : 1.3;
+            int roundsDelay = 3;
+            double baseCost = w.getBaseCost() * qty;
+            double markedCost = baseCost * markup;
             eco.payOrDebt(markedCost, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER);
             if (s.debt > s.maxDebt) return;
 
@@ -399,6 +406,10 @@ public class Simulation {
         if (t == Staff.Type.CHEF || t == Staff.Type.HEAD_CHEF || t == Staff.Type.SOUS_CHEF
                 || t == Staff.Type.CHEF_DE_PARTIE || t == Staff.Type.KITCHEN_ASSISTANT
                 || t == Staff.Type.KITCHEN_PORTER) {
+            if (t == Staff.Type.HEAD_CHEF && s.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1) {
+                log.neg("Only one Head Chef can be employed at a time.");
+                return;
+            }
             int chefs = s.kitchenStaffCount();
             if (chefs >= s.kitchenChefCap) {
                 log.neg("Kitchen staff cap reached (" + s.kitchenChefCap + ").");
@@ -473,6 +484,7 @@ public class Simulation {
 
     public void hireBouncerTonight() { security.hireBouncerTonight(); }
     public void upgradeSecurity() { security.upgradeBaseSecurity(); }
+    public double peekSecurityUpgradeCost() { return security.nextUpgradeCost(); }
 
     public boolean canBuyUpgrade(PubUpgrade up) { return milestones.canBuyUpgrade(up); }
     public boolean isActivityUnlocked(PubActivity a) { return milestones.isActivityUnlocked(a); }
@@ -1203,14 +1215,14 @@ public class Simulation {
                 "Cash: GBP " + fmt2(s.cash),
                 "Debt: GBP " + fmt2(s.debt),
                 "Reputation: " + s.reputation + " (" + mood + ")",
-                " " + s.pubName,
+                " " + s.pubName + " (Lv " + s.pubLevel + ")",
                 "Invoice Due: GBP " + fmt2(invoiceDueNow()),
                 "Week " + s.weekCount + "  " + s.dayName() + " | Night " + s.nightCount,
                 s.nightOpen
                         ? ("Night OPEN  Round " + s.roundInNight + "/" + s.closingRound
                         + " | Bar " + s.nightPunters.size() + "/" + s.maxBarOccupancy)
                         : "Night CLOSED  Ready",
-                "Security: " + sec + "/8",
+                "Security: " + sec,
                 "Staff: " + s.staff().summaryLine() + " | Serve cap " + serveCap,
                 "Report: " + s.reports().summaryLine(),
                 "Can serve (per round): " + serveCap,
@@ -1413,7 +1425,7 @@ public class Simulation {
 
     private void updateKitchenInventoryCap() {
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
-        s.foodRack.setCapacity(s.baseFoodRackCapacity + (headChefs * 5));
+        s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
     }
 
     private double recomputeChaos(int barCount,

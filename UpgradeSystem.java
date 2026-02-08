@@ -40,6 +40,12 @@ public class UpgradeSystem {
         return sum;
     }
 
+    public int foodRackCapBonus() {
+        int sum = 0;
+        for (PubUpgrade u : s.ownedUpgrades) sum += u.getFoodRackCapBonus();
+        return sum;
+    }
+
     public int securityBonus() {
         int sum = 0;
         for (PubUpgrade u : s.ownedUpgrades) sum += u.getSecurityBonus();

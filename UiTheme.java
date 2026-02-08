@@ -109,8 +109,8 @@ public final class UiTheme {
             UIManager.put("pub.danger", danger);
         }
 
-        Font uiFont = pickUiFont(14);
-        Font monoFont = pickMonoFont(12);
+        Font uiFont = pickUiFont(16);
+        Font monoFont = pickMonoFont(14);
 
         UIManager.put("defaultFont", uiFont);
         UIManager.put("Label.font", uiFont);

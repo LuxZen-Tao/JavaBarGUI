@@ -205,6 +205,7 @@ public class GameState {
     public double upgradeTipBonusPct = 0.0;
     public double upgradeEventDamageReductionPct = 0.0;
     public double upgradeRiskReductionPct = 0.0;
+    public int upgradeFoodRackCapBonus = 0;
 
     // debug: last between-night event summary
     public String lastBetweenNightEventSummary = "None";
