@@ -46,6 +46,7 @@ public class WineBarGUI {
     private JLabel supplierDealLabel;
     private JDialog kitchenSupplierDialog;
     private JPanel kitchenSupplierListPanel;
+    private JLabel kitchenSupplierNoticeLabel;
 
     // Staff window (hire + fire)
     private JDialog staffDialog;
@@ -218,20 +219,24 @@ public class WineBarGUI {
         cashBadge = createBadge(CASH_BG, cashLabel);
         debtBadge = createBadge(DEBT_BG, debtLabel);
         JPanel repBadge = createBadge(REP_BG, repLabel);
+        repLabel.setVerticalAlignment(SwingConstants.TOP);
         pubNameLabel.setFont(pubNameLabel.getFont().deriveFont(Font.BOLD));
         pubNameBadge = createBadge(new Color(70, 110, 160), pubNameLabel);
         JPanel invoiceBadge = createBadge(REPORT_BG, invoiceDueLabel);
+        securityLabel.setVerticalAlignment(SwingConstants.TOP);
         securityBadge = createBadge(SECURITY_BG, securityLabel);
         calendarBadge = createBadge(CAL_BG, calendarLabel);
         reportBadge = createBadge(REPORT_BG, reportLabel);
+        staffLabel.setVerticalAlignment(SwingConstants.TOP);
         staffBadge = createBadge(STAFF_BG, staffLabel);
         serveBadge = createBadge(SERVE_BG, serveCapLabel);
         observationLabel.setVerticalAlignment(SwingConstants.TOP);
+        observationLabel.setHorizontalAlignment(SwingConstants.LEFT);
         Font obsFont = observationLabel.getFont();
-        float obsSize = Math.max(10f, obsFont.getSize() - 2f);
-        observationLabel.setFont(obsFont.deriveFont(obsSize));
-        observationLabel.setPreferredSize(new Dimension(220, 32));
-        observationLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        float obsSize = Math.max(11f, obsFont.getSize() + 1f);
+        observationLabel.setFont(obsFont.deriveFont(Font.BOLD, obsSize));
+        observationLabel.setPreferredSize(new Dimension(220, 54));
+        observationLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 54));
         observationBadge = createBadge(OBS_BG, observationLabel);
         serveCapLabel.setVerticalAlignment(SwingConstants.TOP);
         Font quipFont = serveCapLabel.getFont();
@@ -815,7 +820,15 @@ public class WineBarGUI {
 
             JLabel top = new JLabel("Kitchen supplier deals: bulk discounts only.");
             top.setBorder(new EmptyBorder(8, 10, 0, 10));
-            kitchenSupplierDialog.add(top, BorderLayout.NORTH);
+            kitchenSupplierNoticeLabel = new JLabel(" ");
+            kitchenSupplierNoticeLabel.setBorder(new EmptyBorder(2, 10, 0, 10));
+            kitchenSupplierNoticeLabel.setForeground(new Color(170, 90, 90));
+            JPanel header = new JPanel();
+            header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+            header.add(top);
+            header.add(kitchenSupplierNoticeLabel);
+            header.setOpaque(false);
+            kitchenSupplierDialog.add(header, BorderLayout.NORTH);
 
             kitchenSupplierListPanel = new JPanel();
             kitchenSupplierListPanel.setLayout(new BoxLayout(kitchenSupplierListPanel, BoxLayout.Y_AXIS));
@@ -865,6 +878,12 @@ public class WineBarGUI {
         if (kitchenSupplierDialog == null || kitchenSupplierListPanel == null) return;
 
         int freeSlots = state.foodRack.getCapacity() - state.foodRack.count();
+        boolean hasHeadChef = state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1;
+        if (kitchenSupplierNoticeLabel != null) {
+            kitchenSupplierNoticeLabel.setText(state.nightOpen && !hasHeadChef
+                    ? "Requires Head Chef for emergency orders."
+                    : " ");
+        }
 
         for (Component rowC : kitchenSupplierListPanel.getComponents()) {
             if (!(rowC instanceof JPanel row)) continue;
@@ -891,8 +910,7 @@ public class WineBarGUI {
                 b.setText("x" + q + " " + money0(total));
 
                 boolean okSlots = freeSlots >= q;
-                boolean emergencyAllowed = state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1;
-                b.setEnabled((!state.nightOpen || emergencyAllowed) && okSlots);
+                b.setEnabled((!state.nightOpen || hasHeadChef) && okSlots);
             }
         }
     }
@@ -985,7 +1003,7 @@ public class WineBarGUI {
 
             // General manager pool
             if (t == Staff.Type.MANAGER) {
-                enabled = state.generalManagers.size() < state.managerCap;
+                enabled = state.managerPoolCount() < state.managerCap;
 
                 // Kitchen roles (BOH)
             } else if (t == Staff.Type.HEAD_CHEF
@@ -1002,6 +1020,9 @@ public class WineBarGUI {
                 // FOH roles (includes assistant manager + bar staff)
             } else {
                 enabled = state.fohStaff.size() < state.fohStaffCap;
+                if (t == Staff.Type.ASSISTANT_MANAGER) {
+                    enabled = enabled && state.managerPoolCount() < state.managerCap;
+                }
             }
 
             // hires only between nights (except bouncer)
@@ -1013,12 +1034,15 @@ public class WineBarGUI {
         // Rebuild roster (fire buttons)
         staffRosterPanel.removeAll();
 
-        // General manager rows
+        // Manager pool summary + general manager rows
+        staffRosterPanel.add(new JLabel("Manager slots used: " + state.managerPoolCount() + "/" + state.managerCap
+                + " (GM " + state.generalManagers.size() + ", AM " + state.assistantManagerCount() + ")"));
+        staffRosterPanel.add(Box.createVerticalStrut(6));
         if (state.generalManagers.isEmpty()) {
             staffRosterPanel.add(new JLabel("General Managers: (none)"));
             staffRosterPanel.add(Box.createVerticalStrut(8));
         } else {
-            staffRosterPanel.add(new JLabel("General Managers (" + state.generalManagers.size() + "/" + state.managerCap + "):"));
+            staffRosterPanel.add(new JLabel("General Managers (" + state.generalManagers.size() + "):"));
             staffRosterPanel.add(Box.createVerticalStrut(4));
             for (int i = 0; i < state.generalManagers.size(); i++) {
                 final int idx = i;
@@ -1585,7 +1609,8 @@ public class WineBarGUI {
                                         (state.reputation >= -60) ? " Bad" :
                                                 " Toxic";
 
-        repLabel.setText("Reputation: " + state.reputation + " (" + mood + ")");
+        repLabel.setText("<html>Reputation: " + state.reputation + " (" + mood + ")"
+                + "<br>Pub ID: " + state.pubId + "</html>");
         calendarLabel.setText("Week " + state.weekCount + "  " + state.dayName() + " | Night " + state.nightCount);
 
         int cap = sim.peekServeCapacity();
@@ -1600,15 +1625,25 @@ public class WineBarGUI {
                 + (state.hasSkilledManager() ? 1 : 0)
                 + state.staffSecurityBonus();
         sec = Math.max(0, sec);
-        securityLabel.setText("Security: " + sec);
+        String bouncerInfo = state.bouncersHiredTonight > 0
+                ? "Bouncer: " + state.bouncersHiredTonight + " (" + state.bouncerQualitySummary() + ")"
+                : "Bouncer: None";
+        securityLabel.setText("<html>Security: " + sec + "<br>" + bouncerInfo + "</html>");
 
-        staffLabel.setText("Staff: " + state.staff().summaryLine() + " | Serve cap " + cap);
+        String staffLine = "Staff: " + state.staff().summaryLine() + " | Serve cap " + cap;
+        String staffCounts = "FOH: " + state.fohStaff.size() + "/" + state.fohStaffCap
+                + " | BOH: " + state.bohStaff.size() + "/" + state.kitchenChefCap;
+        staffLabel.setText("<html>" + staffLine + "<br>" + staffCounts + "</html>");
         reportLabel.setText("Report: " + state.reports().summaryLine());
         String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
+        String topSalesLine = state.topSalesForecastLine != null
+                ? state.topSalesForecastLine
+                : "Top sellers (5r): Wine None | Food None";
 
-        // OBS box = traffic only (2 lines max)
+        // OBS box = traffic + forecast + top sellers
         observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
-                + "<br>📈 " + forecastLine + "</html>");
+                + "<br>📈 " + forecastLine
+                + "<br>🏆 " + topSalesLine + "</html>");
 
         // Middle grey box = quips only (no serve cap here)
         String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
@@ -1621,7 +1656,9 @@ public class WineBarGUI {
         boolean emergencySupplierAllowed = state.canEmergencyRestock();
         supplierBtn.setEnabled(!state.nightOpen || emergencySupplierAllowed);
         boolean emergencyFoodAllowed = state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1;
-        kitchenSupplierBtn.setEnabled(state.kitchenUnlocked && (!state.nightOpen || emergencyFoodAllowed));
+        boolean kitchenSupplierEnabled = state.kitchenUnlocked && (!state.nightOpen || emergencyFoodAllowed);
+        kitchenSupplierBtn.setEnabled(kitchenSupplierEnabled);
+        kitchenSupplierBtn.setToolTipText(kitchenSupplierEnabled ? null : "Requires Head Chef");
         happyHourBtn.setEnabled(state.nightOpen);
 
         lastCash = state.cash;
@@ -1707,6 +1744,13 @@ public class WineBarGUI {
                 for (Map.Entry<String, Integer> e : foodCounts.entrySet()) {
                     invModel.addElement(e.getKey() + " x" + e.getValue());
                 }
+            }
+            FoodRack.SpoilageSummary summary = state.foodRack.spoilageSummary(state.absDayIndex());
+            if (summary != null) {
+                invModel.addElement("Food spoilage forecast: Next spoilage " + formatSpoilageDays(summary.nextSpoilDays())
+                        + "; " + summary.atRiskCount() + " meal(s) at risk");
+            } else {
+                invModel.addElement("Food spoilage forecast: None");
             }
             invModel.addElement("Total: " + state.foodRack.count() + "/" + state.foodRack.getCapacity());
         }

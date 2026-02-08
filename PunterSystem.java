@@ -81,13 +81,11 @@ public class PunterSystem {
 
             // Bouncer makes neglect less likely to turn into violence; they may just leave instead.
             boolean fightTriggered = p.escalateIfStaying();
-            if (fightTriggered && s.bouncersHiredTonight > 0) {
-                // 40% chance bouncer diffuses it into "storming out" instead of a fight
-                if (s.random.nextInt(100) < 40) {
+            if (fightTriggered && bouncerIntervenes()) {
+                // Bouncer diffuses it into "storming out" instead of a fight
                     p.leaveBar();
                     log.info("  - " + p.getName() + " storms out (bouncer prevents a fight).");
                     continue;
-                }
             }
 
             if (fightTriggered) {
@@ -97,7 +95,7 @@ public class PunterSystem {
                     continue;
                 }
                 log.popup("Fight", "<b>" + p.getName() + "</b> snaps after repeated neglect.", "Rep hit | Damages");
-                events.triggerFight("Unserved MENACE", s.bouncersHiredTonight > 0 ? s.bouncerNegReduction : 0.0);
+                events.triggerFight("Unserved MENACE", bouncerIntervenes() ? s.bouncerNegReduction : 0.0);
             } else {
                 log.info("  - " + p.getName() + " escalates  " + p.getState() + " (no-buy " + p.getNoBuyStreak() + ")");
             }
@@ -169,7 +167,7 @@ public class PunterSystem {
                 return;
             }
             log.popup("Fight", "MENACE punter snaps after repeated no-buy.", "Rep hit | Damages");
-            events.triggerFight("MENACE punter", s.bouncersHiredTonight > 0 ? s.bouncerNegReduction : 0.0);
+            events.triggerFight("MENACE punter", bouncerIntervenes() ? s.bouncerNegReduction : 0.0);
         } else {
             log.info("  - Mood escalates  " + p.getState());
         }
@@ -191,7 +189,9 @@ public class PunterSystem {
         if (effectiveMult > 1.30) theftChance += 6;
         if (riskyWeekend) theftChance += 6;
 
-        if (s.bouncersHiredTonight > 0) theftChance = (int)Math.round(theftChance * (1.0 - s.bouncerTheftReduction));
+        if (bouncerIntervenes()) {
+            theftChance = (int)Math.round(theftChance * (1.0 - s.bouncerTheftReduction));
+        }
         theftChance = (int)Math.round(theftChance * chaosReductionMultiplier());
         double activityRisk = (s.activityTonight != null) ? s.activityTonight.getRiskBonusPct() : 0.0;
         double upgradeReduction = s.upgradeRiskReductionPct;
@@ -211,7 +211,9 @@ public class PunterSystem {
         int chaos = repToTheftBonus();
         int caughtChance = 45 + sec * 10 - Math.max(0, chaos);
 
-        if (s.bouncersHiredTonight > 0) caughtChance = (int)Math.round(caughtChance * (1.0 + s.bouncerTheftReduction));
+        if (bouncerIntervenes()) {
+            caughtChance = (int)Math.round(caughtChance * (1.0 + s.bouncerTheftReduction));
+        }
         caughtChance = Math.max(15, Math.min(95, caughtChance));
 
         if (s.random.nextInt(100) < caughtChance) {
@@ -466,6 +468,7 @@ public class PunterSystem {
                 s.nightRevenue += sellPrice;
                 s.nightSales++;
                 s.nightItemSales.merge("Wine: " + chosen.getName(), 1, Integer::sum);
+                s.recordRoundSale("Wine", chosen.getName());
 
                 boolean cheated = s.happyHour && sellPrice > chosen.getBasePrice();
                 double tipMult = priceTipMultiplier(sellPrice, chosen.getBasePrice(), p.getTier());
@@ -724,6 +727,10 @@ public class PunterSystem {
 
     private int rumorHeat(Rumor rumor) {
         return s.rumorHeat.getOrDefault(rumor, 0);
+    }
+
+    private boolean bouncerIntervenes() {
+        return s.bouncersHiredTonight > 0 && s.random.nextDouble() < s.bouncerMitigationChance();
     }
 
     private Punter.Tier promoteTier(Punter.Tier tier) {

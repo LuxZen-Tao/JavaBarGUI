@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 public class GameState {
 
@@ -100,10 +101,13 @@ public class GameState {
     public int roundsSinceLastEvent = 0;
     public int foodSpoiledLastNight = 0;
     public final Map<String, Integer> nightItemSales = new HashMap<>();
+    public final Map<String, Integer> roundItemSales = new HashMap<>();
+    public final Deque<Map<String, Integer>> recentRoundSales = new ArrayDeque<>();
     public int lastTrafficIn = 0;
     public int lastTrafficOut = 0;
     public String trafficForecastLine = "Forecast: 0–0 tonight";
     public String observationLine = null;
+    public String topSalesForecastLine = "Top sellers (5r): Wine None | Food None";
 
     // weekly chaos
     public int fightsThisWeek = 0;
@@ -151,6 +155,7 @@ public class GameState {
     public double bouncerNegReduction = 0.0;
     public double bouncerFightReduction = 0.0;
     public double bouncerNightPay = 0.0;
+    public final List<BouncerQuality> bouncerQualitiesTonight = new ArrayList<>();
 
     // upgrades + activities
     public final EnumSet<PubUpgrade> ownedUpgrades = EnumSet.noneOf(PubUpgrade.class);
@@ -230,6 +235,7 @@ public class GameState {
 
     public final EnumSet<PubActivity> unlockedActivities = EnumSet.noneOf(PubActivity.class);
     public String pubName;
+    public final String pubId;
 
     public final List<PendingUpgradeInstall> pendingUpgradeInstalls = new ArrayList<>();
     public ScheduledActivity scheduledActivity = null;
@@ -255,6 +261,7 @@ public class GameState {
     public GameState(List<Wine> supplier) {
         this.supplier = supplier;
         for (CostTag t : CostTag.values()) reportCostBreakdown.put(t, 0.0);
+        this.pubId = UUID.randomUUID().toString().substring(0, 8);
 
         // default rack setup
         rack.setCapacity(baseRackCapacity);
@@ -334,6 +341,8 @@ public class GameState {
             int staffCount,
             int staffCap,
             int managerCount,
+            int assistantManagerCount,
+            int managerPoolCount,
             int managerCap,
             double teamMorale,
             int upgradesOwned,
@@ -343,7 +352,8 @@ public class GameState {
     ) {
         public String summaryLine() {
             return staffCount + "/" + staffCap
-                    + " | GMs: " + managerCount + "/" + managerCap
+                    + " | Managers: " + managerPoolCount + "/" + managerCap
+                    + " (GM " + managerCount + ", AM " + assistantManagerCount + ")"
                     + (bouncersTonight > 0 ? " | Bouncer: " + bouncersTonight + "/" + bouncerCap : "")
                     + " | Morale: " + (int)Math.round(teamMorale)
                     + " | Upgrades: " + upgradesOwned
@@ -356,6 +366,8 @@ public class GameState {
                 fohStaff.size(),
                 fohStaffCap,
                 generalManagers.size(),
+                assistantManagerCount(),
+                managerPoolCount(),
                 managerCap,
                 teamMorale,
                 ownedUpgrades.size(),
@@ -398,12 +410,51 @@ public class GameState {
         return false;
     }
 
+    public int assistantManagerCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (st.getType() == Staff.Type.ASSISTANT_MANAGER) count++;
+        }
+        return count;
+    }
+
+    public int managerPoolCount() {
+        return generalManagers.size() + assistantManagerCount();
+    }
+
+    public String bouncerQualitySummary() {
+        if (bouncerQualitiesTonight.isEmpty()) return "None";
+        StringBuilder summary = new StringBuilder();
+        if (bouncerQualitiesTonight.contains(BouncerQuality.HIGH)) summary.append("High");
+        if (bouncerQualitiesTonight.contains(BouncerQuality.MEDIUM)) {
+            if (!summary.isEmpty()) summary.append("/");
+            summary.append("Med");
+        }
+        if (bouncerQualitiesTonight.contains(BouncerQuality.LOW)) {
+            if (!summary.isEmpty()) summary.append("/");
+            summary.append("Low");
+        }
+        return summary.toString();
+    }
+
+    public double bouncerMitigationChance() {
+        if (bouncerQualitiesTonight.isEmpty()) return 0.0;
+        if (bouncerQualitiesTonight.contains(BouncerQuality.HIGH)) return 0.85;
+        if (bouncerQualitiesTonight.contains(BouncerQuality.MEDIUM)) return 0.60;
+        return 0.35;
+    }
+
     public boolean isWeekend() {
         return dayIndex >= 4;
     }
 
     public boolean canEmergencyRestock() {
         return hasGeneralManager() && hasAssistantManager();
+    }
+
+    public void recordRoundSale(String category, String itemName) {
+        if (category == null || itemName == null) return;
+        roundItemSales.merge(category + ": " + itemName, 1, Integer::sum);
     }
 
     public void addChaos(double amt) {

@@ -62,6 +62,22 @@ public class FoodRack {
         return counts;
     }
 
+    public record SpoilageSummary(int nextSpoilDays, int atRiskCount) {}
+
+    public SpoilageSummary spoilageSummary(int todayIndex) {
+        if (meals.isEmpty()) return null;
+        int nextSpoilDays = Integer.MAX_VALUE;
+        int atRisk = 0;
+        for (Meal meal : meals) {
+            int age = todayIndex - meal.dayAdded;
+            int daysRemaining = Math.max(0, meal.spoilAfterDays - age);
+            if (daysRemaining < nextSpoilDays) nextSpoilDays = daysRemaining;
+            if (daysRemaining <= 1) atRisk++;
+        }
+        if (nextSpoilDays == Integer.MAX_VALUE) return null;
+        return new SpoilageSummary(nextSpoilDays, atRisk);
+    }
+
     public Food pickRandomFood(Random random) {
         if (meals.isEmpty()) return null;
         return meals.get(random.nextInt(meals.size())).food;
