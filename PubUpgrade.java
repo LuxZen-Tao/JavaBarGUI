@@ -2,133 +2,153 @@ public enum PubUpgrade {
 
     // Core attractions
     POOL_TABLE("Pool Table", 180, 0.08, 1, 1,
-            2, 0, 0, 0, 0, 0, 0, 0, 0,
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     DARTS("Darts Board", 120, 0.05, 1, 1,
-            1, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     TVS("Big TVs", 240, 0.10, 0, 2,
-            2, 0, 0, 0, 0, 0, 0, 0, 0,
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     BEER_GARDEN("Beer Garden", 320, 0.12, 1, 1,
-            4, 0, 0, 0, 0, 0, 0, 0, 0,
+            4, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     // Kitchen
     KITCHEN_SETUP("Kitchen Setup", 450, 0.02, 0, 0,
-            0, 0, 10, 0, 0, 0, 0, 1, 0,
+            0, 0, 10, 0, 0, 0, 0, 0, 1, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     KITCHEN("Kitchen", 600, 0.10, 1, 2,
-            2, 0, 10, 1, 0, 0, 0, 0, 1,
+            2, 0, 10, 0, 1, 0, 0, 0, 0, 1,
             0.00, 0.00, 0.03, 0.00, 0.00, 0.00),
 
     KITCHEN_EQUIPMENT("Kitchen Equipment", 360, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 2,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     HYGIENE_TRAINING("Hygiene Training", 300, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.12, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     KITCHEN_STAFFING_I("Kitchen Staffing I", 280, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     KITCHEN_STAFFING_II("Kitchen Staffing II", 420, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    FRIDGE_EXTENSION_1("Fridge Extension I", 220, 0.00, 0, 0,
+            0, 0, 0, 10, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    FRIDGE_EXTENSION_2("Fridge Extension II", 360, 0.00, 0, 0,
+            0, 0, 0, 15, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    FRIDGE_EXTENSION_3("Fridge Extension III", 520, 0.00, 0, 0,
+            0, 0, 0, 20, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    NEW_KITCHEN_PLAN("New Kitchen Plan", 480, 0.00, 0, 0,
+            0, 0, 0, 10, 0, 0, 0, 0, 0, 1,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    CHEF_TRAINING("Chef Training", 340, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     // Infrastructure
     EXTENDED_BAR("Extended Bar", 50, 0.06, 0, 1,
-            6, 0, 0, 0, 0, 0, 0, 0, 0,
+            6, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     WINE_CELLAR("Wine Cellar", 520, 0.04, 0, 1,
-            0, 0, 50, 0, 0, 0, 0, 0, 0,
+            0, 0, 50, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     CELLAR_EXPANSION_I("Cellar Expansion I", 240, 0.00, 0, 0,
-            0, 0, 25, 0, 0, 0, 0, 0, 0,
+            0, 0, 25, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     CELLAR_EXPANSION_II("Cellar Expansion II", 420, 0.00, 0, 0,
-            0, 0, 50, 0, 0, 0, 0, 0, 0,
+            0, 0, 50, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
     CELLAR_EXPANSION_III("Cellar Expansion III", 1000, 0.00, 0, 0,
-            0, 0, 100, 0, 0, 0, 0, 0, 0,
+            0, 0, 100, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     // Staff & security
     CCTV("CCTV System", 260, 0.00, 0, 1,
-            0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
             0.00, 0.06, 0.00, 0.00, 0.00, 0.00),
 
     STAFF_TRAINING_I("Staff Training I", 380, 0.03, 1, 1,
-            0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.04, 0.00, 0.00, 0.00),
 
     STAFF_TRAINING_II("Staff Training II", 520, 0.02, 1, 1,
-            0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.05, 0.00, 0.00, 0.00),
 
     STAFF_ROOM_I("Staff Room I", 240, 0.00, 0, 0,
-            0, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     STAFF_ROOM_II("Staff Room II", 420, 0.00, 0, 0,
-            0, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     DOOR_TEAM_I("Door Team I", 260, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     DOOR_TEAM_II("Door Team II", 420, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     LEADERSHIP_PROGRAM("Leadership Program", 480, 0.02, 1, 1,
-            0, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
             0.00, 0.00, 0.02, 0.00, 0.00, 0.00),
 
     // QoL & risk
     BETTER_GLASSWARE_I("Better Glassware I", 140, 0.00, 1, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.01, 0.00, 0.00),
 
     BETTER_GLASSWARE_II("Better Glassware II", 260, 0.00, 1, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.02, 0.00, 0.00),
             
               BETTER_GLASSWARE_III("Better Glassware III", 420, 0.00, 1, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.03, 0.00, 0.00),
             
-            FASTER_TAPS_I("Faster Pour Taps I", 260, 0.02, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
-    FASTER_TAPS_II("Faster Pour Taps II", 420, 0.02, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+            FASTER_TAPS_I("Faster Pour Taps I", 260, 0.02, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+    FASTER_TAPS_II("Faster Pour Taps II", 420, 0.02, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
   
 
   
 
     SOUNDPROOFING_I("Soundproofing I", 280, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.06),
 
     SOUNDPROOFING_II("Soundproofing II", 440, 0.00, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.10),
 
     FIRE_SUPPRESSION_I("Fire Suppression I", 360, 0.00, 0, 0,
-            0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.08, 0.00),
 
     FIRE_SUPPRESSION_II("Fire Suppression II", 560, 0.00, 0, 0,
-            0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.14, 0.00);
             
 
@@ -141,6 +161,7 @@ public enum PubUpgrade {
     private final int barCapBonus;
     private final int serveCapBonus;
     private final int rackCapBonus;
+    private final int foodRackCapBonus;
     private final int securityBonus;
     private final int staffCapBonus;
     private final int bouncerCapBonus;
@@ -165,6 +186,7 @@ public enum PubUpgrade {
                int barCapBonus,
                int serveCapBonus,
                int rackCapBonus,
+               int foodRackCapBonus,
                int securityBonus,
                int staffCapBonus,
                int bouncerCapBonus,
@@ -187,6 +209,7 @@ public enum PubUpgrade {
         this.barCapBonus = barCapBonus;
         this.serveCapBonus = serveCapBonus;
         this.rackCapBonus = rackCapBonus;
+        this.foodRackCapBonus = foodRackCapBonus;
         this.securityBonus = securityBonus;
         this.staffCapBonus = staffCapBonus;
         this.bouncerCapBonus = bouncerCapBonus;
@@ -212,6 +235,7 @@ public enum PubUpgrade {
         if (barCapBonus > 0) extras.append(" | bar +").append(barCapBonus);
         if (serveCapBonus > 0) extras.append(" | serve +").append(serveCapBonus);
         if (rackCapBonus > 0) extras.append(" | rack +").append(rackCapBonus);
+        if (foodRackCapBonus > 0) extras.append(" | kitchen stock +").append(foodRackCapBonus);
         if (securityBonus > 0) extras.append(" | sec +").append(securityBonus);
         if (staffCapBonus > 0) extras.append(" | staff +").append(staffCapBonus);
         if (bouncerCapBonus > 0) extras.append(" | bouncers +").append(bouncerCapBonus);
@@ -242,6 +266,7 @@ public enum PubUpgrade {
     public int getBarCapBonus() { return barCapBonus; }
     public int getServeCapBonus() { return serveCapBonus; }
     public int getRackCapBonus() { return rackCapBonus; }
+    public int getFoodRackCapBonus() { return foodRackCapBonus; }
     public int getSecurityBonus() { return securityBonus; }
     public int getStaffCapBonus() { return staffCapBonus; }
     public int getBouncerCapBonus() { return bouncerCapBonus; }
@@ -264,6 +289,9 @@ public enum PubUpgrade {
             if (name.endsWith("_I")) return new TierInfo(name.replace("_I", ""), 1);
             if (name.endsWith("_II")) return new TierInfo(name.replace("_II", ""), 2);
             if (name.endsWith("_III")) return new TierInfo(name.replace("_III", ""), 3);
+            if (name.endsWith("_1")) return new TierInfo(name.replace("_1", ""), 1);
+            if (name.endsWith("_2")) return new TierInfo(name.replace("_2", ""), 2);
+            if (name.endsWith("_3")) return new TierInfo(name.replace("_3", ""), 3);
             return new TierInfo(null, 1);
         }
     }

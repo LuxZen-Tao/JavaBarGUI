@@ -132,14 +132,16 @@ public class StaffSystem {
         for (Staff st : s.generalManagers) st.adjustMorale(delta);
 
         updateTeamMorale();
-        s.foodRack.setCapacity(s.baseFoodRackCapacity + (s.staffCountOfType(Staff.Type.HEAD_CHEF) * 5));
+        s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus
+                + (s.staffCountOfType(Staff.Type.HEAD_CHEF) * 5));
     }
 
     public void updateTeamMorale() {
         s.fohMorale = poolMorale(s.fohStaff);
         s.bohMorale = poolMorale(s.bohStaff);
         s.teamMorale = combinedMorale();
-        s.foodRack.setCapacity(s.baseFoodRackCapacity + (s.staffCountOfType(Staff.Type.HEAD_CHEF) * 5));
+        s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus
+                + (s.staffCountOfType(Staff.Type.HEAD_CHEF) * 5));
     }
 
     public double teamMorale() {

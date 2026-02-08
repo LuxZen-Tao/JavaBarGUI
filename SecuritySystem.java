@@ -28,10 +28,19 @@ public class SecuritySystem {
     }
 
     public void upgradeBaseSecurity() {
-        eco.payOrDebt(25.0, "Security upgrade");
+        double cost = nextUpgradeCost();
+        eco.payOrDebt(cost, "Security upgrade");
         if (s.debt > s.maxDebt) return;
         s.baseSecurityLevel++;
         log.pos("Upgraded base security to " + s.baseSecurityLevel + ".");
+    }
+
+    public double nextUpgradeCost() {
+        int level = Math.max(0, s.baseSecurityLevel);
+        double base = 20.0;
+        double linear = 6.0 * level;
+        double curve = 2.5 * level * level;
+        return base + linear + curve;
     }
 
     public void hireBouncerTonight() {

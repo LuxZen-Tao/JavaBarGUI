@@ -23,6 +23,7 @@ public class WineBarGUI {
     private static final Color OBS_BG = new Color(72, 88, 126);
     private static final Color FLASH_GREEN = new Color(68, 168, 110);
     private static final Color FLASH_RED = new Color(210, 80, 88);
+    private static final Color INSTALLING_BG = new Color(245, 214, 120);
 
     private final GameState state;
     private final Simulation sim;
@@ -286,6 +287,7 @@ public class WineBarGUI {
 
         JPanel right = new JPanel();
         right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
+        right.setPreferredSize(new Dimension(420, 1));
         right.add(makeReportsPanel());
         right.add(Box.createVerticalStrut(8));
         right.add(makeInventoryPanel());
@@ -993,6 +995,9 @@ public class WineBarGUI {
                     || t == Staff.Type.KITCHEN_PORTER
                     || t == Staff.Type.CHEF) {
                 enabled = state.kitchenUnlocked && (state.bohStaff.size() < state.kitchenChefCap);
+                if (t == Staff.Type.HEAD_CHEF && state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1) {
+                    enabled = false;
+                }
 
                 // FOH roles (includes assistant manager + bar staff)
             } else {
@@ -1126,7 +1131,8 @@ public class WineBarGUI {
 
     private void refreshSecurityButtons() {
         if (securityDialog == null || securityUpgradeBtn == null || bouncerBtn == null) return;
-        securityUpgradeBtn.setText("Base Security +1 (level " + state.baseSecurityLevel + ")");
+        securityUpgradeBtn.setText("Base Security +1 (level " + state.baseSecurityLevel
+                + ", cost " + money0(sim.peekSecurityUpgradeCost()) + ")");
         securityUpgradeBtn.setEnabled(!state.nightOpen);
 
         bouncerBtn.setText("Hire Bouncer Tonight " + state.bouncersHiredTonight + "/" + state.bouncerCap);
@@ -1199,6 +1205,9 @@ public class WineBarGUI {
     private void refreshUpgradesButtons() {
         if (upgradesDialog == null || upgradesListPanel == null) return;
 
+        Color defaultBg = UIManager.getColor("Button.background");
+        Color defaultFg = UIManager.getColor("Button.foreground");
+
         for (Component c : upgradesListPanel.getComponents()) {
             if (!(c instanceof JButton b)) continue;
 
@@ -1219,6 +1228,15 @@ public class WineBarGUI {
             b.setText(prefix + up.toString());
             boolean enabled = !state.nightOpen && !owned && unlocked && installing == null;
             b.setEnabled(enabled);
+            if (installing != null) {
+                b.setOpaque(true);
+                b.setBackground(INSTALLING_BG);
+                b.setForeground(defaultFg);
+            } else {
+                b.setOpaque(true);
+                b.setBackground(defaultBg);
+                b.setForeground(defaultFg);
+            }
         }
     }
 
@@ -1557,7 +1575,7 @@ public class WineBarGUI {
 
         cashLabel.setText("Cash: " + money2(state.cash));
         debtLabel.setText("Debt: " + money2(state.debt));
-        pubNameLabel.setText(" " + state.pubName);
+        pubNameLabel.setText(" " + state.pubName + " (Lv " + state.pubLevel + ")");
         invoiceDueLabel.setText("Invoice Due: " + money2(sim.invoiceDueNow()));
 
         String mood =
@@ -1581,23 +1599,22 @@ public class WineBarGUI {
                 + (state.bouncersHiredTonight * 2)
                 + (state.hasSkilledManager() ? 1 : 0)
                 + state.staffSecurityBonus();
-        sec = Math.max(0, Math.min(8, sec));
-        securityLabel.setText("Security: " + sec + "/8");
+        sec = Math.max(0, sec);
+        securityLabel.setText("Security: " + sec);
 
         staffLabel.setText("Staff: " + state.staff().summaryLine() + " | Serve cap " + cap);
         reportLabel.setText("Report: " + state.reports().summaryLine());
         String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
-String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
 
-// OBS box = traffic only (2 lines max)
-observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
-        + "<br>📈 " + forecastLine + "</html>");
+        // OBS box = traffic only (2 lines max)
+        observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
+                + "<br>📈 " + forecastLine + "</html>");
 
-// Middle grey box = quips only (no serve cap here)
-String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
-        ? state.observationLine
-        : "";
-serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
+        // Middle grey box = quips only (no serve cap here)
+        String quipLine = (state.observationLine != null && !state.observationLine.isBlank())
+                ? state.observationLine
+                : "";
+        serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
 
 
         payDebtBtn.setEnabled(state.debt > 0 && state.cash > 0);

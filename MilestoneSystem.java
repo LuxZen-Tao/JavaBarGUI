@@ -41,30 +41,30 @@ public class MilestoneSystem {
     }
 
     public void onNightEnd() {
-        grantMilestone(Milestone.FIRST_NIGHT,
+        unlockActivity(PubActivity.OPEN_MIC,
+                Milestone.FIRST_NIGHT,
                 "First night survived",
-                "Unlocked: your next milestones.",
-                null);
+                "Unlocked activity: Open Mic.");
 
         if (s.nightCount >= 5) {
-            grantMilestone(Milestone.FIVE_NIGHTS,
+            unlockActivity(PubActivity.KARAOKE,
+                    Milestone.FIVE_NIGHTS,
                     "Five nights open",
-                    "Unlock: Staff Room II upgrades.",
-                    null);
+                    "Unlocked activity: Karaoke.");
         }
 
         if (s.nightCount >= 10) {
-            grantMilestone(Milestone.TEN_NIGHTS,
+            unlockActivity(PubActivity.CHARITY_NIGHT,
+                    Milestone.TEN_NIGHTS,
                     "Ten nights open",
-                    "Unlocked: longer-term upgrades.",
-                    null);
+                    "Unlocked activity: Charity Night.");
         }
 
         if (s.totalCashEarned >= 500) {
-            grantMilestone(Milestone.CASH_STACK,
+            unlockActivity(PubActivity.COCKTAIL_PROMO,
+                    Milestone.CASH_STACK,
                     "Cash flow milestone",
-                    "Unlock: CCTV System now available.",
-                    null);
+                    "Unlocked activity: Cocktail Promo.");
         }
 
         if (s.peakReputation >= 90) {
@@ -106,10 +106,10 @@ public class MilestoneSystem {
         }
 
         if (s.kitchenUnlocked) {
-            grantMilestone(Milestone.KITCHEN_LAUNCH,
+            unlockActivity(PubActivity.FAMILY_LUNCH,
+                    Milestone.KITCHEN_LAUNCH,
                     "Kitchen launch",
-                    "Unlock: Kitchen Equipment upgrades.",
-                    null);
+                    "Unlocked activity: Family Lunch.");
         }
     }
 
