@@ -109,8 +109,7 @@ public final class UiTheme {
             UIManager.put("pub.danger", danger);
         }
 
-        Font uiFont = pickUiFont(16);
-        Font monoFont = pickMonoFont(14);
+        Font uiFont = pickUiFont(17);
 
         UIManager.put("defaultFont", uiFont);
         UIManager.put("Label.font", uiFont);
@@ -119,8 +118,8 @@ public final class UiTheme {
         UIManager.put("CheckBox.font", uiFont);
         UIManager.put("TabbedPane.font", uiFont);
         UIManager.put("TextField.font", uiFont);
-        UIManager.put("TextArea.font", monoFont);
-        UIManager.put("TextPane.font", monoFont);
+        UIManager.put("TextArea.font", uiFont);
+        UIManager.put("TextPane.font", uiFont);
         UIManager.put("List.font", uiFont);
         UIManager.put("TitledBorder.font", uiFont.deriveFont(Font.BOLD, 13f));
 
@@ -148,14 +147,4 @@ public final class UiTheme {
         return new Font("SansSerif", Font.PLAIN, size);
     }
 
-    private static Font pickMonoFont(int size) {
-        String[] candidates = new String[]{"JetBrains Mono", "Cascadia Mono", "Consolas", "Monospaced"};
-        for (String name : candidates) {
-            Font f = new Font(name, Font.PLAIN, size);
-            if (f.canDisplay('A') && f.canDisplay('£')) {
-                return f;
-            }
-        }
-        return new Font("Monospaced", Font.PLAIN, size);
-    }
 }

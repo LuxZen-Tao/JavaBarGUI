@@ -37,9 +37,9 @@ public class SecuritySystem {
 
     public double nextUpgradeCost() {
         int level = Math.max(0, s.baseSecurityLevel);
-        double base = 20.0;
-        double linear = 6.0 * level;
-        double curve = 2.5 * level * level;
+        double base = 22.0;
+        double linear = 5.0 * level;
+        double curve = Math.pow(1.14, level) * 12.0;
         return base + linear + curve;
     }
 
