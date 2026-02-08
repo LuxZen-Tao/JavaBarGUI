@@ -287,7 +287,7 @@ public class WineBarGUI {
 
         JPanel right = new JPanel();
         right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
-        right.setPreferredSize(new Dimension(420, 1));
+        right.setPreferredSize(new Dimension(520, 1));
         right.add(makeReportsPanel());
         right.add(Box.createVerticalStrut(8));
         right.add(makeInventoryPanel());
@@ -313,7 +313,7 @@ public class WineBarGUI {
 
         frame.setContentPane(root);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1220, 740);
+        frame.setSize(1320, 760);
         frame.setLocationRelativeTo(null);
         frame.setTitle("Pub Landlord Idle - " + state.pubName);
 
@@ -454,7 +454,7 @@ public class WineBarGUI {
         summary.add(reportSummaryRefunds);
         summary.add(reportSummaryInvoice);
 
-        reportArea = new JTextArea(14, 30);
+        reportArea = new JTextArea(14, 36);
         reportArea.setEditable(false);
         reportArea.setFont(UIManager.getFont("TextArea.font"));
         reportArea.setLineWrap(false);
@@ -689,8 +689,10 @@ public class WineBarGUI {
 
     private void openSupplierWindow() {
         if (state.nightOpen) {
-            log.neg("No restocking while pub is OPEN.");
-            return;
+            if (!state.canEmergencyRestock()) {
+                log.neg("Emergency restock requires a General Manager and Assistant Manager on staff.");
+                return;
+            }
         }
 
         if (supplierDialog == null) {
@@ -1511,7 +1513,7 @@ public class WineBarGUI {
 
             weeklyReportArea = new JTextArea(24, 60);
             weeklyReportArea.setEditable(false);
-            weeklyReportArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+            weeklyReportArea.setFont(UIManager.getFont("TextArea.font"));
 
             weeklyReportDialog.add(new JScrollPane(weeklyReportArea), BorderLayout.CENTER);
 
@@ -1536,7 +1538,7 @@ public class WineBarGUI {
 
             fourWeekReportArea = new JTextArea(24, 60);
             fourWeekReportArea.setEditable(false);
-            fourWeekReportArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+            fourWeekReportArea.setFont(UIManager.getFont("TextArea.font"));
 
             fourWeekReportDialog.add(new JScrollPane(fourWeekReportArea), BorderLayout.CENTER);
 
