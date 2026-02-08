@@ -1,4 +1,6 @@
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Simulation {
 
@@ -392,8 +394,8 @@ public class Simulation {
         if (s.nightOpen) { log.neg("Hire staff between nights."); return; }
 
         if (t == Staff.Type.MANAGER) {
-            if (s.generalManagers.size() >= s.managerCap) {
-                log.info("General manager cap reached (" + s.managerCap + ").");
+            if (s.managerPoolCount() >= s.managerCap) {
+                log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
             Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random);
@@ -422,6 +424,10 @@ public class Simulation {
             log.pos(" Hired: " + hire);
             return;
         } else {
+            if (t == Staff.Type.ASSISTANT_MANAGER && s.managerPoolCount() >= s.managerCap) {
+                log.info("Manager cap reached (" + s.managerCap + ").");
+                return;
+            }
             if (s.fohStaff.size() >= s.fohStaffCap) {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
@@ -569,6 +575,10 @@ public class Simulation {
         s.bouncerNegReduction = 0;
         s.bouncerFightReduction = 0;
         s.bouncerNightPay = 0;
+        s.bouncerQualitiesTonight.clear();
+        s.roundItemSales.clear();
+        s.recentRoundSales.clear();
+        s.topSalesForecastLine = "Top sellers (5r): Wine None | Food None";
 
         s.tempServeBonusTonight = s.nextNightServeCapBonus;
         s.nextNightServeCapBonus = 0;
@@ -620,6 +630,7 @@ public class Simulation {
         s.foodDisappointmentThisRound = 0;
         s.foodDisappointmentPopupShown = false;
         log.header("- Round " + s.roundInNight + "/" + s.closingRound + " -");
+        s.roundItemSales.clear();
 
         processSupplierDeliveries();
         processFoodOrders();
@@ -727,6 +738,7 @@ public class Simulation {
         }
 
         handleFoodSales(barCount, sec);
+        finalizeRoundSales();
 
         int removed = punters.cleanupDeparted();
         if (removed > 0) log.info("Bar cleared: -" + removed + " (now " + s.nightPunters.size() + "/" + s.maxBarOccupancy + ")");
@@ -1169,7 +1181,8 @@ public class Simulation {
 
         String staffText = "FOH: " + s.fohStaff.size() + "/" + s.fohStaffCap
                 + "\nBOH: " + s.bohStaff.size() + "/" + s.kitchenChefCap
-                + "\nGeneral Managers: " + s.generalManagers.size() + "/" + s.managerCap
+                + "\nManager slots: " + s.managerPoolCount() + "/" + s.managerCap
+                + " (GM " + s.generalManagers.size() + ", AM " + s.assistantManagerCount() + ")"
                 + "\nTeam morale: " + (int)Math.round(s.teamMorale)
                 + "\nMisconduct (week): " + s.staffMisconductThisWeek
                 + "\nWages accrued: GBP " + fmt2(s.wagesAccruedThisWeek);
@@ -1333,6 +1346,7 @@ public class Simulation {
             s.reportSales++;
             s.nightSales++;
             s.nightItemSales.merge("Food: " + food.getName(), 1, Integer::sum);
+            s.recordRoundSale("Food", food.getName());
             s.recordFoodQuality(food);
         }
     }
@@ -1798,6 +1812,49 @@ public class Simulation {
             }
         }
         return best;
+    }
+
+    private record TopSeller(String name, int count) {}
+
+    private void finalizeRoundSales() {
+        s.recentRoundSales.addLast(new HashMap<>(s.roundItemSales));
+        while (s.recentRoundSales.size() > 5) {
+            s.recentRoundSales.removeFirst();
+        }
+        if (s.roundInNight % 5 == 0) {
+            updateTopSalesForecast();
+        }
+    }
+
+    private void updateTopSalesForecast() {
+        Map<String, Integer> aggregate = new HashMap<>();
+        for (Map<String, Integer> roundSales : s.recentRoundSales) {
+            for (Map.Entry<String, Integer> entry : roundSales.entrySet()) {
+                aggregate.merge(entry.getKey(), entry.getValue(), Integer::sum);
+            }
+        }
+
+        TopSeller wineTop = topSeller(aggregate, "Wine:");
+        TopSeller foodTop = topSeller(aggregate, "Food:");
+        String wineText = wineTop.count() > 0 ? wineTop.name() + " x" + wineTop.count() : "None";
+        String foodText = foodTop.count() > 0 ? foodTop.name() + " x" + foodTop.count() : "None";
+        s.topSalesForecastLine = "Top sellers (5r): Wine " + wineText + " | Food " + foodText;
+    }
+
+    private TopSeller topSeller(Map<String, Integer> sales, String prefix) {
+        if (sales == null || sales.isEmpty()) return new TopSeller("None", 0);
+        String best = "None";
+        int max = 0;
+        for (var entry : sales.entrySet()) {
+            String key = entry.getKey();
+            int val = entry.getValue();
+            if (prefix != null && !key.startsWith(prefix)) continue;
+            if (val > max) {
+                max = val;
+                best = key.replace(prefix, "").trim();
+            }
+        }
+        return new TopSeller(best, max);
     }
 
     private void payOutTips() {

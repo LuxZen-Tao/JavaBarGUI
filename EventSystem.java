@@ -475,7 +475,7 @@ public class EventSystem {
 
     private void negativeEvent() {
         s.weekNegativeEvents++;
-        double reduction = s.bouncersHiredTonight > 0 ? s.bouncerNegReduction : 0.0;
+        double reduction = bouncerNegReduction();
         int roll = s.random.nextInt(100);
         if (s.reputation <= -40) roll += 15;
         if (s.pubLevel < 2 && roll > 95) roll = 85;
@@ -580,7 +580,7 @@ public class EventSystem {
             case ROWDY -> {
                 if (positivePool) return false;
                 log.popup("Night event", "Rival pub brawl spills outside.", "Fight risk");
-                triggerFight("Rival pub brawl", s.bouncersHiredTonight > 0 ? s.bouncerNegReduction : 0.0);
+                triggerFight("Rival pub brawl", bouncerNegReduction());
                 eco.applyRep(-2, "Rival pub brawl");
                 s.weekNegativeEvents++;
                 return true;
@@ -635,7 +635,7 @@ public class EventSystem {
 
     // FIXED: no recursion; does the fight math directly
     public void triggerFight(String reason, double baseReduction) {
-        double fightRed = s.bouncersHiredTonight > 0 ? s.bouncerFightReduction : 0.0;
+        double fightRed = bouncerFightReduction();
         double totalRed = Math.min(0.75, baseReduction + fightRed);
 
         int repHit = Math.max(3, (int) Math.round(10 * (1.0 - totalRed)));
@@ -674,5 +674,17 @@ public class EventSystem {
         } else {
             s.nightRefusedUnderage += 1 + s.random.nextInt(3);
         }
+    }
+
+    private double bouncerNegReduction() {
+        return bouncerIntervenes() ? s.bouncerNegReduction : 0.0;
+    }
+
+    private double bouncerFightReduction() {
+        return bouncerIntervenes() ? s.bouncerFightReduction : 0.0;
+    }
+
+    private boolean bouncerIntervenes() {
+        return s.bouncersHiredTonight > 0 && s.random.nextDouble() < s.bouncerMitigationChance();
     }
 }
