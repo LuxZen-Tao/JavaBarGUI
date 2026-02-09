@@ -145,6 +145,10 @@ public class GameState {
     public int lastTrafficOut = 0;
     public String trafficForecastLine = "Forecast: 0–0 tonight";
     public String observationLine = null;
+    public int lastObservationRound = -999;
+    public double lastObservationPriceMultiplier = 0.0;
+    public int lastStaffChangeDay = -999;
+    public String lastStaffChangeSummary = "";
     public String topSalesForecastLine = "Top sellers (5r): Wine None | Food None";
 
     // weekly chaos

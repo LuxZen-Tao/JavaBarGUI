@@ -45,6 +45,7 @@ public class WineBarGUI {
     private JPanel supplierListPanel;
     private JLabel supplierDealLabel;
     private JLabel supplierCreditLabel;
+    private SupplierInvoiceControls wineInvoiceControls;
     private JDialog paydayDialog;
     private JPanel paydayListPanel;
     private JLabel paydaySummaryLabel;
@@ -52,6 +53,7 @@ public class WineBarGUI {
     private JPanel kitchenSupplierListPanel;
     private JLabel kitchenSupplierNoticeLabel;
     private JLabel kitchenSupplierCreditLabel;
+    private SupplierInvoiceControls foodInvoiceControls;
 
     // Staff window (hire + fire)
     private JDialog staffDialog;
@@ -245,10 +247,10 @@ public class WineBarGUI {
         observationBadge = createBadge(OBS_BG, observationLabel);
         serveCapLabel.setVerticalAlignment(SwingConstants.TOP);
         Font quipFont = serveCapLabel.getFont();
-        float quipSize = Math.max(10f, quipFont.getSize() - 2f);
+        float quipSize = Math.max(12f, quipFont.getSize() + 1f);
         serveCapLabel.setFont(quipFont.deriveFont(quipSize));
-        serveCapLabel.setPreferredSize(new Dimension(220, 32));
-        serveCapLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        serveCapLabel.setPreferredSize(new Dimension(240, 44));
+        serveCapLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
         nightBadge = createNightBadge();
 
         hud.add(pubNameBadge);
@@ -708,6 +710,7 @@ public class WineBarGUI {
             header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
             header.add(supplierDealLabel);
             header.add(supplierCreditLabel);
+            header.add(buildSupplierInvoicePanel(SupplierAccount.WINE));
             header.setOpaque(false);
             supplierDialog.add(header, BorderLayout.NORTH);
 
@@ -768,6 +771,7 @@ public class WineBarGUI {
                 state.supplierWineCredit,
                 state.supplierWineMinDue()
         ));
+        refreshSupplierInvoiceControls(wineInvoiceControls, state.supplierWineCredit);
 
         boolean emergencyAllowed = state.canEmergencyRestock();
         boolean canBuy = !state.nightOpen || emergencyAllowed;
@@ -1036,6 +1040,136 @@ public class WineBarGUI {
                 + "</html>";
     }
 
+    private JPanel buildSupplierInvoicePanel(SupplierAccount account) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createTitledBorder("Invoice / Trade Credit"));
+
+        JLabel summary = new JLabel(" ");
+        summary.setBorder(new EmptyBorder(2, 8, 2, 8));
+        panel.add(summary);
+
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton payFull = new JButton("Pay Invoice — Full");
+        JButton payCustom = new JButton("Pay Invoice — Custom");
+        JLabel amountLabel = new JLabel("Amount");
+        JSpinner amountSpinner = new JSpinner(new SpinnerNumberModel(0.0, 0.0, 0.0, 1.0));
+        amountSpinner.setPreferredSize(new Dimension(90, amountSpinner.getPreferredSize().height));
+        JComboBox<PaymentSourceOption> sourceBox = new JComboBox<>();
+
+        row.add(payFull);
+        row.add(payCustom);
+        row.add(amountLabel);
+        row.add(amountSpinner);
+        row.add(sourceBox);
+        panel.add(row);
+
+        JLabel status = new JLabel(" ");
+        status.setForeground(FLASH_RED);
+        panel.add(status);
+
+        SupplierInvoiceControls controls = new SupplierInvoiceControls(
+                account, summary, status, amountSpinner, payFull, payCustom, sourceBox
+        );
+        if (account == SupplierAccount.WINE) {
+            wineInvoiceControls = controls;
+        } else {
+            foodInvoiceControls = controls;
+        }
+
+        payFull.addActionListener(e -> handleSupplierInvoicePayment(controls, true));
+        payCustom.addActionListener(e -> handleSupplierInvoicePayment(controls, false));
+
+        return panel;
+    }
+
+    private void handleSupplierInvoicePayment(SupplierInvoiceControls controls, boolean full) {
+        if (controls == null) return;
+        SupplierTradeCredit account = supplierAccount(controls.account());
+        if (account == null) return;
+
+        double amount = full ? account.getBalance() : ((Number) controls.amountSpinner().getValue()).doubleValue();
+        PaymentSourceOption option = (PaymentSourceOption) controls.sourceBox().getSelectedItem();
+        String sourceId = option == null ? "CASH" : option.id();
+
+        Simulation.SupplierPaymentResult result = sim.paySupplierInvoice(controls.account(), amount, sourceId);
+        if (result.success()) {
+            controls.statusLabel().setForeground(new Color(60, 140, 90));
+        } else {
+            controls.statusLabel().setForeground(FLASH_RED);
+        }
+        controls.statusLabel().setText(result.message());
+        refreshAll();
+        refreshAllMenus();
+        refreshSupplierButtons();
+        refreshKitchenSupplierButtons();
+    }
+
+    private SupplierTradeCredit supplierAccount(SupplierAccount account) {
+        if (account == SupplierAccount.FOOD) return state.supplierFoodCredit;
+        return state.supplierWineCredit;
+    }
+
+    private void refreshSupplierInvoiceControls(SupplierInvoiceControls controls, SupplierTradeCredit account) {
+        if (controls == null || account == null) return;
+        double balance = account.getBalance();
+        double cap = state.supplierCreditCap();
+        double available = Math.max(0.0, cap - balance);
+        String trust = state.supplierTrustLabel();
+        String priceMult = String.format("%.2f", state.supplierPriceMultiplier());
+        controls.summaryLabel().setText("<html>Balance " + money2(balance)
+                + " | Cap " + money2(cap)
+                + " | Available " + money2(available)
+                + "<br/>Trust " + trust + " | Price mult x" + priceMult
+                + "</html>");
+
+        SpinnerNumberModel model = (SpinnerNumberModel) controls.amountSpinner().getModel();
+        double max = Math.max(0.0, balance);
+        model.setMinimum(0.0);
+        model.setMaximum(max);
+        double current = ((Number) model.getNumber()).doubleValue();
+        if (current > max) {
+            controls.amountSpinner().setValue(max);
+        }
+
+        boolean enabled = balance > 0.0;
+        controls.payFullBtn().setEnabled(enabled);
+        controls.payCustomBtn().setEnabled(enabled);
+        controls.amountSpinner().setEnabled(enabled);
+
+        String selectedId = null;
+        PaymentSourceOption selected = (PaymentSourceOption) controls.sourceBox().getSelectedItem();
+        if (selected != null) {
+            selectedId = selected.id();
+        }
+        controls.sourceBox().removeAllItems();
+        for (PaymentSourceOption option : buildSupplierPaymentSourceOptions()) {
+            controls.sourceBox().addItem(option);
+            if (selectedId != null && selectedId.equals(option.id())) {
+                controls.sourceBox().setSelectedItem(option);
+            }
+        }
+        if (!enabled) {
+            controls.statusLabel().setForeground(FLASH_RED);
+            controls.statusLabel().setText("No outstanding balance.");
+        } else if (controls.statusLabel().getText().isBlank()) {
+            controls.statusLabel().setText(" ");
+        }
+    }
+
+    private List<PaymentSourceOption> buildSupplierPaymentSourceOptions() {
+        java.util.List<PaymentSourceOption> options = new java.util.ArrayList<>();
+        options.add(new PaymentSourceOption("CASH", "Cash (GBP " + money2(state.cash) + ")"));
+        for (CreditLine line : state.creditLines.getOpenLines()) {
+            if (!line.isEnabled()) continue;
+            options.add(new PaymentSourceOption(
+                    line.getId(),
+                    line.getLenderName() + " (avail " + money2(line.availableCredit()) + ")"
+            ));
+        }
+        return options;
+    }
+
     private CreditLine selectCreditLineForPayment(List<CreditLine> options, double shortfall, String reason) {
         if (options == null || options.isEmpty()) return null;
         if (options.size() == 1) return options.get(0);
@@ -1097,6 +1231,7 @@ public class WineBarGUI {
             header.add(top);
             header.add(kitchenSupplierNoticeLabel);
             header.add(kitchenSupplierCreditLabel);
+            header.add(buildSupplierInvoicePanel(SupplierAccount.FOOD));
             header.setOpaque(false);
             kitchenSupplierDialog.add(header, BorderLayout.NORTH);
 
@@ -1172,6 +1307,7 @@ public class WineBarGUI {
                 state.supplierFoodCredit,
                 state.supplierFoodMinDue()
         ));
+        refreshSupplierInvoiceControls(foodInvoiceControls, state.supplierFoodCredit);
 
         for (Component rowC : kitchenSupplierListPanel.getComponents()) {
             if (!(rowC instanceof JPanel row)) continue;
@@ -1273,6 +1409,8 @@ public class WineBarGUI {
 
         b.addActionListener(e -> {
             sim.hireStaff(type);
+            state.lastStaffChangeDay = state.dayCounter;
+            state.lastStaffChangeSummary = "Hired " + Staff.rangeLabel(type);
             refreshAll();
             refreshAllMenus();
         });
@@ -1344,6 +1482,8 @@ public class WineBarGUI {
                 Staff st = state.generalManagers.get(i);
                 staffRosterPanel.add(makeStaffRow(st.toString(), () -> {
                     sim.fireManagerAt(idx);
+                    state.lastStaffChangeDay = state.dayCounter;
+                    state.lastStaffChangeSummary = "Fired " + st.getName();
                     refreshAll();
                     refreshAllMenus();
                 }));
@@ -1361,6 +1501,8 @@ public class WineBarGUI {
                 Staff st = state.fohStaff.get(i);
                 staffRosterPanel.add(makeStaffRow(st.toString(), () -> {
                     sim.fireStaffAt(idx);
+                    state.lastStaffChangeDay = state.dayCounter;
+                    state.lastStaffChangeSummary = "Fired " + st.getName();
                     refreshAll();
                     refreshAllMenus();
                 }));
@@ -1378,6 +1520,8 @@ public class WineBarGUI {
                 Staff st = state.bohStaff.get(i);
                 staffRosterPanel.add(makeStaffRow(st.toString(), () -> {
                     sim.fireBohStaffAt(idx);
+                    state.lastStaffChangeDay = state.dayCounter;
+                    state.lastStaffChangeSummary = "Fired " + st.getName();
                     refreshAll();
                     refreshAllMenus();
                 }));
@@ -2196,6 +2340,16 @@ public class WineBarGUI {
         root.setBackground(bg);
         controls.setBackground(bg);
     }
+
+    private record SupplierInvoiceControls(
+            SupplierAccount account,
+            JLabel summaryLabel,
+            JLabel statusLabel,
+            JSpinner amountSpinner,
+            JButton payFullBtn,
+            JButton payCustomBtn,
+            JComboBox<PaymentSourceOption> sourceBox
+    ) {}
 
     private record PaymentSourceOption(String id, String label) {
         @Override
