@@ -147,6 +147,10 @@ public class StaffSystem {
             delta = (int)Math.round(delta * (1.0 - damp));
         }
 
+        if (delta < 0 && s.upgradeMoraleStabilityPct > 0.0) {
+            delta = (int)Math.round(delta * (1.0 - s.upgradeMoraleStabilityPct));
+        }
+
         if (delta != 0) {
             delta = (int)Math.round(delta * 1.15);
         }

@@ -201,6 +201,11 @@ public class PunterSystem {
         double upgradeReduction = s.upgradeRiskReductionPct;
         double riskMult = Math.max(0.30, 1.0 + activityRisk - upgradeReduction);
         theftChance = (int)Math.round(theftChance * riskMult);
+        if (s.securityPolicy != null) {
+            theftChance = (int) Math.round(theftChance * s.securityPolicy.getIncidentChanceMultiplier());
+        }
+        theftChance = (int) Math.round(theftChance * s.securityTaskIncidentChanceMultiplier());
+        theftChance = (int) Math.round(theftChance * s.upgradeIncidentChanceMultiplier);
         theftChance = Math.max(0, theftChance);
 
         if (s.random.nextInt(100) < theftChance) attemptTheft(p, sec);
@@ -223,11 +228,14 @@ public class PunterSystem {
         if (s.random.nextInt(100) < caughtChance) {
             log.pos("  - Caught!");
             eco.applyRep(+2, "Theft caught");
+            s.addSecurityLog("Theft caught: " + stolen.getName() + " | rep +2");
             p.incrementNoBuy();
         } else {
             log.neg("  - Success! Bottle stolen.");
             s.rack.removeBottle(stolen);
-            eco.applyRep(-7, "Theft succeeded");
+            int repHit = s.mitigateSecurityRepHit(-7);
+            eco.applyRep(repHit, "Theft succeeded");
+            s.addSecurityLog("Theft: bottle lost | rep " + repHit);
             p.incrementNoBuy();
         }
 

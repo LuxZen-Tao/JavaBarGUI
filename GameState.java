@@ -49,7 +49,7 @@ public class GameState {
     public boolean banksLocked = false;
     public boolean businessCollapsed = false;
 
-    public final double weeklyRent = 60.0;
+    public final double weeklyRent = 420.0;
     public double rentAccruedThisWeek = 0.0;
     public double securityUpkeepAccruedThisWeek = 0.0;
     public double opCostBaseThisWeek = 0.0;
@@ -177,6 +177,18 @@ public class GameState {
     public int pubLevelManagerCapBonus = 0;
     public int pubLevelChefCapBonus = 0;
     public int pubLevelBouncerCapBonus = 0;
+    public final EnumMap<LandlordActionId, LandlordActionState> landlordActionStates = new EnumMap<>(LandlordActionId.class);
+    public int lastLandlordActionRound = -999;
+    public double landlordIdentityScore = 0.0;
+    public double landlordTrafficBonusPct = 0.0;
+    public int landlordTrafficBonusRounds = 0;
+    public SecurityPolicy securityPolicy = SecurityPolicy.BALANCED_DOOR;
+    public SecurityTask activeSecurityTask = null;
+    public int activeSecurityTaskRound = -999;
+    public int lastSecurityTaskRound = -999;
+    public final EnumMap<SecurityTask, Integer> securityTaskCooldowns = new EnumMap<>(SecurityTask.class);
+    public final Deque<String> securityEventLog = new ArrayDeque<>();
+    public int lastSecurityEventRound = -999;
 
     public double fohMorale = 70.0;
     public double bohMorale = 70.0;
@@ -188,6 +200,10 @@ public class GameState {
     public double refundRiskReductionPct = 0.0;
     public double staffMisconductReductionPct = 0.0;
     public double tipsThisWeek = 0.0;
+    public double upgradeIncidentChanceMultiplier = 1.0;
+    public double upgradeMoraleStabilityPct = 0.0;
+    public double upgradeRepMitigationPct = 0.0;
+    public double upgradeLossSeverityMultiplier = 1.0;
 
     // bouncer (nightly)
     public int baseBouncerCap = 1;
@@ -331,6 +347,9 @@ public class GameState {
             pubIdentityScore.put(identity, 0.0);
             weekIdentitySignals.put(identity, 0.0);
         }
+        for (LandlordActionId id : LandlordActionId.values()) {
+            landlordActionStates.put(id, new LandlordActionState());
+        }
         identityHistory.add(currentIdentity);
     }
 
@@ -354,6 +373,136 @@ public class GameState {
     public double bouncerRepDamageMultiplier() {
         if (bouncersHiredTonight <= 0) return 1.0;
         return Math.max(0.65, 0.9 - (0.05 * Math.min(3, bouncersHiredTonight)));
+    }
+
+    public double securityIncidentRepMultiplier() {
+        double mult = 1.0;
+        if (bouncersHiredTonight > 0) {
+            mult *= bouncerRepDamageMultiplier();
+        }
+        double cctv = cctvRepMitigationPct();
+        if (cctv > 0.0) {
+            mult *= (1.0 - cctv);
+        }
+        if (upgradeRepMitigationPct > 0.0) {
+            mult *= (1.0 - upgradeRepMitigationPct);
+        }
+        return Math.max(0.50, mult);
+    }
+
+    public int reinforcedDoorTier() {
+        if (ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR_III)) return 3;
+        if (ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR_II)) return 2;
+        if (ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR_I)) return 1;
+        return 0;
+    }
+
+    public int lightingTier() {
+        if (ownedUpgrades.contains(PubUpgrade.LIGHTING_III)) return 3;
+        if (ownedUpgrades.contains(PubUpgrade.LIGHTING_II)) return 2;
+        if (ownedUpgrades.contains(PubUpgrade.LIGHTING_I)) return 1;
+        return 0;
+    }
+
+    public int burglarAlarmTier() {
+        if (ownedUpgrades.contains(PubUpgrade.BURGLAR_ALARM_III)) return 3;
+        if (ownedUpgrades.contains(PubUpgrade.BURGLAR_ALARM_II)) return 2;
+        if (ownedUpgrades.contains(PubUpgrade.BURGLAR_ALARM_I)) return 1;
+        return 0;
+    }
+
+    public int mitigateSecurityRepHit(int repHit) {
+        if (repHit >= 0) return repHit;
+        double mult = securityIncidentRepMultiplier();
+        int mitigated = (int) Math.round(repHit * mult);
+        if (mitigated == 0 && repHit < 0) mitigated = -1;
+        return mitigated;
+    }
+
+    public double cctvRepMitigationPct() {
+        if (ownedUpgrades.contains(PubUpgrade.CCTV_PACKAGE)) return 0.10;
+        if (ownedUpgrades.contains(PubUpgrade.CCTV)) return 0.06;
+        return 0.0;
+    }
+
+    public int currentRoundIndex() {
+        return dayCounter * closingRound + roundInNight;
+    }
+
+    public boolean isSecurityTaskActive() {
+        return activeSecurityTask != null && activeSecurityTaskRound == currentRoundIndex();
+    }
+
+    public boolean isSecurityTaskQueued() {
+        return activeSecurityTask != null && activeSecurityTaskRound > currentRoundIndex();
+    }
+
+    public double securityTaskIncidentChanceMultiplier() {
+        if (!isSecurityTaskActive()) return 1.0;
+        double mult = activeSecurityTask.getIncidentChanceMultiplier();
+        if (lightingTier() >= 3 && activeSecurityTask.getCategory() == SecurityTaskCategory.BALANCED) {
+            mult *= 0.98;
+        }
+        return mult;
+    }
+
+    public double securityTaskTrafficMultiplier() {
+        return isSecurityTaskActive() ? activeSecurityTask.getTrafficMultiplier() : 1.0;
+    }
+
+    public int securityTaskCooldownRemaining(SecurityTask task) {
+        if (task == null) return 0;
+        return securityTaskCooldowns.getOrDefault(task, 0);
+    }
+
+    public double computeUpgradeIncidentChanceMultiplier() {
+        double mult = 1.0;
+        int doorTier = reinforcedDoorTier();
+        if (doorTier == 1) mult *= 0.98;
+        if (doorTier == 2) mult *= 0.95;
+        if (doorTier == 3) mult *= 0.92;
+        int lightTier = lightingTier();
+        if (lightTier == 1) mult *= 0.99;
+        if (lightTier == 2) mult *= 0.97;
+        if (lightTier == 3) mult *= 0.95;
+        int alarmTier = burglarAlarmTier();
+        if (alarmTier == 1) mult *= 0.98;
+        if (alarmTier == 2) mult *= 0.95;
+        if (alarmTier == 3) mult *= 0.90;
+        return Math.max(0.70, mult);
+    }
+
+    public double computeUpgradeMoraleStabilityPct() {
+        int tier = lightingTier();
+        if (tier == 2) return 0.05;
+        if (tier == 3) return 0.10;
+        return 0.0;
+    }
+
+    public double computeUpgradeRepMitigationPct() {
+        double pct = 0.0;
+        int doorTier = reinforcedDoorTier();
+        if (doorTier == 2) pct += 0.03;
+        if (doorTier == 3) pct += 0.06;
+        int lightTier = lightingTier();
+        if (lightTier == 2) pct += 0.02;
+        if (lightTier == 3) pct += 0.04;
+        return Math.min(0.20, pct);
+    }
+
+    public double computeUpgradeLossSeverityMultiplier() {
+        double reduction = Math.max(0.0, Math.min(0.35, upgradeEventDamageReductionPct));
+        return Math.max(0.55, 1.0 - reduction);
+    }
+
+    public void addSecurityLog(String entry) {
+        if (entry == null || entry.isBlank()) return;
+        String prefix = "W" + weekCount + " D" + (dayIndex + 1) + " R" + roundInNight + ": ";
+        securityEventLog.addFirst(prefix + entry);
+        lastSecurityEventRound = currentRoundIndex();
+        while (securityEventLog.size() > 6) {
+            securityEventLog.removeLast();
+        }
     }
 
     public double supplierInvoiceMultiplier() {

@@ -98,6 +98,54 @@ public class ObservationEngine {
             "Chatter hinted at a rough stretch."
     );
 
+    private static final List<String> POLICY_STRICT_LINES = List.of(
+            "Door was tight tonight.",
+            "Security kept a strict door.",
+            "The room felt more controlled at the door."
+    );
+
+    private static final List<String> POLICY_FRIENDLY_LINES = List.of(
+            "Easygoing door, lively crowd.",
+            "Door was friendly and the room buzzed.",
+            "Welcome felt warm at the door tonight."
+    );
+
+    private static final List<String> TASK_LINES = List.of(
+            "Security ran a focused plan and the room stayed calm.",
+            "A targeted security task kept the vibe steady.",
+            "Staff kept the floor in check without making it feel tense."
+    );
+
+    private static final List<String> CCTV_LINES = List.of(
+            "Camera presence kept a dispute from getting messy.",
+            "CCTV made it easier to keep order after a wobble.",
+            "The cameras helped settle things before they spiraled."
+    );
+
+    private static final List<String> ALARM_LINES = List.of(
+            "The alarm system made the place feel protected.",
+            "Alarm coverage kept the back end feeling secure.",
+            "A quiet alarm presence steadied the night."
+    );
+
+    private static final List<String> LIGHTING_LINES = List.of(
+            "Brighter lighting made the room feel safer.",
+            "The lighting kept things clear and comfortable.",
+            "A well-lit space kept the mood steady."
+    );
+
+    private static final List<String> DOOR_UPGRADE_LINES = List.of(
+            "The reinforced door kept the entry calm.",
+            "The door felt solid, and the crowd stayed composed.",
+            "Entry control felt firm without killing the vibe."
+    );
+
+    private static final List<String> BOUNCER_PRESENCE_LINES = List.of(
+            "Door staff kept things under control.",
+            "Bouncers kept the room calm without fuss.",
+            "Security presence smoothed out rough edges."
+    );
+
     public record ObservationContext(
             int roundIndex,
             int barCount,
@@ -155,10 +203,25 @@ public class ObservationEngine {
         addIf(candidates, Category.STAFF_CHANGE, ctx.staffChangeRecent);
         addIf(candidates, Category.REP_HIGH, s.reputation >= 60);
         addIf(candidates, Category.REP_LOW, s.reputation <= -20);
+        boolean recentSecurityEvent = (ctx.roundIndex - s.lastSecurityEventRound) <= 1;
+        if (recentSecurityEvent) {
+            if (s.activeSecurityTask != null) addIf(candidates, Category.TASK, true);
+            if (s.cctvRepMitigationPct() > 0.0) addIf(candidates, Category.CCTV, true);
+            if (s.burglarAlarmTier() > 0) addIf(candidates, Category.ALARM, true);
+            if (s.lightingTier() > 0) addIf(candidates, Category.LIGHTING, true);
+            if (s.reinforcedDoorTier() > 0) addIf(candidates, Category.DOOR_UPGRADE, true);
+            if (ctx.bouncersHired > 0) addIf(candidates, Category.BOUNCER_PRESENCE, true);
+        }
         addIf(candidates, Category.VIBE, candidates.isEmpty());
 
         if (candidates.isEmpty()) {
             candidates.add(Category.VIBE);
+        } else if (!majorEvent && s.securityPolicy != null && s.random.nextInt(100) < 12) {
+            if (s.securityPolicy == SecurityPolicy.STRICT_DOOR) {
+                candidates.add(Category.POLICY_STRICT);
+            } else if (s.securityPolicy == SecurityPolicy.FRIENDLY_WELCOME) {
+                candidates.add(Category.POLICY_FRIENDLY);
+            }
         } else if (!majorEvent && s.random.nextInt(100) < 20) {
             candidates.add(Category.VIBE);
         }
@@ -175,6 +238,14 @@ public class ObservationEngine {
             case STAFF_CHANGE -> pick(STAFF_CHANGE_LINES, s);
             case REP_HIGH -> pick(REP_HIGH_LINES, s);
             case REP_LOW -> pick(REP_LOW_LINES, s);
+            case POLICY_STRICT -> pick(POLICY_STRICT_LINES, s);
+            case POLICY_FRIENDLY -> pick(POLICY_FRIENDLY_LINES, s);
+            case TASK -> pick(TASK_LINES, s);
+            case CCTV -> pick(CCTV_LINES, s);
+            case ALARM -> pick(ALARM_LINES, s);
+            case LIGHTING -> pick(LIGHTING_LINES, s);
+            case DOOR_UPGRADE -> pick(DOOR_UPGRADE_LINES, s);
+            case BOUNCER_PRESENCE -> pick(BOUNCER_PRESENCE_LINES, s);
             case VIBE -> pick(VIBE_LINES, s);
         };
         return formatWithName(pickObservationName(s), line);
@@ -223,6 +294,14 @@ public class ObservationEngine {
         STAFF_CHANGE,
         REP_HIGH,
         REP_LOW,
+        POLICY_STRICT,
+        POLICY_FRIENDLY,
+        TASK,
+        CCTV,
+        ALARM,
+        LIGHTING,
+        DOOR_UPGRADE,
+        BOUNCER_PRESENCE,
         VIBE
     }
 }

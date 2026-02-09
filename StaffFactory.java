@@ -1,6 +1,7 @@
 import java.util.Random;
 
 public class StaffFactory {
+    private static final double WAGE_MULTIPLIER = 1.20;
 
     public record StaffTemplate(
             int serveCapacity,
@@ -39,6 +40,31 @@ public class StaffFactory {
     }
 
     public static StaffTemplate templateFor(Staff.Type type, Random random) {
+        StaffTemplate base = baseTemplateFor(type, random);
+        return new StaffTemplate(
+                base.serveCapacity(),
+                base.skill(),
+                base.repMin(),
+                base.repMax(),
+                applyWageMultiplier(base.weeklyWage()),
+                base.capacityMultiplier(),
+                base.tipRate(),
+                base.tipBonus(),
+                base.securityBonus(),
+                base.chaosTolerance(),
+                base.morale()
+        );
+    }
+
+    static double baseWeeklyWageFor(Staff.Type type, Random random) {
+        return baseTemplateFor(type, random).weeklyWage();
+    }
+
+    public static double wageMultiplier() {
+        return WAGE_MULTIPLIER;
+    }
+
+    private static StaffTemplate baseTemplateFor(Staff.Type type, Random random) {
         return switch (type) {
             case TRAINEE -> new StaffTemplate(
                     1 + random.nextInt(2),
@@ -197,5 +223,9 @@ public class StaffFactory {
                     76
             );
         };
+    }
+
+    private static double applyWageMultiplier(double wage) {
+        return wage * WAGE_MULTIPLIER;
     }
 }

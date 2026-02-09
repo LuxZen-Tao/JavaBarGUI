@@ -98,6 +98,11 @@ public class Simulation {
     private static final double CHAOS_BASE_FALL = 4.0;
     private static final double CHAOS_NEG_RAMP = 0.55;
     private static final double CHAOS_POS_RAMP = 0.65;
+    private static final double ACTION_IDENTITY_RANGE = 10.0;
+    private static final double ACTION_ALIGN_CHANCE_BOOST = 0.08;
+    private static final double ACTION_BALANCED_OUTCOME_BONUS = 0.20;
+    private static final double ACTION_ALIGNED_OUTCOME_BONUS = 0.12;
+    private static final double ACTION_MISALIGNED_PENALTY = 0.06;
 
     private enum RumorTone { NEGATIVE, MIXED, POSITIVE }
     private enum RoundClassification { STRONGLY_NEGATIVE, MOSTLY_POSITIVE, NEUTRAL }
@@ -198,6 +203,10 @@ public class Simulation {
         s.upgradeEventDamageReductionPct = upgrades.eventDamageReductionPct();
         s.upgradeRiskReductionPct = upgrades.riskReductionPct();
         s.upgradeFoodRackCapBonus = upgrades.foodRackCapBonus();
+        s.upgradeIncidentChanceMultiplier = s.computeUpgradeIncidentChanceMultiplier();
+        s.upgradeMoraleStabilityPct = s.computeUpgradeMoraleStabilityPct();
+        s.upgradeRepMitigationPct = s.computeUpgradeRepMitigationPct();
+        s.upgradeLossSeverityMultiplier = s.computeUpgradeLossSeverityMultiplier();
 
         int kitchenLevel = kitchenUpgradeLevel();
         if (!s.kitchenUnlocked) {
@@ -231,6 +240,240 @@ public class Simulation {
 
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
+    }
+
+    public int landlordActionTier() {
+        return clamp(s.pubLevel, 1, 5);
+    }
+
+    public List<LandlordActionDef> getAvailableActionsForCurrentTier() {
+        return LandlordActionCatalog.actionsForTier(landlordActionTier());
+    }
+
+    public boolean canUseLandlordActionThisRound() {
+        return s.nightOpen && currentRoundIndex() != s.lastLandlordActionRound;
+    }
+
+    public LandlordActionAvailability landlordActionAvailability(LandlordActionDef def) {
+        if (!s.nightOpen) {
+            return new LandlordActionAvailability(false, "Night must be open.");
+        }
+        if (s.pubLevel < def.getTier()) {
+            return new LandlordActionAvailability(false, "Locked: Pub Level " + def.getTier());
+        }
+        if (currentRoundIndex() == s.lastLandlordActionRound) {
+            return new LandlordActionAvailability(false, "Only 1 action per round.");
+        }
+        LandlordActionState actionState = s.landlordActionStates.get(def.getId());
+        if (actionState != null && actionState.getCooldownRemaining() > 0) {
+            return new LandlordActionAvailability(false, "Cooldown: " + actionState.getCooldownRemaining() + "r");
+        }
+        return new LandlordActionAvailability(true, "");
+    }
+
+    public double computeActionChance(LandlordActionDef def) {
+        double base = def.getBaseChance();
+        double idFactor = clamp(s.landlordIdentityScore / ACTION_IDENTITY_RANGE, -1.0, 1.0);
+        if (def.getCategory() == LandlordActionCategory.CLASSY) {
+            base += ACTION_ALIGN_CHANCE_BOOST * idFactor;
+        } else if (def.getCategory() == LandlordActionCategory.SHADY) {
+            base -= ACTION_ALIGN_CHANCE_BOOST * idFactor;
+        }
+        return clamp(base, 0.05, 0.95);
+    }
+
+    public String landlordIdentityLabel() {
+        if (s.landlordIdentityScore >= 2.5) return "Classy-leaning";
+        if (s.landlordIdentityScore <= -2.5) return "Shady-leaning";
+        return "Neutral";
+    }
+
+    public LandlordActionResolution resolveLandlordAction(LandlordActionId id) {
+        LandlordActionDef def = LandlordActionCatalog.byId(id);
+        if (def == null) return LandlordActionResolution.blocked(null, "Unknown action.");
+        LandlordActionAvailability availability = landlordActionAvailability(def);
+        if (!availability.canUse()) {
+            return LandlordActionResolution.blocked(def, availability.reason());
+        }
+
+        LandlordActionState actionState = s.landlordActionStates.get(def.getId());
+        if (actionState == null) {
+            actionState = new LandlordActionState();
+            s.landlordActionStates.put(def.getId(), actionState);
+        }
+
+        double chance = computeActionChance(def);
+        boolean success = s.random.nextDouble() < chance;
+        LandlordActionEffectRange range = success ? def.getSuccessRange() : def.getFailureRange();
+        int trafficRounds = success ? def.getSuccessTrafficRounds() : def.getFailureTrafficRounds();
+        double scale = computeOutcomeScale(def, success, s.landlordIdentityScore);
+
+        int repDelta = rollScaled(range.repMin(), range.repMax(), scale);
+        int moraleDelta = rollScaled(range.moraleMin(), range.moraleMax(), scale);
+        double trafficPct = rollScaled(range.trafficMinPct(), range.trafficMaxPct(), scale);
+        double chaosDelta = rollScaled(range.chaosMin(), range.chaosMax(), scale);
+
+        if (repDelta != 0) {
+            eco.applyRep(repDelta, "Landlord action: " + def.getName());
+        }
+        if (moraleDelta != 0) {
+            adjustStaffMorale(moraleDelta);
+        }
+        if (trafficPct != 0.0 && trafficRounds > 0) {
+            applyLandlordTrafficBonus(trafficPct, trafficRounds);
+        }
+        if (chaosDelta != 0.0) {
+            s.addChaos(chaosDelta);
+        }
+
+        updateLandlordIdentity(def.getCategory(), success);
+
+        actionState.setCooldownRemaining(def.getCooldownRounds());
+        actionState.setLastUsedRound(currentRoundIndex());
+        s.lastLandlordActionRound = currentRoundIndex();
+
+        String outcome = success ? "succeeded" : "fell flat";
+        String summary = buildActionSummary(def, success, repDelta, moraleDelta, trafficPct, chaosDelta, trafficRounds);
+        log.event(" Landlord action: " + def.getName() + " " + outcome + ". " + summary);
+        s.observationLine = trimObservationLine(def.getName() + ": " + summary);
+        s.lastObservationRound = currentRoundIndex();
+
+        return new LandlordActionResolution(def, success, false, summary, repDelta, moraleDelta, trafficPct, trafficRounds, chaosDelta);
+    }
+
+    double computeOutcomeScale(LandlordActionDef def, boolean success, double identityScore) {
+        double pos = clamp(identityScore / ACTION_IDENTITY_RANGE, 0.0, 1.0);
+        double neg = clamp(-identityScore / ACTION_IDENTITY_RANGE, 0.0, 1.0);
+        double scale = 1.0;
+
+        if (def.getCategory() == LandlordActionCategory.BALANCED) {
+            if (success) {
+                scale += ACTION_BALANCED_OUTCOME_BONUS * pos;
+            } else {
+                scale += ACTION_BALANCED_OUTCOME_BONUS * neg;
+            }
+            return scale;
+        }
+
+        boolean aligned = (def.getCategory() == LandlordActionCategory.CLASSY && identityScore >= 0.0)
+                || (def.getCategory() == LandlordActionCategory.SHADY && identityScore <= 0.0);
+        double alignedFactor = Math.max(pos, neg);
+
+        if (success) {
+            scale += aligned ? ACTION_ALIGNED_OUTCOME_BONUS * alignedFactor : -ACTION_MISALIGNED_PENALTY * alignedFactor;
+        } else {
+            scale += aligned ? -ACTION_ALIGNED_OUTCOME_BONUS * alignedFactor : ACTION_MISALIGNED_PENALTY * alignedFactor;
+        }
+        return scale;
+    }
+
+    private void updateLandlordIdentity(LandlordActionCategory category, boolean success) {
+        double delta = 0.0;
+        switch (category) {
+            case CLASSY -> delta = success ? 0.8 : 0.3;
+            case SHADY -> delta = success ? -0.8 : -0.3;
+            case BALANCED -> delta = success ? 0.35 : -0.35;
+        }
+        s.landlordIdentityScore = clamp(s.landlordIdentityScore + delta, -ACTION_IDENTITY_RANGE, ACTION_IDENTITY_RANGE);
+    }
+
+    private void adjustStaffMorale(int moraleDelta) {
+        for (Staff st : s.fohStaff) st.adjustMorale(moraleDelta);
+        for (Staff st : s.bohStaff) st.adjustMorale(moraleDelta);
+        for (Staff st : s.generalManagers) st.adjustMorale(moraleDelta);
+        staff.updateTeamMorale();
+    }
+
+    private void applyLandlordTrafficBonus(double pct, int rounds) {
+        s.landlordTrafficBonusPct += pct;
+        s.landlordTrafficBonusPct = clamp(s.landlordTrafficBonusPct, -0.5, 0.6);
+        s.landlordTrafficBonusRounds = Math.max(s.landlordTrafficBonusRounds, rounds);
+    }
+
+    private void tickLandlordActionCooldowns() {
+        for (LandlordActionState state : s.landlordActionStates.values()) {
+            if (state.getCooldownRemaining() > 0) {
+                state.setCooldownRemaining(state.getCooldownRemaining() - 1);
+            }
+        }
+        if (s.landlordTrafficBonusRounds > 0) {
+            s.landlordTrafficBonusRounds -= 1;
+            if (s.landlordTrafficBonusRounds <= 0) {
+                s.landlordTrafficBonusRounds = 0;
+                s.landlordTrafficBonusPct = 0.0;
+            }
+        }
+    }
+
+    private void tickSecurityTaskCooldowns() {
+        for (SecurityTask task : SecurityTask.values()) {
+            int cooldown = s.securityTaskCooldownRemaining(task);
+            if (cooldown > 0) {
+                s.securityTaskCooldowns.put(task, cooldown - 1);
+            }
+        }
+    }
+
+    private int currentRoundIndex() {
+        return s.dayCounter * s.closingRound + s.roundInNight;
+    }
+
+    private int rollScaled(int min, int max, double scale) {
+        if (min > max) {
+            int tmp = min;
+            min = max;
+            max = tmp;
+        }
+        int value = min + s.random.nextInt(max - min + 1);
+        return (int) Math.round(value * scale);
+    }
+
+    private double rollScaled(double min, double max, double scale) {
+        if (min > max) {
+            double tmp = min;
+            min = max;
+            max = tmp;
+        }
+        double value = min + (s.random.nextDouble() * (max - min));
+        return value * scale;
+    }
+
+    private String buildActionSummary(LandlordActionDef def,
+                                      boolean success,
+                                      int repDelta,
+                                      int moraleDelta,
+                                      double trafficPct,
+                                      double chaosDelta,
+                                      int trafficRounds) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(success ? "Success" : "Failure");
+        sb.append(" | Rep ").append(formatDelta(repDelta));
+        if (moraleDelta != 0) {
+            sb.append(", Morale ").append(formatDelta(moraleDelta));
+        }
+        if (trafficPct != 0.0) {
+            sb.append(", Traffic ").append(formatPct(trafficPct));
+            if (trafficRounds > 0) sb.append(" (").append(trafficRounds).append("r)");
+        }
+        if (chaosDelta != 0.0) {
+            sb.append(", Chaos ").append(formatDelta((int) Math.round(chaosDelta)));
+        }
+        return sb.toString();
+    }
+
+    private String formatDelta(int value) {
+        return value >= 0 ? "+" + value : String.valueOf(value);
+    }
+
+    private String formatPct(double value) {
+        int pct = (int) Math.round(value * 100);
+        return pct >= 0 ? "+" + pct + "%" : pct + "%";
+    }
+
+    private String trimObservationLine(String text) {
+        if (text == null) return null;
+        if (text.length() <= ObservationEngine.MAX_OBSERVATION_LENGTH) return text;
+        return text.substring(0, ObservationEngine.MAX_OBSERVATION_LENGTH - 1) + "…";
     }
 
     // GUI helper: show true supplier buy cost (rep + deal)
@@ -707,10 +950,95 @@ public class Simulation {
         }
     }
 
+    public void setSecurityPolicy(SecurityPolicy policy) {
+        if (policy == null) return;
+        if (s.securityPolicy == policy) return;
+        s.securityPolicy = policy;
+        log.info("Security policy set: " + policy.getLabel() + ".");
+        s.addSecurityLog("Policy set: " + policy.getLabel());
+    }
+
+    public SecuritySystem.SecurityBreakdown securityBreakdown() {
+        return security.breakdown();
+    }
+
+    public int securityTaskTier() {
+        int base = s.baseSecurityLevel;
+        if (base >= 30) return 3;
+        if (base >= 15) return 2;
+        if (base >= 5) return 1;
+        return 0;
+    }
+
+    private int tierRequirement(int tier) {
+        return switch (tier) {
+            case 1 -> 5;
+            case 2 -> 15;
+            case 3 -> 30;
+            default -> 0;
+        };
+    }
+
+    public List<SecurityTask> getAvailableSecurityTasks() {
+        return SecurityTask.tasksUpToTier(securityTaskTier());
+    }
+
+    public SecurityTaskAvailability securityTaskAvailability(SecurityTask task) {
+        if (task == null) return new SecurityTaskAvailability(false, "Unknown task.");
+        if (!s.nightOpen) return new SecurityTaskAvailability(false, "Night must be open.");
+        if (securityTaskTier() < task.getTier()) {
+            return new SecurityTaskAvailability(false, "Locked: Base Security " + tierRequirement(task.getTier()));
+        }
+        if (s.currentRoundIndex() == s.lastSecurityTaskRound) {
+            return new SecurityTaskAvailability(false, "Only 1 task per round.");
+        }
+        int cooldown = s.securityTaskCooldownRemaining(task);
+        if (cooldown > 0) {
+            return new SecurityTaskAvailability(false, "Cooldown: " + cooldown + "r");
+        }
+        return new SecurityTaskAvailability(true, "");
+    }
+
+    public SecurityTaskResolution resolveSecurityTask(SecurityTask task) {
+        SecurityTaskAvailability availability = securityTaskAvailability(task);
+        if (!availability.canUse()) {
+            log.neg("Security task unavailable: " + availability.reason());
+            return SecurityTaskResolution.blocked(task, availability.reason());
+        }
+
+        s.activeSecurityTask = task;
+        s.activeSecurityTaskRound = s.currentRoundIndex() + 1;
+        s.securityTaskCooldowns.put(task, task.getCooldownRounds());
+        s.lastSecurityTaskRound = s.currentRoundIndex();
+
+        String message = task.getLabel() + " queued for next round.";
+        log.info(" Security task: " + message);
+        s.addSecurityLog("Task queued: " + task.getLabel());
+        return SecurityTaskResolution.applied(task, message);
+    }
+
+    public double securityPolicyTrafficMultiplier() {
+        return s.securityPolicy != null ? s.securityPolicy.getTrafficMultiplier() : 1.0;
+    }
+
+    public double securityPolicyIncidentChanceMultiplier() {
+        return s.securityPolicy != null ? s.securityPolicy.getIncidentChanceMultiplier() : 1.0;
+    }
+
+    public double securityTaskTrafficMultiplier() {
+        return s.securityTaskTrafficMultiplier();
+    }
+
+    public double securityTaskIncidentChanceMultiplier() {
+        return s.securityTaskIncidentChanceMultiplier();
+    }
+
     public void playRound() {
         if (!s.nightOpen) return;
 
         s.roundInNight++;
+        tickLandlordActionCooldowns();
+        tickSecurityTaskCooldowns();
         int repBefore = s.reputation;
         int fightsBefore = s.nightFights;
         int refundsBefore = s.nightRefunds;
@@ -756,7 +1084,10 @@ public class Simulation {
                         * activities.trafficMultiplier()
                         * baseTrafficMultiplier()
                         * identityTrafficMultiplier()
-                        * rumorTrafficMultiplier();
+                        * rumorTrafficMultiplier()
+                        * securityPolicyTrafficMultiplier()
+                        * securityTaskTrafficMultiplier()
+                        * (1.0 + s.landlordTrafficBonusPct);
 
         if (rumors != null) {
             trafficMult *= rumors.trafficMultiplier();
@@ -783,7 +1114,7 @@ public class Simulation {
         }
 
         boolean riskyWeekend = s.isWeekend();
-        int sec = security.effectiveSecurity() + s.upgradeSecurityBonus; //  upgrade security applies
+        int sec = security.effectiveSecurity(); //  upgrade security applies
         sec = Math.max(0, sec);
 
         double identityTip = s.currentIdentity != null ? s.currentIdentity.getTipBonusPct() : 0.0;
@@ -879,6 +1210,11 @@ public class Simulation {
 
         staff.adjustMoraleAfterRound(unserved, eventsThisRound, s.reputation, tipRate, sec, s.chaos);
 
+        if (s.isSecurityTaskActive()) {
+            s.activeSecurityTask = null;
+            s.activeSecurityTaskRound = -999;
+        }
+
         if (s.consecutiveNeg100Rounds >= 3) {
             closeNight("Reputation collapsed. Licence revoked! (-100 for 3 rounds).");
             log.header(" GAME OVER");
@@ -906,6 +1242,8 @@ public class Simulation {
         }
 
         s.nightOpen = false;
+        s.activeSecurityTask = null;
+        s.activeSecurityTaskRound = -999;
         log.header(" PUB CLOSED");
         log.info(reason);
 
@@ -916,7 +1254,7 @@ public class Simulation {
         accrueSecurityUpkeep();
 
         // between-nights spice (v2 event system)
-        events.runBetweenNightEvents(Math.max(0, security.effectiveSecurity() + s.upgradeSecurityBonus));
+        events.runBetweenNightEvents(Math.max(0, security.effectiveSecurity()));
 
         // spoilage: bottles that sat too long go off
         int spoiled = s.rack.removeSpoiled(s.absDayIndex());
@@ -984,10 +1322,30 @@ public class Simulation {
                     log.event(" Kitchen unlocked. Food supplier now available.");
                 }
                 log.popupUpgrade(" Upgrade installed", up.getLabel(), " is now active.", "");
+                if (isSecurityUpgrade(up)) {
+                    s.addSecurityLog("Upgrade installed: " + up.getLabel());
+                }
             } else {
                 s.pendingUpgradeInstalls.set(i, new PendingUpgradeInstall(install.upgrade(), remaining, install.totalNights()));
             }
         }
+    }
+
+    private boolean isSecurityUpgrade(PubUpgrade up) {
+        return switch (up) {
+            case CCTV,
+                    CCTV_PACKAGE,
+                    REINFORCED_DOOR_I,
+                    REINFORCED_DOOR_II,
+                    REINFORCED_DOOR_III,
+                    LIGHTING_I,
+                    LIGHTING_II,
+                    LIGHTING_III,
+                    BURGLAR_ALARM_I,
+                    BURGLAR_ALARM_II,
+                    BURGLAR_ALARM_III -> true;
+            default -> false;
+        };
     }
 
     private void endOfWeek() {
@@ -1567,6 +1925,10 @@ public class Simulation {
             double loanShark
     ) {}
 
+    public record LandlordActionAvailability(boolean canUse, String reason) {}
+
+    public record SecurityTaskAvailability(boolean canUse, String reason) {}
+
     public record SupplierPaymentResult(boolean success, String message) {}
 
     public SupplierPaymentResult paySupplierInvoice(SupplierAccount accountType, double amount, String sourceId) {
@@ -1913,7 +2275,10 @@ public class Simulation {
         String mood = repMoodLabel();
         String identityLine = s.pubIdentity.name().replace('_', ' ') + " " + s.identityDrift;
         String chaosLabel = chaosMoodLabel();
-        double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier() * activities.trafficMultiplier();
+        double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier()
+                * activities.trafficMultiplier() * securityPolicyTrafficMultiplier()
+                * securityTaskTrafficMultiplier()
+                * (1.0 + s.landlordTrafficBonusPct);
         double creditBalance = s.totalCreditBalance()
                 + (s.loanShark.isOpen() ? s.loanShark.getBalance() : 0.0);
         double creditWeeklyDue = s.totalCreditWeeklyPaymentDue();
@@ -1985,6 +2350,7 @@ public class Simulation {
         String staffText = buildStaffTabSummary(serveCap);
 
         String risk = "Security: " + sec
+                + "\nPolicy: " + (s.securityPolicy != null ? s.securityPolicy.getLabel() : "Balanced")
                 + "\nBouncers hired: " + s.bouncersHiredTonight + "/" + s.bouncerCap
                 + "\nFights (week): " + s.fightsThisWeek
                 + "\nRefunds (week): GBP " + fmt2(s.weekRefundTotal)
@@ -2003,6 +2369,8 @@ public class Simulation {
                 + "\nBase traffic: x" + fmt2(baseTrafficMultiplier())
                 + "\nIdentity traffic: x" + fmt2(identityTrafficMultiplier())
                 + "\nRumor traffic: x" + fmt2(rumorTrafficMultiplier())
+                + "\nSecurity policy traffic: x" + fmt2(securityPolicyTrafficMultiplier())
+                + "\nSecurity task traffic: x" + fmt2(securityTaskTrafficMultiplier())
                 + "\nActivity traffic: x" + fmt2(activities.trafficMultiplier())
                 + "\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
                 + "\nNatural departures (night): " + s.nightNaturalDepartures
@@ -2948,14 +3316,167 @@ public class Simulation {
     }
 
     private String buildSecurityDetailText(int sec) {
+        SecuritySystem.SecurityBreakdown breakdown = security.breakdown();
         StringBuilder sb = new StringBuilder();
+        sb.append("Security policy: ").append(s.securityPolicy != null ? s.securityPolicy.getLabel() : "Balanced").append("\n");
+        sb.append("Base security level: ").append(s.baseSecurityLevel).append("\n");
         sb.append("Effective security: ").append(sec).append("\n");
+        sb.append("Incident chance mult: x").append(fmt2(incidentChanceMultiplier(sec))).append("\n");
+        sb.append("Security task: ").append(securityTaskStatusLine()).append("\n");
         sb.append("Bouncers hired: ").append(s.bouncersHiredTonight).append("/").append(s.bouncerCap).append("\n");
+        sb.append("Bouncer quality: ").append(s.bouncerQualitySummary()).append("\n");
         sb.append("Bouncer rep mitigation: x").append(fmt2(s.bouncerRepDamageMultiplier())).append("\n");
+        sb.append("CCTV rep mitigation: ").append((int)Math.round(s.cctvRepMitigationPct() * 100)).append("%\n");
+        sb.append("Upgrade rep mitigation: ").append((int)Math.round(s.upgradeRepMitigationPct * 100)).append("%\n");
+        sb.append("Combined rep mitigation: x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
         sb.append("Bouncer reductions: theft ").append(pct(s.bouncerTheftReduction))
                 .append(" | negative ").append(pct(s.bouncerNegReduction))
                 .append(" | fights ").append(pct(s.bouncerFightReduction)).append("\n");
+
+        sb.append("\nSecurity breakdown:\n");
+        sb.append("- Base security: ").append(breakdown.base()).append("\n");
+        sb.append("- Upgrade bonuses: ").append(breakdown.upgrades()).append("\n");
+        if (breakdown.upgrades() > 0) {
+            sb.append("  ");
+            java.util.List<String> upgradeParts = new java.util.ArrayList<>();
+            for (PubUpgrade upgrade : s.ownedUpgrades) {
+                if (upgrade.getSecurityBonus() > 0) {
+                    upgradeParts.add(upgrade.getLabel() + " +" + upgrade.getSecurityBonus());
+                }
+            }
+            if (!upgradeParts.isEmpty()) {
+                sb.append(String.join(", ", upgradeParts));
+            } else {
+                sb.append("No security upgrades listed.");
+            }
+            sb.append("\n");
+        }
+        sb.append("- Policy modifier: ").append(breakdown.policy()).append("\n");
+        sb.append("- Bouncer presence: ").append(breakdown.bouncers()).append("\n");
+        sb.append("- Manager bonus: ").append(breakdown.manager()).append("\n");
+        sb.append("- Staff bonus: ").append(breakdown.staff()).append("\n");
+        sb.append("= Total: ").append(breakdown.total()).append("\n");
+        int doorTier = s.reinforcedDoorTier();
+        int lightTier = s.lightingTier();
+        int alarmTier = s.burglarAlarmTier();
+        sb.append("- Door tier: ").append(doorTier > 0 ? ("Tier " + doorTier) : "None")
+                .append(" | incident x").append(fmt2(doorIncidentMultiplier(doorTier)))
+                .append(" | rep mitig ").append((int)Math.round(doorRepMitigationPct(doorTier) * 100)).append("%\n");
+        sb.append("- Lighting tier: ").append(lightTier > 0 ? ("Tier " + lightTier) : "None")
+                .append(" | incident x").append(fmt2(lightingIncidentMultiplier(lightTier)))
+                .append(" | morale stability ").append((int)Math.round(lightingMoraleStabilityPct(lightTier) * 100)).append("%\n");
+        sb.append("- Alarm tier: ").append(alarmTier > 0 ? ("Tier " + alarmTier) : "None")
+                .append(" | incident x").append(fmt2(alarmIncidentMultiplier(alarmTier)))
+                .append(" | loss severity x").append(fmt2(alarmLossSeverityMultiplier(alarmTier))).append("\n");
+
+        sb.append("\nInstalled security upgrades:\n");
+        java.util.List<String> upgradesList = new java.util.ArrayList<>();
+        if (s.ownedUpgrades.contains(PubUpgrade.CCTV) || s.ownedUpgrades.contains(PubUpgrade.CCTV_PACKAGE)) {
+            upgradesList.add("CCTV");
+        }
+        if (s.reinforcedDoorTier() > 0) {
+            upgradesList.add("Reinforced Door (Tier " + s.reinforcedDoorTier() + ")");
+        }
+        if (s.lightingTier() > 0) {
+            upgradesList.add("Lighting (Tier " + s.lightingTier() + ")");
+        }
+        if (s.burglarAlarmTier() > 0) {
+            upgradesList.add("Burglar Alarm (Tier " + s.burglarAlarmTier() + ")");
+        }
+        if (upgradesList.isEmpty()) {
+            sb.append("None\n");
+        } else {
+            for (String entry : upgradesList) sb.append("- ").append(entry).append("\n");
+        }
+
+        sb.append("\nWhat this changes:\n");
+        sb.append("- Policy incident chance: x").append(fmt2(securityPolicyIncidentChanceMultiplier())).append("\n");
+        sb.append("- Policy traffic: x").append(fmt2(securityPolicyTrafficMultiplier())).append("\n");
+        sb.append("- Task incident chance: x").append(fmt2(securityTaskIncidentChanceMultiplier())).append("\n");
+        sb.append("- Task traffic: x").append(fmt2(securityTaskTrafficMultiplier())).append("\n");
+        sb.append("- Upgrade incident chance: x").append(fmt2(s.upgradeIncidentChanceMultiplier)).append("\n");
+        sb.append("- Upgrade loss severity: x").append(fmt2(s.upgradeLossSeverityMultiplier)).append("\n");
+        sb.append("- Upgrade morale stability: ").append((int)Math.round(s.upgradeMoraleStabilityPct * 100)).append("%\n");
+        sb.append("- Rep mitigation (bouncers+CCTV+upgrades): x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
+
+        sb.append("\nRecent security log:\n");
+        if (s.securityEventLog.isEmpty()) {
+            sb.append("None");
+        } else {
+            int count = 0;
+            for (String entry : s.securityEventLog) {
+                sb.append("- ").append(entry).append("\n");
+                if (++count >= 6) break;
+            }
+        }
         return sb.toString();
+    }
+
+    private String securityTaskStatusLine() {
+        SecurityTask task = s.activeSecurityTask;
+        if (task == null) return "None";
+        String status = s.isSecurityTaskActive() ? "Active" : (s.isSecurityTaskQueued() ? "Queued" : "Inactive");
+        int cooldown = s.securityTaskCooldownRemaining(task);
+        return task.getLabel() + " (" + status + ", CD " + cooldown + "r)";
+    }
+
+    private double doorIncidentMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.98;
+            case 2 -> 0.95;
+            case 3 -> 0.92;
+            default -> 1.0;
+        };
+    }
+
+    private double lightingIncidentMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.99;
+            case 2 -> 0.97;
+            case 3 -> 0.95;
+            default -> 1.0;
+        };
+    }
+
+    private double alarmIncidentMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.98;
+            case 2 -> 0.95;
+            case 3 -> 0.90;
+            default -> 1.0;
+        };
+    }
+
+    private double doorRepMitigationPct(int tier) {
+        return switch (tier) {
+            case 2 -> 0.03;
+            case 3 -> 0.06;
+            default -> 0.0;
+        };
+    }
+
+    private double lightingMoraleStabilityPct(int tier) {
+        return switch (tier) {
+            case 2 -> 0.05;
+            case 3 -> 0.10;
+            default -> 0.0;
+        };
+    }
+
+    private double alarmLossSeverityMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.96;
+            case 2 -> 0.92;
+            case 3 -> 0.86;
+            default -> 1.0;
+        };
+    }
+
+    private double incidentChanceMultiplier(int sec) {
+        double base = Math.max(0.20, 1.0 - (sec * 0.08));
+        return base * securityPolicyIncidentChanceMultiplier()
+                * securityTaskIncidentChanceMultiplier()
+                * s.upgradeIncidentChanceMultiplier;
     }
 
     private String buildStaffDetailText() {
@@ -3532,6 +4053,10 @@ public class Simulation {
     }
 
     private static int clamp(int v, int lo, int hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    private static double clamp(double v, double lo, double hi) {
         return Math.max(lo, Math.min(hi, v));
     }
 }
