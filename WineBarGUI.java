@@ -73,6 +73,8 @@ public class WineBarGUI {
     // Activities window
     private JDialog activitiesDialog;
     private JPanel activitiesListPanel;
+    private JDialog actionsDialog;
+    private LandlordActionsPanel actionsPanel;
 
     // Reports panel (right side)
     private JTextArea reportArea;
@@ -120,6 +122,7 @@ public class WineBarGUI {
     private final JButton kitchenSupplierBtn = new JButton("Food Supplier");
     private final JButton upgradesBtn = new JButton("Upgrades");
     private final JButton activitiesBtn = new JButton("Activities");
+    private final JButton actionsBtn = new JButton("Actions");
     private final JButton staffBtn = new JButton("Staff");
 
     private final JButton securityBtn = new JButton("Security");
@@ -156,6 +159,10 @@ public class WineBarGUI {
     private JTextArea missionInventoryArea;
     private JTextArea missionLoansArea;
     private JTextArea missionLogArea;
+    private JRadioButton policyFriendlyBtn;
+    private JRadioButton policyBalancedBtn;
+    private JRadioButton policyStrictBtn;
+    private JComboBox<SecurityPolicy> securityPolicyBox;
     private JDialog weeklyReportDialog;
     private JTextArea weeklyReportArea;
     private JDialog fourWeekReportDialog;
@@ -186,6 +193,9 @@ public class WineBarGUI {
     private JDialog securityDialog;
     private JButton securityUpgradeBtn;
     private JButton bouncerBtn;
+    private JPanel securityTasksPanel;
+    private JPanel securityTasksListPanel;
+    private boolean updatingSecurityPolicyBox = false;
 
     public WineBarGUI(GameState state) {
         this.state = state;
@@ -281,7 +291,7 @@ public class WineBarGUI {
         JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
         JPanel managementControls = createControlGroup("Management", staffBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
-        JPanel activityControls = createControlGroup("Activities", activitiesBtn);
+        JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
         JPanel autoControls = createControlGroup("Automation", autoBtn);
 
         controls.add(nightControls);
@@ -379,6 +389,7 @@ public class WineBarGUI {
         staffBtn.setIcon(createGlyphIcon("P", new Color(120, 170, 220)));
         upgradesBtn.setIcon(createGlyphIcon("U", new Color(180, 150, 240)));
         activitiesBtn.setIcon(createGlyphIcon("A", new Color(200, 170, 110)));
+        actionsBtn.setIcon(createGlyphIcon("L", new Color(160, 190, 120)));
         loanSharkBtn.setIcon(createGlyphIcon("F", new Color(140, 190, 220)));
     }
 
@@ -529,7 +540,10 @@ public class WineBarGUI {
             tabs.add("Payday", new JScrollPane(missionPaydayArea));
             tabs.add("Suppliers", new JScrollPane(missionSuppliersArea));
             tabs.add("Pub Progression", new JScrollPane(missionProgressionArea));
-            tabs.add("Security", new JScrollPane(missionSecurityArea));
+            JPanel securityTab = new JPanel(new BorderLayout(6, 6));
+            securityTab.add(buildSecurityPolicyPanel(), BorderLayout.NORTH);
+            securityTab.add(new JScrollPane(missionSecurityArea), BorderLayout.CENTER);
+            tabs.add("Security", securityTab);
             tabs.add("Staff", new JScrollPane(missionStaffDetailArea));
             tabs.add("Economy", new JScrollPane(missionEconomyArea));
             tabs.add("Operations", new JScrollPane(missionOperationsArea));
@@ -564,6 +578,86 @@ public class WineBarGUI {
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
         return area;
+    }
+
+    private JPanel buildSecurityPolicyPanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        panel.setBorder(BorderFactory.createTitledBorder("Security Policy"));
+        policyFriendlyBtn = new JRadioButton("Friendly Welcome");
+        policyBalancedBtn = new JRadioButton("Balanced Door");
+        policyStrictBtn = new JRadioButton("Strict Door");
+
+        ButtonGroup group = new ButtonGroup();
+        group.add(policyFriendlyBtn);
+        group.add(policyBalancedBtn);
+        group.add(policyStrictBtn);
+
+        policyFriendlyBtn.addActionListener(e -> setSecurityPolicy(SecurityPolicy.FRIENDLY_WELCOME));
+        policyBalancedBtn.addActionListener(e -> setSecurityPolicy(SecurityPolicy.BALANCED_DOOR));
+        policyStrictBtn.addActionListener(e -> setSecurityPolicy(SecurityPolicy.STRICT_DOOR));
+
+        panel.add(policyFriendlyBtn);
+        panel.add(policyBalancedBtn);
+        panel.add(policyStrictBtn);
+        refreshSecurityPolicyButtons();
+        return panel;
+    }
+
+    private JPanel buildSecurityMenuPolicyPanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        panel.setBorder(BorderFactory.createTitledBorder("Door Policy"));
+        securityPolicyBox = new JComboBox<>(SecurityPolicy.values());
+        securityPolicyBox.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel label = new JLabel(value != null ? value.getLabel() : "");
+            if (isSelected) {
+                label.setOpaque(true);
+                label.setBackground(list.getSelectionBackground());
+                label.setForeground(list.getSelectionForeground());
+            }
+            return label;
+        });
+        securityPolicyBox.addActionListener(e -> {
+            if (updatingSecurityPolicyBox) return;
+            SecurityPolicy selected = (SecurityPolicy) securityPolicyBox.getSelectedItem();
+            if (selected != null) {
+                setSecurityPolicy(selected);
+            }
+        });
+        panel.add(securityPolicyBox);
+        refreshSecurityPolicyButtons();
+        return panel;
+    }
+
+    private JPanel buildSecurityTasksPanel() {
+        securityTasksPanel = new JPanel(new BorderLayout(6, 6));
+        securityTasksPanel.setBorder(BorderFactory.createTitledBorder("Security Tasks"));
+        JLabel hint = new JLabel("Choose 1 task per round. Effects apply for the current round.");
+        hint.setBorder(new EmptyBorder(0, 4, 4, 4));
+        securityTasksPanel.add(hint, BorderLayout.NORTH);
+        securityTasksListPanel = new JPanel();
+        securityTasksListPanel.setLayout(new BoxLayout(securityTasksListPanel, BoxLayout.Y_AXIS));
+        securityTasksPanel.add(securityTasksListPanel, BorderLayout.CENTER);
+        return securityTasksPanel;
+    }
+
+    private void setSecurityPolicy(SecurityPolicy policy) {
+        sim.setSecurityPolicy(policy);
+        refreshAll();
+    }
+
+    private void refreshSecurityPolicyButtons() {
+        if (policyFriendlyBtn == null && securityPolicyBox == null) return;
+        SecurityPolicy policy = state.securityPolicy != null ? state.securityPolicy : SecurityPolicy.BALANCED_DOOR;
+        if (policyFriendlyBtn != null) {
+            policyFriendlyBtn.setSelected(policy == SecurityPolicy.FRIENDLY_WELCOME);
+            policyBalancedBtn.setSelected(policy == SecurityPolicy.BALANCED_DOOR);
+            policyStrictBtn.setSelected(policy == SecurityPolicy.STRICT_DOOR);
+        }
+        if (securityPolicyBox != null) {
+            updatingSecurityPolicyBox = true;
+            securityPolicyBox.setSelectedItem(policy);
+            updatingSecurityPolicyBox = false;
+        }
     }
 
     private void restoreReportsDialogBounds() {
@@ -628,6 +722,7 @@ public class WineBarGUI {
         kitchenSupplierBtn.addActionListener(e -> openKitchenSupplierWindow());
         upgradesBtn.addActionListener(e -> openUpgradesWindow());
         activitiesBtn.addActionListener(e -> openActivitiesWindow());
+        actionsBtn.addActionListener(e -> openActionsDialog());
         staffBtn.addActionListener(e -> openStaffWindow());
 
         securityBtn.addActionListener(e -> openSecurityWindow());
@@ -1575,7 +1670,15 @@ public class WineBarGUI {
             securityListPanel.add(Box.createVerticalStrut(8));
             securityListPanel.add(bouncerBtn);
 
-            securityDialog.add(securityListPanel, BorderLayout.CENTER);
+            JPanel content = new JPanel();
+            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+            content.add(buildSecurityMenuPolicyPanel());
+            content.add(Box.createVerticalStrut(8));
+            content.add(securityListPanel);
+            content.add(Box.createVerticalStrut(8));
+            content.add(buildSecurityTasksPanel());
+
+            securityDialog.add(new JScrollPane(content), BorderLayout.CENTER);
 
             JButton close = new JButton("Close");
             close.addActionListener(e -> securityDialog.setVisible(false));
@@ -1584,7 +1687,7 @@ public class WineBarGUI {
             bottom.add(close);
             securityDialog.add(bottom, BorderLayout.SOUTH);
 
-            securityDialog.setSize(420, 220);
+            securityDialog.setSize(520, 420);
             securityDialog.setLocationRelativeTo(frame);
         }
 
@@ -1600,6 +1703,62 @@ public class WineBarGUI {
 
         bouncerBtn.setText("Hire Bouncer Tonight " + state.bouncersHiredTonight + "/" + state.bouncerCap);
         bouncerBtn.setEnabled(state.nightOpen && state.bouncersHiredTonight < state.bouncerCap);
+        refreshSecurityPolicyButtons();
+        refreshSecurityTasksPanel();
+    }
+
+    private void refreshSecurityTasksPanel() {
+        if (securityTasksListPanel == null) return;
+        securityTasksListPanel.removeAll();
+
+        int baseSecurity = state.baseSecurityLevel;
+        for (int tier = 1; tier <= 3; tier++) {
+            int required = tier == 1 ? 5 : (tier == 2 ? 15 : 30);
+            boolean unlocked = baseSecurity >= required;
+            JLabel tierLabel = new JLabel("Tier " + tier + " tasks");
+            tierLabel.setFont(tierLabel.getFont().deriveFont(Font.BOLD));
+            securityTasksListPanel.add(tierLabel);
+            if (!unlocked) {
+                securityTasksListPanel.add(new JLabel("Locked: Base Security " + required + "+"));
+                securityTasksListPanel.add(Box.createVerticalStrut(8));
+                continue;
+            }
+
+            for (SecurityTask task : SecurityTask.tasksForTier(tier)) {
+                Simulation.SecurityTaskAvailability availability = sim.securityTaskAvailability(task);
+                JButton use = new JButton("Use");
+                use.setEnabled(availability.canUse());
+                use.addActionListener(e -> {
+                    sim.resolveSecurityTask(task);
+                    refreshAll();
+                    refreshAllMenus();
+                });
+
+                String status = "";
+                if (state.activeSecurityTask == task) {
+                    status = state.isSecurityTaskActive() ? " (Active)" : " (Queued)";
+                }
+                int cooldown = state.securityTaskCooldownRemaining(task);
+                String cooldownText = cooldown > 0 ? " | CD " + cooldown + "r" : "";
+                String label = "<html><b>" + task.getLabel() + "</b> (" + task.getCategory().getLabel()
+                        + ")" + status
+                        + "<br/>" + task.getDescription()
+                        + "<br/>" + task.effectSummary()
+                        + cooldownText
+                        + "</html>";
+                JLabel text = new JLabel(label);
+
+                JPanel row = new JPanel(new BorderLayout(8, 0));
+                row.add(text, BorderLayout.CENTER);
+                row.add(use, BorderLayout.EAST);
+                securityTasksListPanel.add(row);
+                securityTasksListPanel.add(Box.createVerticalStrut(6));
+            }
+            securityTasksListPanel.add(Box.createVerticalStrut(6));
+        }
+
+        securityTasksListPanel.revalidate();
+        securityTasksListPanel.repaint();
     }
 
 
@@ -1757,6 +1916,39 @@ public class WineBarGUI {
 
         refreshActivitiesButtons();
         activitiesDialog.setVisible(true);
+    }
+
+    private void openActionsDialog() {
+        if (actionsDialog == null) {
+            actionsDialog = new JDialog(frame, "Landlord Actions", true);
+            actionsDialog.setLayout(new BorderLayout(8, 8));
+            actionsPanel = new LandlordActionsPanel(sim, state, this::handleLandlordAction);
+            actionsDialog.add(actionsPanel, BorderLayout.CENTER);
+
+            JButton close = new JButton("Close");
+            close.addActionListener(e -> actionsDialog.setVisible(false));
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(close);
+            actionsDialog.add(bottom, BorderLayout.SOUTH);
+
+            actionsDialog.setSize(760, 560);
+            actionsDialog.setLocationRelativeTo(frame);
+        }
+
+        actionsPanel.refresh();
+        actionsDialog.setVisible(true);
+    }
+
+    private void handleLandlordAction(LandlordActionId id) {
+        LandlordActionResolution result = sim.resolveLandlordAction(id);
+        if (result == null) return;
+        if (result.blocked()) {
+            log.popup(" Action blocked", result.message(), "");
+        }
+        refreshAll();
+        if (actionsPanel != null) {
+            actionsPanel.refresh();
+        }
     }
 
     private void refreshActivitiesButtons() {
@@ -1933,6 +2125,7 @@ public class WineBarGUI {
         if (missionSuppliersArea != null) missionSuppliersArea.setText(snapshot.suppliers);
         if (missionProgressionArea != null) missionProgressionArea.setText(snapshot.progression);
         if (missionSecurityArea != null) missionSecurityArea.setText(snapshot.security);
+        refreshSecurityPolicyButtons();
         if (missionStaffDetailArea != null) missionStaffDetailArea.setText(snapshot.staffDetail);
         if (missionEconomyArea != null) missionEconomyArea.setText(snapshot.economy);
         if (missionOperationsArea != null) missionOperationsArea.setText(snapshot.operations);
@@ -2050,6 +2243,13 @@ public class WineBarGUI {
         refreshMissionControl();
         updateMoodLighting();
         checkReportPopups();
+        refreshActionsDialog();
+    }
+
+    private void refreshActionsDialog() {
+        if (actionsDialog != null && actionsDialog.isVisible() && actionsPanel != null) {
+            actionsPanel.refresh();
+        }
     }
 
     private void updateHud(MetricsSnapshot snapshot) {
@@ -2089,16 +2289,16 @@ public class WineBarGUI {
                 + " | Bar " + state.nightPunters.size() + "/" + state.maxBarOccupancy)
                 : ("Night CLOSED  Ready"));
 
-        int sec = state.baseSecurityLevel
-                + (state.bouncersHiredTonight * 2)
-                + (state.hasSkilledManager() ? 1 : 0)
-                + state.staffSecurityBonus();
-        sec = Math.max(0, sec);
-        String bouncerInfo = state.bouncersHiredTonight > 0
-                ? "Bouncer: " + state.bouncersHiredTonight + " (" + state.bouncerQualitySummary() + ")"
-                + " | Rep Mit x" + String.format("%.2f", state.bouncerRepDamageMultiplier())
-                : "Bouncer: None";
-        securityLabel.setText(buildSecurityBadgeText(sec, bouncerInfo));
+        SecuritySystem.SecurityBreakdown breakdown = sim.securityBreakdown();
+        int sec = breakdown.total();
+        String policyShort = state.securityPolicy != null ? state.securityPolicy.getShortLabel() : "B";
+        String taskShort = state.activeSecurityTask != null ? state.activeSecurityTask.getShortLabel() : "None";
+        if (state.activeSecurityTask != null && state.isSecurityTaskQueued() && !state.isSecurityTaskActive()) {
+            taskShort = taskShort + "*";
+        }
+        String bouncerInfo = "Bouncers: " + state.bouncersHiredTonight + "/" + state.bouncerCap;
+        String mitigationInfo = "Rep x" + String.format("%.2f", state.securityIncidentRepMultiplier());
+        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo));
 
         staffLabel.setText(buildStaffBadgeText(cap));
         reportLabel.setText("Report: " + state.reports().summaryLine());
@@ -2201,9 +2401,13 @@ public class WineBarGUI {
         return "<html>" + staffLine + "<br>" + staffCounts + "</html>";
     }
 
-    private String buildSecurityBadgeText(int sec, String bouncerInfo) {
-        String chaosLine = "Chaos: " + String.format("%.1f", state.chaos);
-        return "<html>Security: " + sec + "<br>" + bouncerInfo + "<br>" + chaosLine + "</html>";
+    static String buildSecurityBadgeText(int sec,
+                                         String policyShort,
+                                         String taskShort,
+                                         String bouncerInfo,
+                                         String mitigationInfo) {
+        String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec;
+        return "<html>" + policyLine + "<br>" + bouncerInfo + " | " + mitigationInfo + "</html>";
     }
 
     private boolean canUseKitchen() {
