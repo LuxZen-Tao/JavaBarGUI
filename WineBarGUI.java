@@ -44,6 +44,9 @@ public class WineBarGUI {
     private JDialog supplierDialog;
     private JPanel supplierListPanel;
     private JLabel supplierDealLabel;
+    private JDialog invoiceDialog;
+    private JPanel invoiceListPanel;
+    private JLabel invoiceSummaryLabel;
     private JDialog kitchenSupplierDialog;
     private JPanel kitchenSupplierListPanel;
     private JLabel kitchenSupplierNoticeLabel;
@@ -116,7 +119,7 @@ public class WineBarGUI {
 
     private final JButton securityBtn = new JButton("Security");
     private final JButton payDebtBtn = new JButton("Pay Debt");
-    private final JButton loanSharkBtn = new JButton("Loan Shark");
+    private final JButton loanSharkBtn = new JButton("Finance");
 
     private final JToggleButton autoBtn = new JToggleButton("Auto: OFF");
     private Timer autoTimer;
@@ -365,7 +368,7 @@ public class WineBarGUI {
         staffBtn.setIcon(createGlyphIcon("P", new Color(120, 170, 220)));
         upgradesBtn.setIcon(createGlyphIcon("U", new Color(180, 150, 240)));
         activitiesBtn.setIcon(createGlyphIcon("A", new Color(200, 170, 110)));
-        loanSharkBtn.setIcon(createGlyphIcon("L", new Color(220, 120, 120)));
+        loanSharkBtn.setIcon(createGlyphIcon("F", new Color(140, 190, 220)));
     }
 
     private Icon createGlyphIcon(String text, Color color) {
@@ -712,8 +715,11 @@ public class WineBarGUI {
 
             JButton close = new JButton("Close");
             close.addActionListener(e -> supplierDialog.setVisible(false));
+            JButton invoices = new JButton("Invoices");
+            invoices.addActionListener(e -> openInvoiceDialog());
 
             JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(invoices);
             bottom.add(close);
             supplierDialog.add(bottom, BorderLayout.SOUTH);
 
@@ -769,6 +775,171 @@ public class WineBarGUI {
                 boolean okSlots = freeSlots >= q;
                 b.setEnabled(canBuy && okSlots);
             }
+        }
+    }
+
+    // -----------------------
+    // Invoice Window
+    // -----------------------
+
+    private void openInvoiceDialog() {
+        if (invoiceDialog == null) {
+            invoiceDialog = new JDialog(frame, "Supplier Invoices", false);
+            invoiceDialog.setLayout(new BorderLayout(10, 10));
+
+            invoiceSummaryLabel = new JLabel(" ");
+            invoiceSummaryLabel.setBorder(new EmptyBorder(8, 10, 0, 10));
+            invoiceDialog.add(invoiceSummaryLabel, BorderLayout.NORTH);
+
+            invoiceListPanel = new JPanel();
+            invoiceListPanel.setLayout(new BoxLayout(invoiceListPanel, BoxLayout.Y_AXIS));
+            invoiceDialog.add(new JScrollPane(invoiceListPanel), BorderLayout.CENTER);
+
+            JButton payAll = new JButton("Pay All Due");
+            payAll.addActionListener(e -> {
+                payAllDueInvoices();
+                refreshAll();
+                refreshAllMenus();
+            });
+
+            JButton close = new JButton("Close");
+            close.addActionListener(e -> invoiceDialog.setVisible(false));
+
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(payAll);
+            bottom.add(close);
+            invoiceDialog.add(bottom, BorderLayout.SOUTH);
+
+            invoiceDialog.setSize(760, 420);
+            invoiceDialog.setLocationRelativeTo(frame);
+        }
+
+        refreshInvoiceDialog();
+        invoiceDialog.setVisible(true);
+    }
+
+    private void refreshInvoiceDialog() {
+        if (invoiceDialog == null || invoiceListPanel == null || invoiceSummaryLabel == null) return;
+
+        invoiceListPanel.removeAll();
+        double totalOutstanding = 0.0;
+        double totalDue = 0.0;
+        double totalOverdue = 0.0;
+        int openCount = 0;
+
+        for (SupplierInvoice invoice : state.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            openCount++;
+            totalOutstanding += invoice.getAmountDue();
+            if (invoice.getStatus() == SupplierInvoice.Status.DUE
+                    || invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                totalDue += invoice.getAmountDue();
+            }
+            if (invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                totalOverdue += invoice.getAmountDue();
+            }
+
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            String info = invoice.getSupplierName()
+                    + " | GBP " + money2(invoice.getAmountDue())
+                    + " | " + invoice.getStatus()
+                    + " | due in " + invoice.getDueInWeeks() + "w"
+                    + " | overdue " + invoice.getWeeksOverdue() + "w";
+            row.add(new JLabel(info));
+
+            JButton pay = new JButton("Pay Invoice");
+            pay.setEnabled(invoice.getStatus() == SupplierInvoice.Status.DUE
+                    || invoice.getStatus() == SupplierInvoice.Status.OVERDUE);
+            pay.addActionListener(e -> {
+                payInvoiceWithSelection(invoice);
+                refreshAll();
+                refreshAllMenus();
+            });
+            row.add(pay);
+            invoiceListPanel.add(row);
+        }
+
+        if (openCount == 0) {
+            invoiceListPanel.add(new JLabel("No outstanding invoices."));
+        }
+
+        invoiceSummaryLabel.setText("Outstanding: " + money2(totalOutstanding)
+                + " | Due: " + money2(totalDue)
+                + " | Overdue: " + money2(totalOverdue)
+                + " | Late fees this week: " + money2(state.invoiceLateFeesThisWeek));
+
+        invoiceListPanel.revalidate();
+        invoiceListPanel.repaint();
+    }
+
+    private void payAllDueInvoices() {
+        for (SupplierInvoice invoice : state.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() != SupplierInvoice.Status.DUE
+                    && invoice.getStatus() != SupplierInvoice.Status.OVERDUE) {
+                continue;
+            }
+            payInvoiceWithSelection(invoice);
+        }
+    }
+
+    private void payInvoiceWithSelection(SupplierInvoice invoice) {
+        if (invoice == null || invoice.isPaid()) return;
+
+        double amountDue = invoice.getAmountDue();
+        double cashAvailable = state.cash;
+        if (cashAvailable >= amountDue) {
+            if (sim.paySupplierInvoice(invoice, null)) return;
+            return;
+        }
+
+        double remaining = amountDue - cashAvailable;
+        java.util.List<CreditLine> eligible = new java.util.ArrayList<>();
+        for (CreditLine line : state.creditLines.getOpenLines()) {
+            if (line.isEnabled() && line.availableCredit() >= remaining) {
+                eligible.add(line);
+            }
+        }
+
+        if (eligible.isEmpty()) {
+            log.neg("Not enough cash or credit to pay invoice. Shortfall GBP " + String.format("%.2f", remaining));
+            return;
+        }
+
+        CreditLine selected = null;
+        if (eligible.size() == 1) {
+            selected = eligible.get(0);
+        } else {
+            Object[] options = new Object[eligible.size()];
+            for (int i = 0; i < eligible.size(); i++) {
+                CreditLine line = eligible.get(i);
+                options[i] = line.getLenderName()
+                        + " | avail " + money2(line.availableCredit())
+                        + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%"
+                        + " | bal " + money2(line.getBalance()) + "/" + money2(line.getLimit());
+            }
+            Object pick = JOptionPane.showInputDialog(
+                    frame,
+                    "Select credit line for remaining GBP " + String.format("%.2f", remaining),
+                    "Select Credit Line",
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+            if (pick == null) return;
+            String choice = pick.toString();
+            for (CreditLine line : eligible) {
+                if (choice.startsWith(line.getLenderName())) {
+                    selected = line;
+                    break;
+                }
+            }
+        }
+
+        if (selected == null) return;
+        if (!sim.paySupplierInvoice(invoice, selected)) {
+            log.neg("Invoice payment failed.");
         }
     }
 
@@ -1383,12 +1554,12 @@ public class WineBarGUI {
     }
 
     // -----------------------
-    // Loan Shark Dialog
+    // Finance Dialog
     // -----------------------
 
     private void openLoanDialog() {
         if (loanDialog == null) {
-            loanDialog = new JDialog(frame, "Loan Shark", false);
+            loanDialog = new JDialog(frame, "Finance", false);
             loanDialog.setLayout(new BorderLayout(10, 10));
 
             loanTextArea = new JTextArea(12, 44);
@@ -1399,27 +1570,9 @@ public class WineBarGUI {
 
             loanButtonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-            JButton b100 = new JButton("Borrow 100");
-            JButton b250 = new JButton("Borrow 250");
-            JButton b500 = new JButton("Borrow 500");
-            JButton b1000 = new JButton("Borrow 1000");
-            JButton repayFull = new JButton("Repay In Full");
-
-            b100.addActionListener(e -> { sim.borrowFromLoanShark(100); refreshAll(); refreshAllMenus(); });
-            b250.addActionListener(e -> { sim.borrowFromLoanShark(250); refreshAll(); refreshAllMenus(); });
-            b500.addActionListener(e -> { sim.borrowFromLoanShark(500); refreshAll(); refreshAllMenus(); });
-            b1000.addActionListener(e -> { sim.borrowFromLoanShark(1000); refreshAll(); refreshAllMenus(); });
-            repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
-
-            loanButtonsPanel.add(b100);
-            loanButtonsPanel.add(b250);
-            loanButtonsPanel.add(b500);
-            loanButtonsPanel.add(b1000);
-            loanButtonsPanel.add(repayFull);
-
             loanDialog.add(loanButtonsPanel, BorderLayout.SOUTH);
 
-            loanDialog.setSize(700, 390);
+            loanDialog.setSize(820, 420);
             loanDialog.setLocationRelativeTo(frame);
         }
 
@@ -1430,27 +1583,103 @@ public class WineBarGUI {
     private void refreshLoanDialog() {
         if (loanDialog == null || loanTextArea == null || loanButtonsPanel == null) return;
 
-        loanTextArea.setText(
-                state.loanShark.buildLoanText(
-                        state.absWeekIndex(),
-                        state.reportIndex,
-                        state.weeksIntoReport,
-                        state.reputation
-                )
-        );
+        loanTextArea.setText(buildFinanceText());
+
+        loanButtonsPanel.removeAll();
+
+        loanButtonsPanel.add(new JLabel("Loan Shark:"));
+        JButton b100 = new JButton("Borrow 100");
+        JButton b250 = new JButton("Borrow 250");
+        JButton b500 = new JButton("Borrow 500");
+        JButton b1000 = new JButton("Borrow 1000");
+        JButton repayFull = new JButton("Repay In Full");
 
         boolean active = state.loanShark.hasActiveLoan();
+        b100.setEnabled(!active);
+        b250.setEnabled(!active);
+        b500.setEnabled(!active);
+        b1000.setEnabled(!active);
+        repayFull.setEnabled(active);
 
-        for (Component c : loanButtonsPanel.getComponents()) {
-            if (!(c instanceof JButton b)) continue;
+        b100.addActionListener(e -> { sim.borrowFromLoanShark(100); refreshAll(); refreshAllMenus(); });
+        b250.addActionListener(e -> { sim.borrowFromLoanShark(250); refreshAll(); refreshAllMenus(); });
+        b500.addActionListener(e -> { sim.borrowFromLoanShark(500); refreshAll(); refreshAllMenus(); });
+        b1000.addActionListener(e -> { sim.borrowFromLoanShark(1000); refreshAll(); refreshAllMenus(); });
+        repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
 
-            String txt = b.getText().toLowerCase();
-            if (txt.startsWith("borrow")) {
-                b.setEnabled(!active);
-            } else if (txt.contains("repay")) {
-                b.setEnabled(active);
+        loanButtonsPanel.add(b100);
+        loanButtonsPanel.add(b250);
+        loanButtonsPanel.add(b500);
+        loanButtonsPanel.add(b1000);
+        loanButtonsPanel.add(repayFull);
+
+        loanButtonsPanel.add(new JLabel("Banks:"));
+        for (Bank bank : Bank.values()) {
+            JButton open = new JButton("Open " + bank.getName());
+            boolean unlocked = bank.isUnlocked(state.creditScore);
+            boolean alreadyOpen = state.creditLines.hasLine(bank.getName());
+            open.setEnabled(unlocked && !alreadyOpen);
+            open.setToolTipText("Limit GBP " + bank.getMinLimit() + "-" + bank.getMaxLimit()
+                    + " | APR " + String.format("%.1f", bank.getMinApr() * 100) + "%-"
+                    + String.format("%.1f", bank.getMaxApr() * 100) + "%"
+                    + (bank.getMinScore() > 0 ? " | Score " + bank.getMinScore() + "+" : ""));
+            open.addActionListener(e -> { sim.openCreditLine(bank); refreshAll(); refreshAllMenus(); });
+            loanButtonsPanel.add(open);
+        }
+
+        if (!state.creditLines.getOpenLines().isEmpty()) {
+            loanButtonsPanel.add(new JLabel("Repay credit lines:"));
+        }
+        for (CreditLine line : state.creditLines.getOpenLines()) {
+            JButton repay = new JButton("Repay " + line.getLenderName());
+            repay.setEnabled(line.getBalance() > 0.0 && state.cash >= line.getBalance());
+            repay.addActionListener(e -> { sim.repayCreditLineInFull(line.getId()); refreshAll(); refreshAllMenus(); });
+            loanButtonsPanel.add(repay);
+        }
+
+        loanButtonsPanel.revalidate();
+        loanButtonsPanel.repaint();
+    }
+
+    private String buildFinanceText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Cash: ").append(money2(state.cash)).append("\n");
+        sb.append("Credit score: ").append(state.creditScore).append("\n\n");
+
+        sb.append("Open credit lines:\n");
+        if (state.creditLines.getOpenLines().isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (CreditLine line : state.creditLines.getOpenLines()) {
+                sb.append("  ").append(line.getLenderName())
+                        .append(" | Limit ").append(money2(line.getLimit()))
+                        .append(" | Balance ").append(money2(line.getBalance()))
+                        .append(" | Weekly ").append(money2(line.getWeeklyPayment()))
+                        .append(" | APR ").append(String.format("%.2f", line.getInterestAPR() * 100)).append("%")
+                        .append(" | Missed ").append(line.getMissedPaymentCount())
+                        .append("\n");
             }
         }
+
+        sb.append("\nAvailable banks:\n");
+        for (Bank bank : Bank.values()) {
+            sb.append("  ").append(bank.getName())
+                    .append(" | Limit ").append(bank.getMinLimit()).append("-").append(bank.getMaxLimit())
+                    .append(" | APR ").append(String.format("%.1f", bank.getMinApr() * 100)).append("%-")
+                    .append(String.format("%.1f", bank.getMaxApr() * 100)).append("%");
+            if (bank.getMinScore() > 0) sb.append(" | Score ").append(bank.getMinScore()).append("+");
+            sb.append("\n");
+        }
+
+        sb.append("\nLoan Shark:\n");
+        sb.append(state.loanShark.buildLoanText(
+                state.absWeekIndex(),
+                state.reportIndex,
+                state.weeksIntoReport,
+                state.reputation
+        ));
+
+        return sb.toString();
     }
 
     private void refreshReportsDialog() {

@@ -52,8 +52,8 @@ public class SupplierSystem {
     /** Cost used when buying from supplier. Includes rep pricing + deal pricing. */
     public double supplierBuyCost(Wine w, double repMult) {
         double base = w.getBaseCost() * repMult;
-        if (s.supplierDeal == null) return base;
-        return s.supplierDeal.applyToCost(w, base);
+        double cost = (s.supplierDeal == null) ? base : s.supplierDeal.applyToCost(w, base);
+        return cost * s.supplierPriceMultiplier();
     }
 
     /** Total cost for buying a quantity, with a tiny bulk discount (tycoon-friendly, not broken). */
