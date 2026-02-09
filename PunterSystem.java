@@ -48,7 +48,11 @@ public class PunterSystem {
     /** Some punters leave naturally each round to keep turnover flowing. */
     public int applyNaturalDepartures() {
         int left = 0;
-        double baseChance = 0.02 + Math.min(0.06, s.weekCount * 0.002);
+        int count = s.nightPunters.size();
+        double occupancyFactor = Math.min(0.04, count * 0.002);
+        double lateNightFactor = Math.min(0.03, Math.max(0, s.roundInNight - 3) * 0.002);
+        double baseChance = 0.015 + occupancyFactor + lateNightFactor;
+        baseChance = Math.min(0.09, baseChance);
         for (Punter p : s.nightPunters) {
             if (p.hasLeftBar() || p.isBanned()) continue;
             if (s.random.nextDouble() < baseChance) {
@@ -549,6 +553,10 @@ public class PunterSystem {
         if (s.random.nextDouble() > chance) return;
 
         if (s.foodRack.count() <= 0) {
+            if (s.kitchenQualityBonus >= 2 && s.random.nextInt(100) < 35) {
+                p.setFoodCooldownRounds(1);
+                return;
+            }
             p.incrementFoodAttempts();
             p.setFoodCooldownRounds(2);
             s.foodDisappointmentThisRound++;
@@ -579,7 +587,8 @@ public class PunterSystem {
         if (p.getWallet() < price) return;
 
         s.foodRack.removeFood(food);
-        s.pendingFoodOrders.add(new FoodOrder(p.getId(), p.getName(), food, price, s.roundInNight + 3));
+        int prepRounds = Math.max(1, s.foodPrepRounds);
+        s.pendingFoodOrders.add(new FoodOrder(p.getId(), p.getName(), food, price, s.roundInNight + prepRounds));
         p.setOrderedFoodThisVisit(true);
         eco.addCash(price, "Meal order: " + food.getName());
         s.reportRevenue += price;
@@ -590,7 +599,7 @@ public class PunterSystem {
         p.spend(price);
         s.recordFoodQuality(food);
         applyFoodOverpricingConsequences(p, food, price);
-        log.info("  - Orders food: " + food.getName() + " (ready in 3 rounds).");
+        log.info("  - Orders food: " + food.getName() + " (ready in " + prepRounds + " rounds).");
     }
 
     private double priceTipMultiplier(double sellPrice, double basePrice, Punter.Tier tier) {

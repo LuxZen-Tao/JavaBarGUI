@@ -10,11 +10,28 @@ import java.util.function.Consumer;
 public class UILogger implements Logger {
 
     public enum Tone { INFO, NEUTRAL, MID, POS, GREAT, NEG, EVENT, ACTION, HEADER }
-    public record Chunk(String text, Tone tone) {}
+    public record Segment(String text, Tone tone) {}
+    private interface LogEntry {
+        void append(StyledDocument doc) throws BadLocationException;
+    }
+    public record Chunk(String text, Tone tone) implements LogEntry {
+        @Override
+        public void append(StyledDocument doc) throws BadLocationException {
+            doc.insertString(doc.getLength(), text, doc.getStyle(styleName(tone)));
+        }
+    }
+    public record Segments(java.util.List<Segment> segments) implements LogEntry {
+        @Override
+        public void append(StyledDocument doc) throws BadLocationException {
+            for (Segment segment : segments) {
+                doc.insertString(doc.getLength(), segment.text(), doc.getStyle(styleName(segment.tone())));
+            }
+        }
+    }
 
     private final JTextPane pane;
     private final StyledDocument doc;
-    private final Deque<Chunk> queue = new ArrayDeque<>();
+    private final Deque<LogEntry> queue = new ArrayDeque<>();
     private final Timer timer;
     private boolean showTimestamps = false;
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -73,22 +90,25 @@ public class UILogger implements Logger {
 
     private void flushOne() {
         if (queue.isEmpty()) return;
-        Chunk c = queue.removeFirst();
+        LogEntry entry = queue.removeFirst();
         try {
-            String style = switch (c.tone) {
-                case NEUTRAL -> "NEUTRAL";
-                case MID -> "MID";
-                case POS -> "POS";
-                case GREAT -> "GREAT";
-                case NEG -> "NEG";
-                case EVENT -> "EVENT";
-                case ACTION -> "ACTION";
-                case HEADER -> "HEADER";
-                default -> "INFO";
-            };
-            doc.insertString(doc.getLength(), c.text, doc.getStyle(style));
+            entry.append(doc);
             pane.setCaretPosition(doc.getLength());
         } catch (BadLocationException ignored) {}
+    }
+
+    private static String styleName(Tone tone) {
+        return switch (tone) {
+            case NEUTRAL -> "NEUTRAL";
+            case MID -> "MID";
+            case POS -> "POS";
+            case GREAT -> "GREAT";
+            case NEG -> "NEG";
+            case EVENT -> "EVENT";
+            case ACTION -> "ACTION";
+            case HEADER -> "HEADER";
+            default -> "INFO";
+        };
     }
 
     private void push(String s, Tone t) {
@@ -105,6 +125,34 @@ public class UILogger implements Logger {
             }
         }
         queue.addLast(new Chunk(body, t));
+    }
+
+    public void appendLogSegments(java.util.List<Segment> segments) {
+        if (segments == null || segments.isEmpty()) return;
+        java.util.List<Segment> out = new java.util.ArrayList<>();
+        String firstText = segments.get(0).text();
+        Tone firstTone = segments.get(0).tone();
+        if (firstText.startsWith("\n")) {
+            out.add(new Segment("\n", Tone.INFO));
+            firstText = firstText.substring(1);
+        }
+        if (showTimestamps) {
+            String stamp = "[" + LocalTime.now().format(timeFormatter) + "] ";
+            out.add(new Segment(stamp, Tone.INFO));
+        }
+        if (!firstText.isEmpty()) {
+            out.add(new Segment(firstText, firstTone));
+        }
+        for (int i = 1; i < segments.size(); i++) {
+            Segment segment = segments.get(i);
+            if (segment != null && segment.text() != null && !segment.text().isEmpty()) {
+                out.add(segment);
+            }
+        }
+        if (out.isEmpty() || !out.get(out.size() - 1).text().endsWith("\n")) {
+            out.add(new Segment("\n", Tone.INFO));
+        }
+        queue.addLast(new Segments(out));
     }
 
     public void info(String s) { push(s, Tone.INFO); }
@@ -154,6 +202,36 @@ public class UILogger implements Logger {
         push(title + " - " + body, Tone.EVENT);
         publishEvent(title + " - " + body);
         publishPopup(title, body, effects, style);
+    }
+
+    public void upgrade(String prefix, String upgradeName, String suffix, Tone baseTone) {
+        java.util.List<Segment> segments = new java.util.ArrayList<>();
+        if (prefix != null && !prefix.isEmpty()) {
+            segments.add(new Segment(prefix, baseTone));
+        }
+        if (upgradeName != null && !upgradeName.isEmpty()) {
+            segments.add(new Segment(upgradeName, Tone.ACTION));
+        }
+        if (suffix != null && !suffix.isEmpty()) {
+            segments.add(new Segment(suffix, baseTone));
+        }
+        appendLogSegments(segments);
+    }
+
+    public void popupUpgrade(String title, String upgradeName, String bodySuffix, String effects) {
+        String safeTitle = title == null ? "" : title;
+        String suffix = bodySuffix == null ? "" : bodySuffix;
+        java.util.List<Segment> segments = new java.util.ArrayList<>();
+        segments.add(new Segment(safeTitle + " - ", Tone.EVENT));
+        if (upgradeName != null) {
+            segments.add(new Segment(upgradeName, Tone.ACTION));
+        }
+        if (!suffix.isEmpty()) {
+            segments.add(new Segment(suffix, Tone.EVENT));
+        }
+        appendLogSegments(segments);
+        publishEvent(safeTitle + " - " + upgradeName + suffix);
+        publishPopup(safeTitle, upgradeName + suffix, effects, UIPopup.PopupStyle.EVENT);
     }
 
     public void popup(EventCard card) {
