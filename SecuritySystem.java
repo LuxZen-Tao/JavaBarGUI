@@ -29,8 +29,7 @@ public class SecuritySystem {
 
     public void upgradeBaseSecurity() {
         double cost = nextUpgradeCost();
-        eco.payOrDebt(cost, "Security upgrade");
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(cost, TransactionType.UPGRADE, "Security upgrade", CostTag.UPGRADE)) return;
         s.baseSecurityLevel++;
         log.pos("Upgraded base security to " + s.baseSecurityLevel + ".");
     }
@@ -62,10 +61,10 @@ public class SecuritySystem {
         int basePay = (int)Math.round(30 * BOUNCER_COST_MULTIPLIER);
         int variance = (int)Math.round(30 * BOUNCER_COST_MULTIPLIER);
         double scale = 1.0 + (0.10 * s.bouncersHiredTonight);
-        s.bouncerNightPay = (basePay + s.random.nextInt(variance + 1)) * scale;
-        eco.payOrDebt(s.bouncerNightPay, "Bouncer (tonight)", CostTag.BOUNCER);
-        if (s.debt > s.maxDebt) return;
+        double nightPay = (basePay + s.random.nextInt(variance + 1)) * scale;
+        if (!eco.tryPay(nightPay, TransactionType.WAGES, "Bouncer (tonight)", CostTag.BOUNCER)) return;
 
+        s.bouncerNightPay = nightPay;
         s.nightRoundCostsTotal += s.bouncerNightPay;
         s.bouncersHiredTonight++;
         s.bouncerQualitiesTonight.add(quality);
