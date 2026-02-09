@@ -441,6 +441,10 @@ public class Simulation {
             return;
         }
 
+        if (!eco.tryPay(cost, TransactionType.RESTOCK, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER)) {
+            return;
+        }
+
         int added = s.rack.addBottles(w, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Inventory full."); return; }
 
@@ -482,8 +486,16 @@ public class Simulation {
             int roundsDelay = weekend ? 4 : 3;
             double markedCost = cost * markup;
             createSupplierInvoice("Food Supplier", markedCost);
+            if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
+                return;
+            }
+
             s.pendingFoodDeliveries.add(new PendingFoodDelivery(food, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency food supplier", qty + "x " + food.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
+            return;
+        }
+
+        if (!eco.tryPay(cost, TransactionType.RESTOCK, "Restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
             return;
         }
 
@@ -685,6 +697,66 @@ public class Simulation {
             log.neg("Credit score dips from opening multiple lines quickly.");
         }
     }
+
+    public void openSharkLine() {
+        CreditLine line = s.creditLines.openSharkLine(s.random);
+        if (line == null) {
+            log.info("Loan shark line already open.");
+            return;
+        }
+        s.creditScore = s.clampCreditScore(s.creditScore - 50);
+        log.neg("Loan shark line opened. Credit score takes a hit.");
+        log.pos("Opened loan shark line | limit GBP " + String.format("%.0f", line.getLimit())
+                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+    }
+
+    public void repayCreditLineInFull(String lineId) {
+        CreditLine line = s.creditLines.getLineById(lineId);
+        if (line == null) { log.neg("Credit line not found."); return; }
+        s.creditLines.repayInFull(s, line, log);
+        if ("Loan Shark".equals(line.getLenderName())) {
+            reduceSharkThreat(2, "Loan shark debt cleared");
+        }
+    }
+
+    public boolean paySupplierInvoice(SupplierInvoice invoice, CreditLine selectedLine) {
+        if (invoice == null || invoice.isPaid()) return false;
+        double amountDue = invoice.getAmountDue();
+        if (amountDue <= 0.0) {
+            invoice.markPaid();
+            return true;
+        }
+
+        double cashPaid = Math.min(s.cash, amountDue);
+        double remaining = amountDue - cashPaid;
+
+        CreditLine lineUsed = null;
+        double creditPaid = 0.0;
+        if (remaining > 0.0) {
+            if (selectedLine == null) return false;
+            if (!selectedLine.isEnabled() || selectedLine.availableCredit() < remaining) return false;
+            s.creditLines.addBalanceToLine(selectedLine, remaining);
+            if ("Loan Shark".equals(selectedLine.getLenderName())) {
+                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+            }
+            lineUsed = selectedLine;
+            creditPaid = remaining;
+        }
+
+        s.cash -= cashPaid;
+        invoice.markPaid();
+
+        String lender = lineUsed != null ? (" via " + lineUsed.getLenderName()) : "";
+        log.pos("Invoice paid: " + invoice.getSupplierName()
+                + " GBP " + String.format("%.2f", amountDue)
+                + " (cash " + String.format("%.2f", cashPaid)
+                + ", credit " + String.format("%.2f", creditPaid) + lender + ")");
+        return true;
+    }
+
+    public void borrowFromLoanShark(double amt) {
+        if (s.loanShark.hasActiveLoan()) { log.neg(" Loan Shark says: you already owe."); return; }
+        if (!s.loanShark.canBorrow(amt, s.reputation)) { log.neg(" Loan Shark: can't borrow that amount."); return; }
 
     public void openSharkLine() {
         CreditLine line = s.creditLines.openSharkLine(s.random);

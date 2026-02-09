@@ -103,6 +103,7 @@ public class EconomySystem {
             s.securityUpkeepAccruedThisWeek = 0.0;
         }
         return wagesPaid;
+        return wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Wages", CostTag.WAGES);
     }
 
     /** Weekly interest on debt. This is separate from LoanShark (that's its own hell). */
