@@ -441,6 +441,10 @@ public class Simulation {
             return;
         }
 
+        if (!eco.tryPay(cost, TransactionType.RESTOCK, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER)) {
+            return;
+        }
+
         int added = s.rack.addBottles(w, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Inventory full."); return; }
 
@@ -482,8 +486,16 @@ public class Simulation {
             int roundsDelay = weekend ? 4 : 3;
             double markedCost = cost * markup;
             createSupplierInvoice("Food Supplier", markedCost);
+            if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
+                return;
+            }
+
             s.pendingFoodDeliveries.add(new PendingFoodDelivery(food, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency food supplier", qty + "x " + food.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
+            return;
+        }
+
+        if (!eco.tryPay(cost, TransactionType.RESTOCK, "Restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
             return;
         }
 
