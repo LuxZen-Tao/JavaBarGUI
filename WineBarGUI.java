@@ -354,6 +354,18 @@ public class WineBarGUI {
         return createBadge(NIGHT_BG, wrapper);
     }
 
+    private void addReportSummaryItem(JPanel summary, JLabel label, int x, int y) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = x;
+        gbc.gridy = y;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(6, 8, 6, 8);
+        label.setBorder(new EmptyBorder(2, 2, 2, 2));
+        summary.add(label, gbc);
+    }
+
     private JPanel createControlGroup(String title, JComponent... components) {
         JPanel group = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
         group.setBorder(BorderFactory.createTitledBorder(title));
@@ -440,9 +452,9 @@ public class WineBarGUI {
         header.add(title, BorderLayout.WEST);
         header.add(missionControlBtn, BorderLayout.EAST);
 
-        JPanel summary = new JPanel(new GridLayout(0, 2, 6, 4));
-        summary.setBorder(new EmptyBorder(4, 4, 4, 4));
-        summary.setPreferredSize(new Dimension(0, 116));
+        JPanel summary = new JPanel(new GridBagLayout());
+        summary.setBorder(new EmptyBorder(8, 8, 8, 8));
+        summary.setPreferredSize(new Dimension(0, 148));
         reportSummaryCash = new JLabel();
         reportSummaryDebt = new JLabel();
         reportSummaryRep = new JLabel();
@@ -451,14 +463,14 @@ public class WineBarGUI {
         reportSummaryServe = new JLabel();
         reportSummaryRefunds = new JLabel();
         reportSummaryInvoice = new JLabel();
-        summary.add(reportSummaryCash);
-        summary.add(reportSummaryDebt);
-        summary.add(reportSummaryRep);
-        summary.add(reportSummarySecurity);
-        summary.add(reportSummaryStaff);
-        summary.add(reportSummaryServe);
-        summary.add(reportSummaryRefunds);
-        summary.add(reportSummaryInvoice);
+        addReportSummaryItem(summary, reportSummaryCash, 0, 0);
+        addReportSummaryItem(summary, reportSummaryDebt, 1, 0);
+        addReportSummaryItem(summary, reportSummaryRep, 0, 1);
+        addReportSummaryItem(summary, reportSummarySecurity, 1, 1);
+        addReportSummaryItem(summary, reportSummaryStaff, 0, 2);
+        addReportSummaryItem(summary, reportSummaryServe, 1, 2);
+        addReportSummaryItem(summary, reportSummaryRefunds, 0, 3);
+        addReportSummaryItem(summary, reportSummaryInvoice, 1, 3);
 
         reportArea = new JTextArea(14, 36);
         reportArea.setEditable(false);
@@ -1609,8 +1621,7 @@ public class WineBarGUI {
                                         (state.reputation >= -60) ? " Bad" :
                                                 " Toxic";
 
-        repLabel.setText("<html>Reputation: " + state.reputation + " (" + mood + ")"
-                + "<br>Pub ID: " + state.pubId + "</html>");
+        repLabel.setText(buildReputationBadgeText(mood));
         calendarLabel.setText("Week " + state.weekCount + "  " + state.dayName() + " | Night " + state.nightCount);
 
         int cap = sim.peekServeCapacity();
@@ -1630,10 +1641,7 @@ public class WineBarGUI {
                 : "Bouncer: None";
         securityLabel.setText("<html>Security: " + sec + "<br>" + bouncerInfo + "</html>");
 
-        String staffLine = "Staff: " + state.staff().summaryLine() + " | Serve cap " + cap;
-        String staffCounts = "FOH: " + state.fohStaff.size() + "/" + state.fohStaffCap
-                + " | BOH: " + state.bohStaff.size() + "/" + state.kitchenChefCap;
-        staffLabel.setText("<html>" + staffLine + "<br>" + staffCounts + "</html>");
+        staffLabel.setText(buildStaffBadgeText(cap));
         reportLabel.setText("Report: " + state.reports().summaryLine());
         String forecastLine = state.trafficForecastLine != null ? state.trafficForecastLine : "Forecast: 0–0 tonight";
         String topSalesLine = state.topSalesForecastLine != null
@@ -1673,6 +1681,59 @@ public class WineBarGUI {
 
         updateNightPulse();
 
+    }
+
+    private String buildReputationBadgeText(String mood) {
+        String identity = formatIdentityLabel(state.pubIdentity);
+        RumorInstance featuredRumor = findFeaturedRumor();
+        String rumorLine = featuredRumor != null ? featuredRumor.type().getLabel() : "None";
+        return "<html>Reputation: " + state.reputation + " (" + mood + ")"
+                + "<br>Identity: " + identity
+                + "<br>Rumor: " + rumorLine + "</html>";
+    }
+
+    private RumorInstance findFeaturedRumor() {
+        RumorInstance featured = null;
+        for (RumorInstance rumor : state.activeRumors.values()) {
+            if (featured == null) {
+                featured = rumor;
+                continue;
+            }
+            // No timestamp exists, so choose the strongest active rumor by intensity (tie: longer remaining).
+            if (rumor.intensity() > featured.intensity()
+                    || (rumor.intensity() == featured.intensity() && rumor.daysRemaining() > featured.daysRemaining())) {
+                featured = rumor;
+            }
+        }
+        return featured;
+    }
+
+    private String formatIdentityLabel(PubIdentity identity) {
+        if (identity == null) return "Unknown";
+        String[] parts = identity.getDescriptor().split(" ");
+        StringBuilder label = new StringBuilder();
+        for (String part : parts) {
+            if (label.length() > 0) label.append(' ');
+            if (part.isBlank()) continue;
+            label.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return label.toString();
+    }
+
+    private String buildStaffBadgeText(int serveCap) {
+        GameState.StaffSummary summary = state.staff();
+        int combinedCap = state.fohStaffCap + state.kitchenChefCap;
+        String staffLine = "Staff: " + summary.staffCount() + "/" + combinedCap
+                + " | Managers: " + summary.managerPoolCount() + "/" + summary.managerCap()
+                + " (GM " + summary.managerCount() + ", AM " + summary.assistantManagerCount() + ")"
+                + (summary.bouncersTonight() > 0 ? " | Bouncer: " + summary.bouncersTonight() + "/" + summary.bouncerCap() : "")
+                + " | Morale: " + (int)Math.round(summary.teamMorale())
+                + " | Upgrades: " + summary.upgradesOwned()
+                + (summary.activityTonight() != null ? " | Activity: " + summary.activityTonight() : "")
+                + " | Serve cap " + serveCap;
+        String staffCounts = "FOH: " + state.fohStaff.size() + "/" + state.fohStaffCap
+                + " | BOH: " + state.bohStaff.size() + "/" + state.kitchenChefCap;
+        return "<html>" + staffLine + "<br>" + staffCounts + "</html>";
     }
 
     private void updateNightPulse() {

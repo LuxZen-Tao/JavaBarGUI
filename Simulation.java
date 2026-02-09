@@ -1179,13 +1179,7 @@ public class Simulation {
                 + "\nChaos breakdown: " + chaosBreakdownLine()
                 + "\nLast between-night event: " + s.lastBetweenNightEventSummary;
 
-        String staffText = "FOH: " + s.fohStaff.size() + "/" + s.fohStaffCap
-                + "\nBOH: " + s.bohStaff.size() + "/" + s.kitchenChefCap
-                + "\nManager slots: " + s.managerPoolCount() + "/" + s.managerCap
-                + " (GM " + s.generalManagers.size() + ", AM " + s.assistantManagerCount() + ")"
-                + "\nTeam morale: " + (int)Math.round(s.teamMorale)
-                + "\nMisconduct (week): " + s.staffMisconductThisWeek
-                + "\nWages accrued: GBP " + fmt2(s.wagesAccruedThisWeek);
+        String staffText = buildStaffTabSummary(serveCap);
 
         String risk = "Security: " + sec
                 + "\nBouncers hired: " + s.bouncersHiredTonight + "/" + s.bouncerCap
@@ -1251,6 +1245,67 @@ public class Simulation {
                 loans,
                 logSummary
         );
+    }
+
+    private String buildStaffTabSummary(int serveCap) {
+        StringBuilder sb = new StringBuilder();
+        int combinedCap = s.fohStaffCap + s.kitchenChefCap;
+        int totalStaff = s.fohStaff.size() + s.bohStaff.size() + s.generalManagers.size();
+        double tipRate = staff.tipRate();
+        int kitchenCapacity = 0;
+        for (Staff st : s.bohStaff) {
+            kitchenCapacity += st.getKitchenCapacity();
+        }
+
+        sb.append("Total staff: ").append(totalStaff).append("/").append(combinedCap)
+                .append(" (FOH ").append(s.fohStaff.size()).append("/").append(s.fohStaffCap)
+                .append(", BOH ").append(s.bohStaff.size()).append("/").append(s.kitchenChefCap).append(")");
+        sb.append("\nManager slots: ").append(s.managerPoolCount()).append("/").append(s.managerCap)
+                .append(" (GM ").append(s.generalManagers.size()).append(", AM ").append(s.assistantManagerCount()).append(")");
+        sb.append("\nServe cap (total): ").append(serveCap);
+        sb.append("\nKitchen capacity: ").append(kitchenCapacity);
+        sb.append("\nTip rate from staff: ").append(String.format("%.1f%%", tipRate * 100));
+        sb.append("\nSecurity bonus (staff): ").append(s.staffSecurityBonus());
+        sb.append("\nChaos tolerance (weighted): ").append(String.format("%.1f", s.staffChaosCapacity()));
+        sb.append("\nMisconduct reduction: ").append(String.format("%.0f%%", s.staffMisconductReductionPct * 100));
+        sb.append("\nMorale: FOH ").append((int)Math.round(s.fohMorale))
+                .append(" | BOH ").append((int)Math.round(s.bohMorale))
+                .append(" | Team ").append((int)Math.round(s.teamMorale));
+        sb.append("\nMisconduct (week): ").append(s.staffMisconductThisWeek);
+        sb.append("\nWages accrued: GBP ").append(fmt2(s.wagesAccruedThisWeek));
+        sb.append("\nOperating cost (base): GBP ").append(fmt2(s.opCostBaseThisWeek));
+        sb.append("\nOperating cost (staff): GBP ").append(fmt2(s.opCostStaffThisWeek));
+        sb.append("\nOperating cost (skill): GBP ").append(fmt2(s.opCostSkillThisWeek));
+        sb.append("\nOperating cost (occupancy): GBP ").append(fmt2(s.opCostOccupancyThisWeek));
+
+        sb.append("\n\nManagers (GM):");
+        if (s.generalManagers.isEmpty()) {
+            sb.append("\n  (none)");
+        } else {
+            for (Staff st : s.generalManagers) {
+                sb.append("\n  - ").append(st);
+            }
+        }
+
+        sb.append("\n\nFOH roster:");
+        if (s.fohStaff.isEmpty()) {
+            sb.append("\n  (none)");
+        } else {
+            for (Staff st : s.fohStaff) {
+                sb.append("\n  - ").append(st);
+            }
+        }
+
+        sb.append("\n\nBOH roster:");
+        if (s.bohStaff.isEmpty()) {
+            sb.append("\n  (none)");
+        } else {
+            for (Staff st : s.bohStaff) {
+                sb.append("\n  - ").append(st);
+            }
+        }
+
+        return sb.toString();
     }
 
     private void rollReport() {
