@@ -18,15 +18,15 @@ public enum PubUpgrade {
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     // Kitchen
-    KITCHEN_SETUP("Kitchen Setup", 450, 0.02, 0, 0,
+    KITCHEN_SETUP("Kitchen Base", 450, 0.02, 0, 0,
             0, 0, 10, 0, 0, 0, 0, 0, 1, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    KITCHEN("Kitchen", 600, 0.10, 1, 2,
+    KITCHEN("Kitchen Upgrade I", 600, 0.10, 1, 2,
             2, 0, 10, 0, 1, 0, 0, 0, 0, 1,
             0.00, 0.00, 0.03, 0.00, 0.00, 0.00),
 
-    KITCHEN_EQUIPMENT("Kitchen Equipment", 360, 0.00, 0, 0,
+    KITCHEN_EQUIPMENT("Kitchen Upgrade III", 360, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
@@ -42,6 +42,10 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
+    KITCHEN_STAFFING_III("Kitchen Staffing III", 620, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
     FRIDGE_EXTENSION_1("Fridge Extension I", 220, 0.00, 0, 0,
             0, 0, 0, 10, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
@@ -54,7 +58,7 @@ public enum PubUpgrade {
             0, 0, 0, 20, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    NEW_KITCHEN_PLAN("New Kitchen Plan", 480, 0.00, 0, 0,
+    NEW_KITCHEN_PLAN("Kitchen Upgrade II", 480, 0.00, 0, 0,
             0, 0, 0, 10, 0, 0, 0, 0, 0, 1,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
@@ -95,6 +99,10 @@ public enum PubUpgrade {
             0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.05, 0.00, 0.00, 0.00),
 
+    STAFF_TRAINING_III("Staff Training III", 720, 0.02, 1, 1,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.06, 0.00, 0.00, 0.00),
+
     STAFF_ROOM_I("Staff Room I", 240, 0.00, 0, 0,
             0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
@@ -103,11 +111,19 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
+    STAFF_ROOM_III("Staff Room III", 620, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
     DOOR_TEAM_I("Door Team I", 260, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     DOOR_TEAM_II("Door Team II", 420, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    DOOR_TEAM_III("Door Team III", 620, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
@@ -124,12 +140,13 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.02, 0.00, 0.00),
             
-              BETTER_GLASSWARE_III("Better Glassware III", 420, 0.00, 1, 0,
+    BETTER_GLASSWARE_III("Better Glassware III", 420, 0.00, 1, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.03, 0.00, 0.00),
-            
-            FASTER_TAPS_I("Faster Pour Taps I", 260, 0.02, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    FASTER_TAPS_I("Faster Pour Taps I", 260, 0.02, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
     FASTER_TAPS_II("Faster Pour Taps II", 420, 0.02, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+    FASTER_TAPS_III("Faster Pour Taps III", 620, 0.02, 0, 1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
   
 
@@ -143,13 +160,21 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.10),
 
+    SOUNDPROOFING_III("Soundproofing III", 640, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.14),
+
     FIRE_SUPPRESSION_I("Fire Suppression I", 360, 0.00, 0, 0,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.08, 0.00),
 
     FIRE_SUPPRESSION_II("Fire Suppression II", 560, 0.00, 0, 0,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-            0.00, 0.00, 0.00, 0.00, 0.14, 0.00);
+            0.00, 0.00, 0.00, 0.00, 0.14, 0.00),
+
+    FIRE_SUPPRESSION_III("Fire Suppression III", 760, 0.00, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.20, 0.00);
             
 
     private final String label;
@@ -282,6 +307,24 @@ public enum PubUpgrade {
     public double getRiskReductionPct() { return riskReductionPct; }
     public String getChainKey() { return chainKey; }
     public int getTier() { return tier; }
+
+    public boolean isKitchenRelated() {
+        return switch (this) {
+            case KITCHEN_SETUP,
+                    KITCHEN,
+                    NEW_KITCHEN_PLAN,
+                    KITCHEN_EQUIPMENT,
+                    HYGIENE_TRAINING,
+                    CHEF_TRAINING,
+                    KITCHEN_STAFFING_I,
+                    KITCHEN_STAFFING_II,
+                    KITCHEN_STAFFING_III,
+                    FRIDGE_EXTENSION_1,
+                    FRIDGE_EXTENSION_2,
+                    FRIDGE_EXTENSION_3 -> true;
+            default -> false;
+        };
+    }
 
     private record TierInfo(String chainKey, int tier) {
         static TierInfo fromName(String name) {

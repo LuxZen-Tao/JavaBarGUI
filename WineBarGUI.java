@@ -52,6 +52,7 @@ public class WineBarGUI {
     private JDialog staffDialog;
     private JPanel staffHirePanel;
     private JPanel staffRosterPanel;
+    private JLabel kitchenLockLabel;
 
     // Loan shark window
     private JDialog loanDialog;
@@ -68,14 +69,6 @@ public class WineBarGUI {
 
     // Reports panel (right side)
     private JTextArea reportArea;
-    private JLabel reportSummaryCash;
-    private JLabel reportSummaryDebt;
-    private JLabel reportSummaryRep;
-    private JLabel reportSummarySecurity;
-    private JLabel reportSummaryStaff;
-    private JLabel reportSummaryServe;
-    private JLabel reportSummaryRefunds;
-    private JLabel reportSummaryInvoice;
 
     private final JTextPane logPane = new JTextPane();
     private final UILogger log;
@@ -354,18 +347,6 @@ public class WineBarGUI {
         return createBadge(NIGHT_BG, wrapper);
     }
 
-    private void addReportSummaryItem(JPanel summary, JLabel label, int x, int y) {
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = x;
-        gbc.gridy = y;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(6, 8, 6, 8);
-        label.setBorder(new EmptyBorder(2, 2, 2, 2));
-        summary.add(label, gbc);
-    }
-
     private JPanel createControlGroup(String title, JComponent... components) {
         JPanel group = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
         group.setBorder(BorderFactory.createTitledBorder(title));
@@ -452,26 +433,6 @@ public class WineBarGUI {
         header.add(title, BorderLayout.WEST);
         header.add(missionControlBtn, BorderLayout.EAST);
 
-        JPanel summary = new JPanel(new GridBagLayout());
-        summary.setBorder(new EmptyBorder(8, 8, 8, 8));
-        summary.setPreferredSize(new Dimension(0, 148));
-        reportSummaryCash = new JLabel();
-        reportSummaryDebt = new JLabel();
-        reportSummaryRep = new JLabel();
-        reportSummarySecurity = new JLabel();
-        reportSummaryStaff = new JLabel();
-        reportSummaryServe = new JLabel();
-        reportSummaryRefunds = new JLabel();
-        reportSummaryInvoice = new JLabel();
-        addReportSummaryItem(summary, reportSummaryCash, 0, 0);
-        addReportSummaryItem(summary, reportSummaryDebt, 1, 0);
-        addReportSummaryItem(summary, reportSummaryRep, 0, 1);
-        addReportSummaryItem(summary, reportSummarySecurity, 1, 1);
-        addReportSummaryItem(summary, reportSummaryStaff, 0, 2);
-        addReportSummaryItem(summary, reportSummaryServe, 1, 2);
-        addReportSummaryItem(summary, reportSummaryRefunds, 0, 3);
-        addReportSummaryItem(summary, reportSummaryInvoice, 1, 3);
-
         reportArea = new JTextArea(14, 36);
         reportArea.setEditable(false);
         reportArea.setFont(UIManager.getFont("TextArea.font"));
@@ -480,8 +441,7 @@ public class WineBarGUI {
         reportScroll.setPreferredSize(new Dimension(0, 240));
 
         p.add(header, BorderLayout.NORTH);
-        p.add(summary, BorderLayout.CENTER);
-        p.add(reportScroll, BorderLayout.SOUTH);
+        p.add(reportScroll, BorderLayout.CENTER);
         return p;
     }
 
@@ -817,7 +777,7 @@ public class WineBarGUI {
     // -----------------------
 
     private void openKitchenSupplierWindow() {
-        if (!state.kitchenUnlocked) {
+        if (!canUseKitchen()) {
             log.neg("Kitchen not unlocked.");
             return;
         }
@@ -889,6 +849,19 @@ public class WineBarGUI {
     private void refreshKitchenSupplierButtons() {
         if (kitchenSupplierDialog == null || kitchenSupplierListPanel == null) return;
 
+        if (!canUseKitchen()) {
+            if (kitchenSupplierNoticeLabel != null) {
+                kitchenSupplierNoticeLabel.setText("Kitchen not installed (requires Kitchen upgrade).");
+            }
+            for (Component rowC : kitchenSupplierListPanel.getComponents()) {
+                if (!(rowC instanceof JPanel row)) continue;
+                for (Component c : row.getComponents()) {
+                    if (c instanceof JButton b) b.setEnabled(false);
+                }
+            }
+            return;
+        }
+
         int freeSlots = state.foodRack.getCapacity() - state.foodRack.count();
         boolean hasHeadChef = state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1;
         if (kitchenSupplierNoticeLabel != null) {
@@ -953,6 +926,10 @@ public class WineBarGUI {
             addStaffHireButton(Staff.Type.SPEED);
             addStaffHireButton(Staff.Type.CHARISMA);
             addStaffHireButton(Staff.Type.SECURITY);
+            kitchenLockLabel = new JLabel("Kitchen not installed (requires Kitchen upgrade)");
+            kitchenLockLabel.setForeground(new Color(150, 150, 150));
+            staffHirePanel.add(kitchenLockLabel);
+            staffHirePanel.add(Box.createVerticalStrut(6));
             addStaffHireButton(Staff.Type.KITCHEN_PORTER);
             addStaffHireButton(Staff.Type.KITCHEN_ASSISTANT);
             addStaffHireButton(Staff.Type.CHEF_DE_PARTIE);
@@ -1003,6 +980,9 @@ public class WineBarGUI {
 
     private void refreshStaffButtons() {
         if (staffDialog == null || staffHirePanel == null || staffRosterPanel == null) return;
+        if (kitchenLockLabel != null) {
+            kitchenLockLabel.setVisible(!canUseKitchen());
+        }
 
         // Enable/disable hire options
         for (Component c : staffHirePanel.getComponents()) {
@@ -1024,7 +1004,7 @@ public class WineBarGUI {
                     || t == Staff.Type.KITCHEN_ASSISTANT
                     || t == Staff.Type.KITCHEN_PORTER
                     || t == Staff.Type.CHEF) {
-                enabled = state.kitchenUnlocked && (state.bohStaff.size() < state.kitchenChefCap);
+                enabled = canUseKitchen() && (state.bohStaff.size() < state.kitchenChefCap);
                 if (t == Staff.Type.HEAD_CHEF && state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1) {
                     enabled = false;
                 }
@@ -1259,11 +1239,13 @@ public class WineBarGUI {
             } else if (installing != null) {
                 prefix = " INSTALLING (" + installing.nightsRemaining() + " nights)  ";
             } else {
-                prefix = unlocked ? "" : " LOCKED  ";
+                String requirement = sim.upgradeRequirementText(up);
+                prefix = unlocked ? "" : (" LOCKED  " + (requirement != null ? "(" + requirement + ")  " : ""));
             }
             b.setText(prefix + up.toString());
             boolean enabled = !state.nightOpen && !owned && unlocked && installing == null;
             b.setEnabled(enabled);
+            b.setToolTipText(!unlocked && !owned ? sim.upgradeRequirementText(up) : null);
             if (installing != null) {
                 b.setOpaque(true);
                 b.setBackground(INSTALLING_BG);
@@ -1339,12 +1321,16 @@ public class WineBarGUI {
             PubActivity a = (PubActivity) b.getClientProperty("activity");
             if (a == null) continue;
 
+            String requirement = sim.activityRequirementText(a);
             boolean unlocked = state.unlockedActivities.contains(a);
-            boolean enabled = unlocked && !state.nightOpen && state.scheduledActivity == null;
+            boolean enabled = requirement == null && unlocked && !state.nightOpen && state.scheduledActivity == null;
             b.setEnabled(enabled);
 
             String txt = a.toString();
-            if (!unlocked) txt = " LOCKED  " + txt;
+            if (!unlocked || requirement != null) {
+                String reqText = requirement != null ? (" (" + requirement + ")") : "";
+                txt = " LOCKED" + reqText + "  " + txt;
+            }
             if (state.activityTonight == a) txt = " RUNNING  " + txt;
             if (state.scheduledActivity != null) {
                 int daysLeft = Math.max(0, state.scheduledActivity.startAbsDayIndex() - state.absDayIndex());
@@ -1352,6 +1338,7 @@ public class WineBarGUI {
                 b.setEnabled(false);
             }
             b.setText(txt);
+            b.setToolTipText(requirement);
         }
     }
 
@@ -1497,7 +1484,7 @@ public class WineBarGUI {
         if (missionReputationArea != null) missionReputationArea.setText(snapshot.reputationIdentity);
         if (missionRumorsArea != null) missionRumorsArea.setText(snapshot.rumors);
         if (missionTrafficArea != null) missionTrafficArea.setText(snapshot.trafficPunters);
-        if (missionInventoryArea != null) missionInventoryArea.setText(snapshot.inventory);
+        if (missionInventoryArea != null) missionInventoryArea.setText(buildInventoryPanelText());
         if (missionLoansArea != null) missionLoansArea.setText(snapshot.loans);
         if (missionLogArea != null && (missionLogArea.getText() == null || missionLogArea.getText().isBlank())) {
             missionLogArea.setText(snapshot.logEvents + "\n");
@@ -1639,7 +1626,7 @@ public class WineBarGUI {
         String bouncerInfo = state.bouncersHiredTonight > 0
                 ? "Bouncer: " + state.bouncersHiredTonight + " (" + state.bouncerQualitySummary() + ")"
                 : "Bouncer: None";
-        securityLabel.setText("<html>Security: " + sec + "<br>" + bouncerInfo + "</html>");
+        securityLabel.setText(buildSecurityBadgeText(sec, bouncerInfo));
 
         staffLabel.setText(buildStaffBadgeText(cap));
         reportLabel.setText("Report: " + state.reports().summaryLine());
@@ -1664,9 +1651,15 @@ public class WineBarGUI {
         boolean emergencySupplierAllowed = state.canEmergencyRestock();
         supplierBtn.setEnabled(!state.nightOpen || emergencySupplierAllowed);
         boolean emergencyFoodAllowed = state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1;
-        boolean kitchenSupplierEnabled = state.kitchenUnlocked && (!state.nightOpen || emergencyFoodAllowed);
+        boolean kitchenSupplierEnabled = canUseKitchen() && (!state.nightOpen || emergencyFoodAllowed);
         kitchenSupplierBtn.setEnabled(kitchenSupplierEnabled);
-        kitchenSupplierBtn.setToolTipText(kitchenSupplierEnabled ? null : "Requires Head Chef");
+        if (!canUseKitchen()) {
+            kitchenSupplierBtn.setToolTipText("Kitchen not installed (requires Kitchen upgrade)");
+        } else if (state.nightOpen && !emergencyFoodAllowed) {
+            kitchenSupplierBtn.setToolTipText("Requires Head Chef");
+        } else {
+            kitchenSupplierBtn.setToolTipText(null);
+        }
         happyHourBtn.setEnabled(state.nightOpen);
 
         lastCash = state.cash;
@@ -1736,6 +1729,78 @@ public class WineBarGUI {
         return "<html>" + staffLine + "<br>" + staffCounts + "</html>";
     }
 
+    private String buildSecurityBadgeText(int sec, String bouncerInfo) {
+        String chaosLine = "Chaos: " + String.format("%.1f", state.chaos);
+        return "<html>Security: " + sec + "<br>" + bouncerInfo + "<br>" + chaosLine + "</html>";
+    }
+
+    private boolean canUseKitchen() {
+        return state.kitchenUnlocked;
+    }
+
+    private String buildInventoryPanelText() {
+        return String.join("\n", buildInventoryPanelLines());
+    }
+
+    private List<String> buildInventoryPanelLines() {
+        List<String> lines = new java.util.ArrayList<>();
+        int totalItems = state.rack.count() + (state.kitchenUnlocked ? state.foodRack.count() : 0);
+        lines.add("Total items: " + totalItems);
+
+        lines.add("=== Wine ===");
+        Map<String, Integer> counts = state.rack.inventoryCounts();
+        if (counts.isEmpty()) {
+            lines.add("(empty)");
+        } else {
+            for (Map.Entry<String, Integer> e : counts.entrySet()) {
+                lines.add(e.getKey() + " x" + e.getValue());
+            }
+        }
+        lines.add("Total: " + state.rack.count() + "/" + state.rack.getCapacity());
+
+        lines.add(" ");
+        lines.add("=== Food ===");
+        if (state.kitchenUnlocked) {
+            Map<String, Integer> foodCounts = state.foodRack.inventoryCounts();
+            if (foodCounts.isEmpty()) {
+                lines.add("(empty)");
+            } else {
+                for (Map.Entry<String, Integer> e : foodCounts.entrySet()) {
+                    lines.add(e.getKey() + " x" + e.getValue());
+                }
+            }
+            lines.add("Total: " + state.foodRack.count() + "/" + state.foodRack.getCapacity());
+        } else {
+            lines.add("Kitchen not installed (requires Kitchen upgrade)");
+        }
+
+        lines.add(" ");
+        lines.add("=== Spoilage forecast ===");
+        List<String> spoilageLines = buildSpoilageForecastLines();
+        if (spoilageLines.isEmpty()) {
+            lines.add("No spoilage risk.");
+        } else {
+            lines.addAll(spoilageLines);
+        }
+
+        return lines;
+    }
+
+    private List<String> buildSpoilageForecastLines() {
+        List<String> lines = new java.util.ArrayList<>();
+        List<WineRack.SpoilageLine> wineSpoilage = state.rack.spoilageForecast(state.absDayIndex());
+        for (WineRack.SpoilageLine line : wineSpoilage) {
+            lines.add(line.wineName() + " x" + line.count() + " - spoil " + formatSpoilageDays(line.daysRemaining()));
+        }
+        if (state.kitchenUnlocked) {
+            List<FoodRack.SpoilageLine> foodSpoilage = state.foodRack.spoilageForecast(state.absDayIndex());
+            for (FoodRack.SpoilageLine line : foodSpoilage) {
+                lines.add(line.foodName() + " x" + line.count() + " - spoil " + formatSpoilageDays(line.daysRemaining()));
+            }
+        }
+        return lines;
+    }
+
     private void updateNightPulse() {
         if (nightIndicator == null) return;
         if (state.nightOpen) {
@@ -1775,45 +1840,8 @@ public class WineBarGUI {
 
     private void updateInventory() {
         invModel.clear();
-
-        Map<String, Integer> counts = state.rack.inventoryCounts();
-        invModel.addElement("=== Wine ===");
-        if (counts.isEmpty()) {
-            invModel.addElement("(empty)");
-        } else {
-            for (Map.Entry<String, Integer> e : counts.entrySet()) {
-                invModel.addElement(e.getKey() + " x" + e.getValue());
-            }
-        }
-        List<WineRack.SpoilageLine> spoilage = state.rack.spoilageForecast(state.absDayIndex());
-        if (!spoilage.isEmpty()) {
-            invModel.addElement(" ");
-            invModel.addElement("=== Spoilage forecast ===");
-            for (WineRack.SpoilageLine line : spoilage) {
-                invModel.addElement(line.wineName() + " - " + line.count() + " bottle(s) spoil " + formatSpoilageDays(line.daysRemaining()));
-            }
-        }
-        invModel.addElement("Total: " + state.rack.count() + "/" + state.rack.getCapacity());
-
-        if (state.kitchenUnlocked) {
-            invModel.addElement(" ");
-            invModel.addElement("=== Food ===");
-            Map<String, Integer> foodCounts = state.foodRack.inventoryCounts();
-            if (foodCounts.isEmpty()) {
-                invModel.addElement("(empty)");
-            } else {
-                for (Map.Entry<String, Integer> e : foodCounts.entrySet()) {
-                    invModel.addElement(e.getKey() + " x" + e.getValue());
-                }
-            }
-            FoodRack.SpoilageSummary summary = state.foodRack.spoilageSummary(state.absDayIndex());
-            if (summary != null) {
-                invModel.addElement("Food spoilage forecast: Next spoilage " + formatSpoilageDays(summary.nextSpoilDays())
-                        + "; " + summary.atRiskCount() + " meal(s) at risk");
-            } else {
-                invModel.addElement("Food spoilage forecast: None");
-            }
-            invModel.addElement("Total: " + state.foodRack.count() + "/" + state.foodRack.getCapacity());
+        for (String line : buildInventoryPanelLines()) {
+            invModel.addElement(line);
         }
     }
 
@@ -1826,22 +1854,7 @@ public class WineBarGUI {
     private void updateReportsPanel(MetricsSnapshot snapshot) {
         if (reportArea == null) return;
         reportArea.setText(ReportSystem.buildReportText(state));
-        updateReportSummary(snapshot);
         refreshReportsDialog();
-    }
-
-    private void updateReportSummary(MetricsSnapshot snapshot) {
-        if (reportSummaryCash == null || snapshot == null) return;
-        reportSummaryCash.setText(snapshot.hudCash);
-        reportSummaryDebt.setText(snapshot.hudDebt);
-        reportSummaryRep.setText(snapshot.hudRep);
-        reportSummarySecurity.setText(snapshot.hudSecurity);
-        reportSummaryStaff.setText("Staff: FOH " + state.fohStaff.size()
-                + " | BOH " + state.bohStaff.size()
-                + " | GM " + state.generalManagers.size());
-        reportSummaryServe.setText(snapshot.hudServeCap);
-        reportSummaryRefunds.setText("Refunds (week): " + money2(state.weekRefundTotal));
-        reportSummaryInvoice.setText(snapshot.hudInvoice);
     }
 
     private void updateMoodLighting() {
