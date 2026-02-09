@@ -165,6 +165,9 @@ public class ReportSystem {
         mult -= s.rumorHeat.getOrDefault(Rumor.FIGHTS_EVERY_WEEKEND,0)*0.0025;
         mult += s.rumorHeat.getOrDefault(Rumor.BEST_SUNDAY_ROAST,0)*0.002;
         mult -= s.rumorHeat.getOrDefault(Rumor.FOOD_POISONING_SCARE,0)*0.002;
+        mult -= s.rumorHeat.getOrDefault(Rumor.SLOW_SERVICE,0)*0.002;
+        mult += s.rumorHeat.getOrDefault(Rumor.FRIENDLY_STAFF,0)*0.002;
+        mult += s.rumorHeat.getOrDefault(Rumor.GREAT_ATMOSPHERE,0)*0.002;
         return Math.max(0.80,Math.min(1.20,mult));
     }
 

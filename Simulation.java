@@ -114,6 +114,106 @@ public class Simulation {
     private static final List<String> OBS_NAMES = List.of(
             "Jamie", "Alex", "Casey", "Morgan", "Taylor", "Riley", "Sam", "Jordan"
     );
+    private static final List<String> MISCONDUCT_DRIVER_LINES = List.of(
+            "Pressure stacked up with low morale and high chaos.",
+            "Tension spiked; the room felt off and it showed.",
+            "Loose oversight and a rough shift made a slip more likely.",
+            "Night stress boiled over in a small but costly way.",
+            "A shaky vibe set the stage for a bad call."
+    );
+    private static final List<String> RUMOR_DRIVER_LINES = List.of(
+            "Review chatter leaned on tonight's vibe and morale.",
+            "Posts reflected the mood shift and how the night felt.",
+            "Word of mouth followed the room energy and service flow.",
+            "Talk picked up around the staff mood and late-night feel.",
+            "Comments mirrored the night's tone and pressure points."
+    );
+
+    private static final List<String> FOH_FREE_DRINKS_LINES = List.of(
+            "Comped a couple rounds to smooth things over.",
+            "Slipped extra drinks to a table without ringing them in.",
+            "Handed out freebies to keep a loud group happy.",
+            "Covered a tab they shouldn't have.",
+            "Let a mate drink on the house."
+    );
+    private static final List<String> FOH_TILL_SHORT_LINES = List.of(
+            "Till came up light after a busy rush.",
+            "Cash drawer was short by the end of the round.",
+            "A float went missing between tabs.",
+            "Receipts didn’t line up with the register.",
+            "Counted cash twice; still short."
+    );
+    private static final List<String> FOH_MANAGEMENT_INSULT_LINES = List.of(
+            "Snapped at a manager in front of guests.",
+            "Argued with the floor lead where customers could hear.",
+            "Pushed back on direction mid-shift.",
+            "Took a swipe at management on the floor.",
+            "Let frustration spill out at the worst time."
+    );
+    private static final List<String> FOH_FLIRTING_LINES = List.of(
+            "Turned on the charm and it worked a little too well.",
+            "Kept the banter going and won over a table.",
+            "Played up the friendly vibe and got extra tips.",
+            "Handled a group with a wink and a grin.",
+            "Kept things light and the room responded."
+    );
+    private static final List<String> FOH_COMPROMISING_LINES = List.of(
+            "Caught taking a long break out back.",
+            "Took an extended pause when the bar was busy.",
+            "Disappeared mid-rush for a private breather.",
+            "Left the floor short-handed for a bit.",
+            "Got spotted off the clock while the queue grew."
+    );
+
+    private static final List<String> BOH_INGREDIENTS_LINES = List.of(
+            "Miscounted prep and a tray vanished.",
+            "Sent out ingredients for the wrong station.",
+            "Prep inventory was lighter than expected.",
+            "A box of staples went missing during the rush.",
+            "Stock got raided without logging it."
+    );
+    private static final List<String> BOH_HYGIENE_LINES = List.of(
+            "Prep standards slipped at the wrong moment.",
+            "A hygiene miss got noticed during service.",
+            "Cleanup lagged and it showed in the pass.",
+            "Corner cuts on sanitizing caused a scare.",
+            "Kitchen habits got sloppy during the rush."
+    );
+    private static final List<String> BOH_WASTED_BATCH_LINES = List.of(
+            "A batch came out wrong and got binned.",
+            "Overcooked a pan and had to start again.",
+            "Dropped a tray mid-rush.",
+            "Missed the timing on a big prep batch.",
+            "Ruined a line of plates in the final minute."
+    );
+    private static final List<String> BOH_ARGUMENT_LINES = List.of(
+            "The line got heated and lost focus.",
+            "A shouting match broke out at the pass.",
+            "The kitchen bickered through the rush.",
+            "Tempers flared and tickets slowed.",
+            "Voices rose and the line lost rhythm."
+    );
+    private static final List<String> BOH_HERO_LINES = List.of(
+            "Recovered a rough service with clean plates.",
+            "Pulled off a smooth finish under pressure.",
+            "Kept quality high through a tough rush.",
+            "Saved a wobble with sharp timing.",
+            "Turned a messy moment into a clean win."
+    );
+
+    private enum RumorTone { NEGATIVE, MIXED, POSITIVE }
+    private enum MisconductType {
+        FREE_DRINKS,
+        TILL_SHORT,
+        MANAGEMENT_INSULT,
+        FLIRTING_ATTENTION,
+        COMPROMISING_BREAK,
+        INGREDIENTS_MISSING,
+        HYGIENE_SLIP,
+        WASTED_BATCH,
+        KITCHEN_ARGUMENT,
+        KITCHEN_HERO
+    }
 
     private final GameState s;
     private final UILogger log;
@@ -566,6 +666,9 @@ public class Simulation {
         s.pendingFoodOrders.clear();
         s.happyHourBacklashShown = false;
         s.overpricingRobberyPopupShown = false;
+        s.staffIncidentThisNight = false;
+        s.lastRumorDrivers = "None";
+        s.lastRumorHeadline = "None";
 
         staff.updateTeamMorale();
 
@@ -829,6 +932,8 @@ public class Simulation {
             log.neg(" Food spoilage: " + foodSpoiled + " meal(s) went off.");
             eco.applyRep(-1, "Food spoilage");
         }
+
+        generateNightRumor();
 
         staff.accrueDailyWages();
         s.wagesAccruedThisWeek = staff.wagesDue();
@@ -1094,6 +1199,191 @@ public class Simulation {
         }
     }
 
+    private void generateNightRumor() {
+        double baseChance = 0.10;
+        if (s.nightUnserved >= 6) baseChance += 0.04;
+        if (s.nightRefunds > 0 || s.nightFoodUnserved > 0) baseChance += 0.03;
+        if (s.staffIncidentThisNight) baseChance += 0.04;
+        if (s.nightFights > 0) baseChance += 0.03;
+        if (s.chaos > 55) baseChance += 0.03;
+        if (s.chaos < 18 && s.nightUnserved == 0 && s.nightRefunds == 0) baseChance -= 0.03;
+        baseChance = Math.max(0.04, Math.min(0.25, baseChance));
+
+        RumorTone tone = rumorToneFromMorale();
+        s.lastRumorDrivers = buildRumorDriverLine(baseChance, tone);
+
+        if (s.random.nextDouble() > baseChance) {
+            s.lastRumorHeadline = "None";
+            return;
+        }
+
+        Rumor rumor = pickRumorForTone(tone);
+        int heat = switch (tone) {
+            case NEGATIVE -> 10 + s.random.nextInt(7);
+            case MIXED -> 8 + s.random.nextInt(6);
+            case POSITIVE -> 8 + s.random.nextInt(5);
+        };
+        addRumorHeat(rumor, heat, RumorSource.PUNTER);
+        s.lastRumorHeadline = pickRumorHeadline(rumor, tone);
+    }
+
+    private RumorTone rumorToneFromMorale() {
+        if (s.teamMorale <= 40) return RumorTone.NEGATIVE;
+        if (s.teamMorale >= 70) return RumorTone.POSITIVE;
+        return RumorTone.MIXED;
+    }
+
+    private Rumor pickRumorForTone(RumorTone tone) {
+        java.util.List<Rumor> negative = new java.util.ArrayList<>();
+        java.util.List<Rumor> positive = new java.util.ArrayList<>();
+
+        if (s.staffIncidentThisNight) negative.add(Rumor.STAFF_STEALING);
+        if (s.nightUnserved >= 6) negative.add(Rumor.SLOW_SERVICE);
+        if (s.nightRefunds > 0 || s.nightFoodUnserved > 0) negative.add(Rumor.FOOD_POISONING_SCARE);
+        if (s.nightFights > 0 || s.chaos > 55) {
+            negative.add(Rumor.DODGY_LATE_NIGHTS);
+            negative.add(Rumor.FIGHTS_EVERY_WEEKEND);
+        }
+
+        if (s.teamMorale >= 70) positive.add(Rumor.FRIENDLY_STAFF);
+        if (s.chaos < 20 && s.nightUnserved == 0) positive.add(Rumor.GREAT_ATMOSPHERE);
+        if (s.kitchenUnlocked && s.nightRefunds == 0 && s.nightFoodUnserved == 0) {
+            positive.add(Rumor.BEST_SUNDAY_ROAST);
+        }
+        if (s.activityTonight != null) positive.add(Rumor.LIVE_MUSIC_SCENE);
+
+        if (tone == RumorTone.NEGATIVE) {
+            return pickRumorFromList(negative, List.of(
+                    Rumor.SLOW_SERVICE,
+                    Rumor.STAFF_STEALING,
+                    Rumor.DODGY_LATE_NIGHTS,
+                    Rumor.FIGHTS_EVERY_WEEKEND,
+                    Rumor.WATERED_DOWN_DRINKS,
+                    Rumor.FOOD_POISONING_SCARE
+            ));
+        }
+        if (tone == RumorTone.POSITIVE) {
+            return pickRumorFromList(positive, List.of(
+                    Rumor.FRIENDLY_STAFF,
+                    Rumor.GREAT_ATMOSPHERE,
+                    Rumor.BEST_SUNDAY_ROAST,
+                    Rumor.LIVE_MUSIC_SCENE
+            ));
+        }
+        java.util.List<Rumor> mixed = new java.util.ArrayList<>();
+        mixed.addAll(negative);
+        mixed.addAll(positive);
+        return pickRumorFromList(mixed, List.of(
+                Rumor.GREAT_ATMOSPHERE,
+                Rumor.SLOW_SERVICE,
+                Rumor.BEST_SUNDAY_ROAST,
+                Rumor.DODGY_LATE_NIGHTS
+        ));
+    }
+
+    private Rumor pickRumorFromList(java.util.List<Rumor> candidates, java.util.List<Rumor> fallback) {
+        java.util.List<Rumor> list = candidates.isEmpty() ? fallback : candidates;
+        return list.get(s.random.nextInt(list.size()));
+    }
+
+    private String buildRumorDriverLine(double chance, RumorTone tone) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Chance ").append(String.format("%.1f%%", chance * 100));
+        if (tone == RumorTone.NEGATIVE) sb.append(" | morale low");
+        if (tone == RumorTone.POSITIVE) sb.append(" | morale high");
+        if (tone == RumorTone.MIXED) sb.append(" | morale mixed");
+        if (s.chaos >= 40) sb.append(" | chaos high");
+        if (s.staffIncidentThisNight) sb.append(" | staff incident");
+        if (s.nightRefunds > 0 || s.nightFoodUnserved > 0) sb.append(" | refunds/food misses");
+        if (s.nightUnserved >= 6) sb.append(" | unserved spike");
+        sb.append(" | ").append(pickPhrase(RUMOR_DRIVER_LINES));
+        return sb.toString();
+    }
+
+    private String pickRumorHeadline(Rumor rumor, RumorTone tone) {
+        return switch (rumor) {
+            case SLOW_SERVICE -> pickPhrase(List.of(
+                    "Service dragged once it got busy.",
+                    "Waits stacked up after the rush hit.",
+                    "Queue got long; patience ran out.",
+                    "Orders took longer than anyone liked.",
+                    "The bar fell behind during peak."
+            ));
+            case STAFF_STEALING -> pickPhrase(List.of(
+                    "Staff were comping drinks a bit too freely.",
+                    "Locals noticed the tab math didn't add up.",
+                    "Whispers about the till being light.",
+                    "People saw freebies flying out.",
+                    "The register story felt off."
+            ));
+            case FOOD_POISONING_SCARE -> pickPhrase(List.of(
+                    "Kitchen quality dipped tonight.",
+                    "Food felt rushed and it showed.",
+                    "A couple plates came back untouched.",
+                    "The kitchen seemed off its game.",
+                    "Prep standards were shaky."
+            ));
+            case WATERED_DOWN_DRINKS -> pickPhrase(List.of(
+                    "Drinks felt a touch weak tonight.",
+                    "Pours were light for the price.",
+                    "The round didn’t taste as bold.",
+                    "A few pints felt a bit thin.",
+                    "Cocktails lacked their usual punch."
+            ));
+            case DODGY_LATE_NIGHTS -> pickPhrase(List.of(
+                    "The late crowd felt rough around the edges.",
+                    "Vibe got sketchy as the night wore on.",
+                    "The room turned rowdy after last call.",
+                    "Energy shifted in a bad way late.",
+                    "The late-night mood got a bit dodgy."
+            ));
+            case FIGHTS_EVERY_WEEKEND -> pickPhrase(List.of(
+                    "Too many scuffles for comfort.",
+                    "The weekend crowd got rough.",
+                    "A few blow-ups made the rounds.",
+                    "It felt tense once it got packed.",
+                    "Security had their hands full."
+            ));
+            case FRIENDLY_STAFF -> pickPhrase(List.of(
+                    "Staff were sharp and friendly.",
+                    "Service felt effortless and upbeat.",
+                    "The team had the room smiling.",
+                    "Warm service kept the night light.",
+                    "Bar staff made it feel easy."
+            ));
+            case GREAT_ATMOSPHERE -> pickPhrase(List.of(
+                    "Atmosphere was cosy and confident.",
+                    "The room felt dialed-in and easy.",
+                    "Great energy without the chaos.",
+                    "Vibe was lively but calm.",
+                    "The place felt like a proper local."
+            ));
+            case BEST_SUNDAY_ROAST -> pickPhrase(List.of(
+                    "Kitchen was firing on all cylinders.",
+                    "Food came out with real care.",
+                    "The plates were clean and on time.",
+                    "A strong kitchen showing tonight.",
+                    "Food had people talking for the right reasons."
+            ));
+            case LIVE_MUSIC_SCENE -> pickPhrase(List.of(
+                    "Music night pulled a solid crowd.",
+                    "Live tunes lifted the room.",
+                    "The set list had the place buzzing.",
+                    "Music gave the night a lift.",
+                    "The band kept the mood high."
+            ));
+        };
+    }
+
+    private String buildRumorTabText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Latest rumor: ").append(s.lastRumorHeadline == null ? "None" : s.lastRumorHeadline);
+        sb.append("\nRumor drivers: ").append(s.lastRumorDrivers == null ? "None" : s.lastRumorDrivers);
+        sb.append("\n\nActive rumors:\n");
+        sb.append(buildRumorDetailText());
+        return sb.toString();
+    }
+
 
     private void refreshActiveRumors() {
         // Rebuild the lightweight instances used by the UI/report.
@@ -1194,7 +1484,7 @@ public class Simulation {
                 + "\nWeekly narrative: " + (s.weeklyIdentityFlavorText == null ? "" : s.weeklyIdentityFlavorText)
                 + "\nDrift summary: " + (s.identityDriftSummary == null ? "" : s.identityDriftSummary);
 
-        String rumors = buildRumorDetailText();
+        String rumors = buildRumorTabText();
 
         String trafficPunters = "Traffic multiplier: x" + fmt2(trafficMult)
                 + "\nBase traffic: x" + fmt2(baseTrafficMultiplier())
@@ -1272,6 +1562,8 @@ public class Simulation {
                 .append(" | BOH ").append((int)Math.round(s.bohMorale))
                 .append(" | Team ").append((int)Math.round(s.teamMorale));
         sb.append("\nMisconduct (week): ").append(s.staffMisconductThisWeek);
+        sb.append("\nLast staff incident: ").append(s.lastStaffIncidentSummary);
+        sb.append("\nIncident drivers: ").append(s.lastStaffIncidentDrivers);
         sb.append("\nWages accrued: GBP ").append(fmt2(s.wagesAccruedThisWeek));
         sb.append("\nOperating cost (base): GBP ").append(fmt2(s.opCostBaseThisWeek));
         sb.append("\nOperating cost (staff): GBP ").append(fmt2(s.opCostStaffThisWeek));
@@ -1407,68 +1699,245 @@ public class Simulation {
     }
 
     private void handleStaffMisconduct(int security) {
-        if (s.fohStaff.isEmpty()) return;
+        List<Staff> eligible = new java.util.ArrayList<>();
+        eligible.addAll(s.fohStaff);
+        eligible.addAll(s.bohStaff);
+        if (eligible.isEmpty()) return;
 
-        double teamMorale = s.teamMorale;
-        boolean lowMorale = teamMorale < 45;
-        if (!lowMorale) {
-            for (Staff st : s.fohStaff) {
-                if (st.getMorale() < 30) { lowMorale = true; break; }
-            }
+        int minMorale = 100;
+        for (Staff st : eligible) {
+            minMorale = Math.min(minMorale, st.getMorale());
         }
-        if (!lowMorale) return;
 
-        double baseChance = 0.08;
-        baseChance *= (1.0 - Math.min(0.35, security * 0.03));
-        baseChance *= (1.0 - s.staffMisconductReductionPct);
-        baseChance *= (1.0 + (s.chaos / 120.0));
-        if (s.activeRumors.containsKey(Rumor.STAFF_STEALING)) {
-            baseChance *= 1.15;
-        }
-        if (s.random.nextDouble() > baseChance) return;
+        double chance = computeMisconductChance(security, minMorale);
+        if (s.random.nextDouble() > chance) return;
 
-        Staff offender = pickLowMoraleStaff();
+        Staff offender = pickMisconductOffender(eligible);
         if (offender == null) return;
 
-        int roll = s.random.nextInt(3);
+        boolean boh = s.bohStaff.contains(offender);
+        MisconductType type = boh ? rollBohMisconduct() : rollFohMisconduct();
         s.staffMisconductThisWeek++;
-        if (roll == 0) {
-            double loss = 8 + s.random.nextInt(12);
-            s.cash = Math.max(0.0, s.cash - loss);
-            s.reportCosts += loss;
-            s.weekCosts += loss;
-            s.addReportCost(CostTag.OTHER, loss);
-            log.popup(new EventCard("Staff misconduct",
-                    "<b>" + offender.getName() + "</b> gave away free drinks.",
-                    0, -loss, 0, "THEFT"));
-            addRumorHeat(Rumor.STAFF_STEALING, 10, RumorSource.STAFF);
-        } else if (roll == 1) {
-            double loss = 12 + s.random.nextInt(20);
-            s.cash = Math.max(0.0, s.cash - loss);
-            s.reportCosts += loss;
-            s.weekCosts += loss;
-            s.addReportCost(CostTag.OTHER, loss);
-            log.popup(new EventCard("Staff misconduct",
-                    "Till goes light. <b>" + offender.getName() + "</b> suspected.",
-                    0, -loss, 0, "THEFT"));
-            addRumorHeat(Rumor.STAFF_STEALING, 12, RumorSource.STAFF);
-        } else {
-            double repair = 10 + s.random.nextInt(18);
-            eco.applyRep(-2, "Staff sabotage");
-            eco.payOrDebt(repair, "Staff sabotage repairs", CostTag.EVENT);
-            log.popup(new EventCard("Staff misconduct",
-                    "<b>" + offender.getName() + "</b> sabotaged the floor.",
-                    -2, -repair, 0, "DAMAGE"));
-            addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 8, RumorSource.STAFF);
+        s.staffIncidentThisNight = true;
+
+        String driverLine = buildMisconductDriverLine(security, minMorale, chance);
+        String dept = boh ? "BOH" : "FOH";
+        switch (type) {
+            case FREE_DRINKS -> {
+                double loss = 8 + s.random.nextInt(14);
+                applyMisconductLoss(loss, CostTag.OTHER);
+                String detail = pickPhrase(FOH_FREE_DRINKS_LINES);
+                log.popup(new EventCard("Staff misconduct",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        0, -loss, 0, "THEFT"));
+                addRumorHeat(Rumor.STAFF_STEALING, 10, RumorSource.STAFF);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") comped drinks. Cash -" + money0(loss);
+            }
+            case TILL_SHORT -> {
+                double loss = 12 + s.random.nextInt(18);
+                applyMisconductLoss(loss, CostTag.OTHER);
+                String detail = pickPhrase(FOH_TILL_SHORT_LINES);
+                log.popup(new EventCard("Staff misconduct",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        0, -loss, 0, "THEFT"));
+                addRumorHeat(Rumor.STAFF_STEALING, 12, RumorSource.STAFF);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") left the till short. Cash -" + money0(loss);
+            }
+            case MANAGEMENT_INSULT -> {
+                eco.applyRep(-2, "Management insult");
+                s.betweenNightChaos += 1.5;
+                String detail = pickPhrase(FOH_MANAGEMENT_INSULT_LINES);
+                log.popup(new EventCard("Staff misconduct",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        -2, 0, 0, "DISRUPTION"));
+                addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 8, RumorSource.STAFF);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") clashed with management. Rep -2";
+            }
+            case FLIRTING_ATTENTION -> {
+                double tipsBoost = 4 + s.random.nextInt(6);
+                s.tipsThisWeek += tipsBoost;
+                eco.applyRep(1, "Friendly service");
+                String detail = pickPhrase(FOH_FLIRTING_LINES);
+                log.popup(new EventCard("Staff misconduct",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        1, 0, 0, "CHARM"));
+                if (s.random.nextInt(100) < 35) {
+                    addRumorHeat(Rumor.FRIENDLY_STAFF, 8, RumorSource.PUNTER);
+                }
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") charmed guests. Rep +1, tips +" + money0(tipsBoost);
+            }
+            case COMPROMISING_BREAK -> {
+                offender.adjustMorale(-2);
+                staff.updateTeamMorale();
+                eco.applyRep(-1, "Staff disappeared");
+                String detail = pickPhrase(FOH_COMPROMISING_LINES);
+                log.popup(new EventCard("Staff misconduct",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        -1, 0, 0, "ABSENT"));
+                addRumorHeat(Rumor.SLOW_SERVICE, 6, RumorSource.PUNTER);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") took a long break. Rep -1";
+            }
+            case INGREDIENTS_MISSING -> {
+                boolean kitchenActive = s.kitchenUnlocked;
+                int removed = drainKitchenStock(2 + s.random.nextInt(3));
+                double cost = removed > 0 ? 0.0 : (10 + s.random.nextInt(12));
+                if (removed <= 0) applyMisconductLoss(cost, CostTag.FOOD);
+                String detail = pickPhrase(BOH_INGREDIENTS_LINES);
+                log.popup(new EventCard("Kitchen incident",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        0, -cost, 0, "STOCK"));
+                if (removed > 0) {
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") miscounted prep. Stock -" + removed;
+                } else {
+                    String note = kitchenActive ? "Stock 0" : "Stock impact N/A";
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") lost ingredients. " + note + ", cost -" + money0(cost);
+                }
+                addRumorHeat(Rumor.FOOD_POISONING_SCARE, 6, RumorSource.STAFF);
+            }
+            case HYGIENE_SLIP -> {
+                double cost = 8 + s.random.nextInt(12);
+                applyMisconductLoss(cost, CostTag.FOOD);
+                eco.applyRep(-2, "Hygiene slip");
+                s.nightFoodUnserved++;
+                String detail = pickPhrase(BOH_HYGIENE_LINES);
+                log.popup(new EventCard("Kitchen incident",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        -2, -cost, 0, "HYGIENE"));
+                addRumorHeat(Rumor.FOOD_POISONING_SCARE, 10, RumorSource.PUNTER);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") hygiene slip. Rep -2, cost -" + money0(cost);
+            }
+            case WASTED_BATCH -> {
+                boolean kitchenActive = s.kitchenUnlocked;
+                int removed = drainKitchenStock(2 + s.random.nextInt(4));
+                double cost = removed > 0 ? 0.0 : (12 + s.random.nextInt(16));
+                if (removed <= 0) applyMisconductLoss(cost, CostTag.FOOD);
+                s.nightFoodUnserved += 1;
+                String detail = pickPhrase(BOH_WASTED_BATCH_LINES);
+                log.popup(new EventCard("Kitchen incident",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        0, -cost, 0, "WASTE"));
+                if (removed > 0) {
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. Stock -" + removed;
+                } else {
+                    String note = kitchenActive ? "Stock 0" : "Stock impact N/A";
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. " + note + ", cost -" + money0(cost);
+                }
+                addRumorHeat(Rumor.SLOW_SERVICE, 6, RumorSource.PUNTER);
+            }
+            case KITCHEN_ARGUMENT -> {
+                for (Staff st : s.bohStaff) st.adjustMorale(-2);
+                staff.updateTeamMorale();
+                s.betweenNightChaos += 2.5;
+                String detail = pickPhrase(BOH_ARGUMENT_LINES);
+                log.popup(new EventCard("Kitchen incident",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        0, 0, 0, "ARGUMENT"));
+                addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 6, RumorSource.STAFF);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") sparked a kitchen argument. BOH morale -2";
+            }
+            case KITCHEN_HERO -> {
+                offender.adjustMorale(2);
+                staff.updateTeamMorale();
+                eco.applyRep(1, "Kitchen hero");
+                String detail = pickPhrase(BOH_HERO_LINES);
+                log.popup(new EventCard("Kitchen incident",
+                        "<b>" + offender.getName() + "</b> " + detail,
+                        1, 0, 0, "HERO"));
+                if (s.random.nextInt(100) < 50) {
+                    addRumorHeat(Rumor.BEST_SUNDAY_ROAST, 8, RumorSource.PUNTER);
+                }
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") saved the line. Rep +1";
+            }
         }
+
+        s.lastStaffIncidentDrivers = driverLine;
     }
 
-    private Staff pickLowMoraleStaff() {
-        Staff worst = null;
-        for (Staff st : s.fohStaff) {
-            if (worst == null || st.getMorale() < worst.getMorale()) worst = st;
+    private double computeMisconductChance(int security, int minMorale) {
+        double chance = 0.04;
+        if (s.teamMorale < 55) {
+            chance += (55 - s.teamMorale) * 0.002;
         }
-        return worst;
+        if (minMorale < 35) {
+            chance += (35 - minMorale) * 0.003;
+        }
+        chance += Math.min(0.12, s.chaos * 0.0018);
+        if (s.activeRumors.containsKey(Rumor.STAFF_STEALING)) {
+            chance += 0.02;
+        }
+        if (s.activeRumors.containsKey(Rumor.SLOW_SERVICE)) {
+            chance += 0.01;
+        }
+        double securityReduction = Math.min(0.45, security * 0.04);
+        chance *= (1.0 - securityReduction);
+        chance *= (1.0 - s.staffMisconductReductionPct);
+        return Math.max(0.01, Math.min(0.30, chance));
+    }
+
+    private Staff pickMisconductOffender(List<Staff> eligible) {
+        // Weighted toward lower morale so stressed staff are more likely to slip.
+        double totalWeight = 0.0;
+        for (Staff st : eligible) {
+            double weight = Math.max(1.0, 101 - st.getMorale());
+            totalWeight += weight;
+        }
+        double roll = s.random.nextDouble() * totalWeight;
+        for (Staff st : eligible) {
+            roll -= Math.max(1.0, 101 - st.getMorale());
+            if (roll <= 0) return st;
+        }
+        return eligible.get(0);
+    }
+
+    private MisconductType rollFohMisconduct() {
+        int roll = s.random.nextInt(100);
+        if (roll < 24) return MisconductType.FREE_DRINKS;
+        if (roll < 46) return MisconductType.TILL_SHORT;
+        if (roll < 64) return MisconductType.MANAGEMENT_INSULT;
+        if (roll < 82) return MisconductType.FLIRTING_ATTENTION;
+        return MisconductType.COMPROMISING_BREAK;
+    }
+
+    private MisconductType rollBohMisconduct() {
+        int roll = s.random.nextInt(100);
+        if (roll < 26) return MisconductType.INGREDIENTS_MISSING;
+        if (roll < 50) return MisconductType.HYGIENE_SLIP;
+        if (roll < 74) return MisconductType.WASTED_BATCH;
+        if (roll < 92) return MisconductType.KITCHEN_ARGUMENT;
+        return MisconductType.KITCHEN_HERO;
+    }
+
+    private int drainKitchenStock(int max) {
+        if (!s.kitchenUnlocked || s.foodRack.count() <= 0) return 0;
+        int removed = 0;
+        for (int i = 0; i < max; i++) {
+            Food food = s.foodRack.pickRandomFood(s.random);
+            if (food == null) break;
+            if (s.foodRack.removeFood(food)) removed++;
+        }
+        return removed;
+    }
+
+    private void applyMisconductLoss(double loss, CostTag tag) {
+        s.cash = Math.max(0.0, s.cash - loss);
+        s.reportCosts += loss;
+        s.weekCosts += loss;
+        s.addReportCost(tag, loss);
+    }
+
+    private String buildMisconductDriverLine(int security, int minMorale, double chance) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Chance ").append(String.format("%.1f%%", chance * 100));
+        if (s.teamMorale < 55) sb.append(" | morale low");
+        if (minMorale < 35) sb.append(" | very low individual morale");
+        if (s.chaos >= 35) sb.append(" | chaos high");
+        if (security > 0) sb.append(" | security mitigated");
+        if (s.staffMisconductReductionPct > 0.001) sb.append(" | upgrades mitigated");
+        if (s.activeRumors.containsKey(Rumor.STAFF_STEALING) || s.activeRumors.containsKey(Rumor.SLOW_SERVICE)) {
+            sb.append(" | staff rumor pressure");
+        }
+        sb.append(" | ").append(pickPhrase(MISCONDUCT_DRIVER_LINES));
+        return sb.toString();
     }
 
     private void checkHighRepScandal() {
@@ -1579,11 +2048,17 @@ public class Simulation {
         int fights = s.rumorHeat.getOrDefault(Rumor.FIGHTS_EVERY_WEEKEND, 0);
         int roast = s.rumorHeat.getOrDefault(Rumor.BEST_SUNDAY_ROAST, 0);
         int poisoning = s.rumorHeat.getOrDefault(Rumor.FOOD_POISONING_SCARE, 0);
+        int slow = s.rumorHeat.getOrDefault(Rumor.SLOW_SERVICE, 0);
+        int friendly = s.rumorHeat.getOrDefault(Rumor.FRIENDLY_STAFF, 0);
+        int atmosphere = s.rumorHeat.getOrDefault(Rumor.GREAT_ATMOSPHERE, 0);
 
         mult -= watered * 0.002;
         mult -= fights * 0.0025;
         mult += roast * 0.002;
         mult -= poisoning * 0.002;
+        mult -= slow * 0.002;
+        mult += friendly * 0.002;
+        mult += atmosphere * 0.002;
 
         return Math.max(0.80, Math.min(1.20, mult));
     }
@@ -1691,6 +2166,14 @@ public class Simulation {
 
     private static String fmt1(double value) {
         return String.format("%.1f", value);
+    }
+
+    private static String money0(double value) {
+        return "GBP " + String.format("%.0f", value);
+    }
+
+    private String pickPhrase(List<String> options) {
+        return options.get(s.random.nextInt(options.size()));
     }
 
 
