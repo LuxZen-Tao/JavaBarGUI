@@ -96,6 +96,11 @@ public class GameState {
     public double weekChaosTotal = 0.0;
     public int weekChaosRounds = 0;
     public int staffMisconductThisWeek = 0;
+    public boolean staffIncidentThisNight = false;
+    public String lastStaffIncidentSummary = "None";
+    public String lastStaffIncidentDrivers = "None";
+    public String lastRumorHeadline = "None";
+    public String lastRumorDrivers = "None";
     public int weekActivityNights = 0;
     public EnumMap<PubIdentity, Double> weekIdentitySignals = new EnumMap<>(PubIdentity.class);
     public int roundsSinceLastEvent = 0;

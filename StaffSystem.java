@@ -127,13 +127,31 @@ public class StaffSystem {
             delta = (int)Math.round(delta * (1.0 - damp));
         }
 
-        for (Staff st : s.fohStaff) st.adjustMorale(delta);
-        for (Staff st : s.bohStaff) st.adjustMorale(delta);
-        for (Staff st : s.generalManagers) st.adjustMorale(delta);
+        boolean smoothNight = unserved <= 0 && eventsThisRound <= 0 && chaos < 18;
+        for (Staff st : s.fohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
+        for (Staff st : s.bohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
+        for (Staff st : s.generalManagers) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
 
         updateTeamMorale();
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus
                 + (s.staffCountOfType(Staff.Type.HEAD_CHEF) * 5));
+    }
+
+    private int smallMoraleDrift(double chaos, boolean smoothNight) {
+        int roll = s.random.nextInt(100);
+        if (chaos >= 55) {
+            if (roll < 50) return -1;
+            if (roll < 85) return 0;
+            return 1;
+        }
+        if (smoothNight) {
+            if (roll < 20) return -1;
+            if (roll < 60) return 0;
+            return 1;
+        }
+        if (roll < 34) return -1;
+        if (roll < 67) return 0;
+        return 1;
     }
 
     public void updateTeamMorale() {

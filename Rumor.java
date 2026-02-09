@@ -48,6 +48,27 @@ public enum Rumor {
             -0.04,
             -0.03,
             -0.08
+    ),
+    SLOW_SERVICE(
+            "Slow service",
+            -0.06,
+            -0.04,
+            -0.02,
+            -0.04
+    ),
+    FRIENDLY_STAFF(
+            "Friendly staff",
+            +0.06,
+            +0.03,
+            +0.02,
+            +0.05
+    ),
+    GREAT_ATMOSPHERE(
+            "Great atmosphere",
+            +0.07,
+            +0.04,
+            +0.03,
+            +0.04
     );
 
     private final String label;
