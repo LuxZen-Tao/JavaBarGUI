@@ -62,6 +62,31 @@ public class FoodRack {
         return counts;
     }
 
+    public record SpoilageLine(String foodName, int count, int daysRemaining) {}
+
+    public List<SpoilageLine> spoilageForecast(int todayIndex) {
+        Map<String, Map<Integer, Integer>> grouped = new HashMap<>();
+        for (Meal meal : meals) {
+            int age = todayIndex - meal.dayAdded;
+            int daysRemaining = Math.max(0, meal.spoilAfterDays - age);
+            grouped
+                    .computeIfAbsent(meal.food.getName(), k -> new HashMap<>())
+                    .merge(daysRemaining, 1, Integer::sum);
+        }
+
+        List<SpoilageLine> lines = new ArrayList<>();
+        for (Map.Entry<String, Map<Integer, Integer>> entry : grouped.entrySet()) {
+            for (Map.Entry<Integer, Integer> sub : entry.getValue().entrySet()) {
+                lines.add(new SpoilageLine(entry.getKey(), sub.getValue(), sub.getKey()));
+            }
+        }
+
+        lines.sort(Comparator
+                .comparingInt(SpoilageLine::daysRemaining)
+                .thenComparing(SpoilageLine::foodName));
+        return lines;
+    }
+
     public record SpoilageSummary(int nextSpoilDays, int atRiskCount) {}
 
     public SpoilageSummary spoilageSummary(int todayIndex) {
