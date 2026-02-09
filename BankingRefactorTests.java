@@ -23,6 +23,7 @@ public class BankingRefactorTests {
         testPubLevelRequiresTimeAndMilestones();
         testPubLevelAffectsSupplierCap();
         System.out.println("All BankingRefactorTests passed.");
+        System.exit(0);
     }
 
     private static Simulation newSimulation(GameState state) {

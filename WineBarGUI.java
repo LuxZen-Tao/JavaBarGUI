@@ -73,6 +73,8 @@ public class WineBarGUI {
     // Activities window
     private JDialog activitiesDialog;
     private JPanel activitiesListPanel;
+    private JDialog actionsDialog;
+    private LandlordActionsPanel actionsPanel;
 
     // Reports panel (right side)
     private JTextArea reportArea;
@@ -120,6 +122,7 @@ public class WineBarGUI {
     private final JButton kitchenSupplierBtn = new JButton("Food Supplier");
     private final JButton upgradesBtn = new JButton("Upgrades");
     private final JButton activitiesBtn = new JButton("Activities");
+    private final JButton actionsBtn = new JButton("Actions");
     private final JButton staffBtn = new JButton("Staff");
 
     private final JButton securityBtn = new JButton("Security");
@@ -281,7 +284,7 @@ public class WineBarGUI {
         JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
         JPanel managementControls = createControlGroup("Management", staffBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
-        JPanel activityControls = createControlGroup("Activities", activitiesBtn);
+        JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
         JPanel autoControls = createControlGroup("Automation", autoBtn);
 
         controls.add(nightControls);
@@ -379,6 +382,7 @@ public class WineBarGUI {
         staffBtn.setIcon(createGlyphIcon("P", new Color(120, 170, 220)));
         upgradesBtn.setIcon(createGlyphIcon("U", new Color(180, 150, 240)));
         activitiesBtn.setIcon(createGlyphIcon("A", new Color(200, 170, 110)));
+        actionsBtn.setIcon(createGlyphIcon("L", new Color(160, 190, 120)));
         loanSharkBtn.setIcon(createGlyphIcon("F", new Color(140, 190, 220)));
     }
 
@@ -628,6 +632,7 @@ public class WineBarGUI {
         kitchenSupplierBtn.addActionListener(e -> openKitchenSupplierWindow());
         upgradesBtn.addActionListener(e -> openUpgradesWindow());
         activitiesBtn.addActionListener(e -> openActivitiesWindow());
+        actionsBtn.addActionListener(e -> openActionsDialog());
         staffBtn.addActionListener(e -> openStaffWindow());
 
         securityBtn.addActionListener(e -> openSecurityWindow());
@@ -1759,6 +1764,39 @@ public class WineBarGUI {
         activitiesDialog.setVisible(true);
     }
 
+    private void openActionsDialog() {
+        if (actionsDialog == null) {
+            actionsDialog = new JDialog(frame, "Landlord Actions", true);
+            actionsDialog.setLayout(new BorderLayout(8, 8));
+            actionsPanel = new LandlordActionsPanel(sim, state, this::handleLandlordAction);
+            actionsDialog.add(actionsPanel, BorderLayout.CENTER);
+
+            JButton close = new JButton("Close");
+            close.addActionListener(e -> actionsDialog.setVisible(false));
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(close);
+            actionsDialog.add(bottom, BorderLayout.SOUTH);
+
+            actionsDialog.setSize(760, 560);
+            actionsDialog.setLocationRelativeTo(frame);
+        }
+
+        actionsPanel.refresh();
+        actionsDialog.setVisible(true);
+    }
+
+    private void handleLandlordAction(LandlordActionId id) {
+        LandlordActionResolution result = sim.resolveLandlordAction(id);
+        if (result == null) return;
+        if (result.blocked()) {
+            log.popup(" Action blocked", result.message(), "");
+        }
+        refreshAll();
+        if (actionsPanel != null) {
+            actionsPanel.refresh();
+        }
+    }
+
     private void refreshActivitiesButtons() {
         if (activitiesDialog == null || activitiesListPanel == null) return;
 
@@ -2050,6 +2088,13 @@ public class WineBarGUI {
         refreshMissionControl();
         updateMoodLighting();
         checkReportPopups();
+        refreshActionsDialog();
+    }
+
+    private void refreshActionsDialog() {
+        if (actionsDialog != null && actionsDialog.isVisible() && actionsPanel != null) {
+            actionsPanel.refresh();
+        }
     }
 
     private void updateHud(MetricsSnapshot snapshot) {
