@@ -116,7 +116,7 @@ public class WineBarGUI {
 
     private final JButton securityBtn = new JButton("Security");
     private final JButton payDebtBtn = new JButton("Pay Debt");
-    private final JButton loanSharkBtn = new JButton("Loan Shark");
+    private final JButton loanSharkBtn = new JButton("Finance");
 
     private final JToggleButton autoBtn = new JToggleButton("Auto: OFF");
     private Timer autoTimer;
@@ -365,7 +365,7 @@ public class WineBarGUI {
         staffBtn.setIcon(createGlyphIcon("P", new Color(120, 170, 220)));
         upgradesBtn.setIcon(createGlyphIcon("U", new Color(180, 150, 240)));
         activitiesBtn.setIcon(createGlyphIcon("A", new Color(200, 170, 110)));
-        loanSharkBtn.setIcon(createGlyphIcon("L", new Color(220, 120, 120)));
+        loanSharkBtn.setIcon(createGlyphIcon("F", new Color(140, 190, 220)));
     }
 
     private Icon createGlyphIcon(String text, Color color) {
@@ -1383,12 +1383,12 @@ public class WineBarGUI {
     }
 
     // -----------------------
-    // Loan Shark Dialog
+    // Finance Dialog
     // -----------------------
 
     private void openLoanDialog() {
         if (loanDialog == null) {
-            loanDialog = new JDialog(frame, "Loan Shark", false);
+            loanDialog = new JDialog(frame, "Finance", false);
             loanDialog.setLayout(new BorderLayout(10, 10));
 
             loanTextArea = new JTextArea(12, 44);
@@ -1399,27 +1399,9 @@ public class WineBarGUI {
 
             loanButtonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-            JButton b100 = new JButton("Borrow 100");
-            JButton b250 = new JButton("Borrow 250");
-            JButton b500 = new JButton("Borrow 500");
-            JButton b1000 = new JButton("Borrow 1000");
-            JButton repayFull = new JButton("Repay In Full");
-
-            b100.addActionListener(e -> { sim.borrowFromLoanShark(100); refreshAll(); refreshAllMenus(); });
-            b250.addActionListener(e -> { sim.borrowFromLoanShark(250); refreshAll(); refreshAllMenus(); });
-            b500.addActionListener(e -> { sim.borrowFromLoanShark(500); refreshAll(); refreshAllMenus(); });
-            b1000.addActionListener(e -> { sim.borrowFromLoanShark(1000); refreshAll(); refreshAllMenus(); });
-            repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
-
-            loanButtonsPanel.add(b100);
-            loanButtonsPanel.add(b250);
-            loanButtonsPanel.add(b500);
-            loanButtonsPanel.add(b1000);
-            loanButtonsPanel.add(repayFull);
-
             loanDialog.add(loanButtonsPanel, BorderLayout.SOUTH);
 
-            loanDialog.setSize(700, 390);
+            loanDialog.setSize(820, 420);
             loanDialog.setLocationRelativeTo(frame);
         }
 
@@ -1430,27 +1412,103 @@ public class WineBarGUI {
     private void refreshLoanDialog() {
         if (loanDialog == null || loanTextArea == null || loanButtonsPanel == null) return;
 
-        loanTextArea.setText(
-                state.loanShark.buildLoanText(
-                        state.absWeekIndex(),
-                        state.reportIndex,
-                        state.weeksIntoReport,
-                        state.reputation
-                )
-        );
+        loanTextArea.setText(buildFinanceText());
+
+        loanButtonsPanel.removeAll();
+
+        loanButtonsPanel.add(new JLabel("Loan Shark:"));
+        JButton b100 = new JButton("Borrow 100");
+        JButton b250 = new JButton("Borrow 250");
+        JButton b500 = new JButton("Borrow 500");
+        JButton b1000 = new JButton("Borrow 1000");
+        JButton repayFull = new JButton("Repay In Full");
 
         boolean active = state.loanShark.hasActiveLoan();
+        b100.setEnabled(!active);
+        b250.setEnabled(!active);
+        b500.setEnabled(!active);
+        b1000.setEnabled(!active);
+        repayFull.setEnabled(active);
 
-        for (Component c : loanButtonsPanel.getComponents()) {
-            if (!(c instanceof JButton b)) continue;
+        b100.addActionListener(e -> { sim.borrowFromLoanShark(100); refreshAll(); refreshAllMenus(); });
+        b250.addActionListener(e -> { sim.borrowFromLoanShark(250); refreshAll(); refreshAllMenus(); });
+        b500.addActionListener(e -> { sim.borrowFromLoanShark(500); refreshAll(); refreshAllMenus(); });
+        b1000.addActionListener(e -> { sim.borrowFromLoanShark(1000); refreshAll(); refreshAllMenus(); });
+        repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
 
-            String txt = b.getText().toLowerCase();
-            if (txt.startsWith("borrow")) {
-                b.setEnabled(!active);
-            } else if (txt.contains("repay")) {
-                b.setEnabled(active);
+        loanButtonsPanel.add(b100);
+        loanButtonsPanel.add(b250);
+        loanButtonsPanel.add(b500);
+        loanButtonsPanel.add(b1000);
+        loanButtonsPanel.add(repayFull);
+
+        loanButtonsPanel.add(new JLabel("Banks:"));
+        for (Bank bank : Bank.values()) {
+            JButton open = new JButton("Open " + bank.getName());
+            boolean unlocked = bank.isUnlocked(state.creditScore);
+            boolean alreadyOpen = state.creditLines.hasLine(bank.getName());
+            open.setEnabled(unlocked && !alreadyOpen);
+            open.setToolTipText("Limit GBP " + bank.getMinLimit() + "-" + bank.getMaxLimit()
+                    + " | APR " + String.format("%.1f", bank.getMinApr() * 100) + "%-"
+                    + String.format("%.1f", bank.getMaxApr() * 100) + "%"
+                    + (bank.getMinScore() > 0 ? " | Score " + bank.getMinScore() + "+" : ""));
+            open.addActionListener(e -> { sim.openCreditLine(bank); refreshAll(); refreshAllMenus(); });
+            loanButtonsPanel.add(open);
+        }
+
+        if (!state.creditLines.getOpenLines().isEmpty()) {
+            loanButtonsPanel.add(new JLabel("Repay credit lines:"));
+        }
+        for (CreditLine line : state.creditLines.getOpenLines()) {
+            JButton repay = new JButton("Repay " + line.getLenderName());
+            repay.setEnabled(line.getBalance() > 0.0 && state.cash >= line.getBalance());
+            repay.addActionListener(e -> { sim.repayCreditLineInFull(line.getId()); refreshAll(); refreshAllMenus(); });
+            loanButtonsPanel.add(repay);
+        }
+
+        loanButtonsPanel.revalidate();
+        loanButtonsPanel.repaint();
+    }
+
+    private String buildFinanceText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Cash: ").append(money2(state.cash)).append("\n");
+        sb.append("Credit score: ").append(state.creditScore).append("\n\n");
+
+        sb.append("Open credit lines:\n");
+        if (state.creditLines.getOpenLines().isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (CreditLine line : state.creditLines.getOpenLines()) {
+                sb.append("  ").append(line.getLenderName())
+                        .append(" | Limit ").append(money2(line.getLimit()))
+                        .append(" | Balance ").append(money2(line.getBalance()))
+                        .append(" | Weekly ").append(money2(line.getWeeklyPayment()))
+                        .append(" | APR ").append(String.format("%.2f", line.getInterestAPR() * 100)).append("%")
+                        .append(" | Missed ").append(line.getMissedPaymentCount())
+                        .append("\n");
             }
         }
+
+        sb.append("\nAvailable banks:\n");
+        for (Bank bank : Bank.values()) {
+            sb.append("  ").append(bank.getName())
+                    .append(" | Limit ").append(bank.getMinLimit()).append("-").append(bank.getMaxLimit())
+                    .append(" | APR ").append(String.format("%.1f", bank.getMinApr() * 100)).append("%-")
+                    .append(String.format("%.1f", bank.getMaxApr() * 100)).append("%");
+            if (bank.getMinScore() > 0) sb.append(" | Score ").append(bank.getMinScore()).append("+");
+            sb.append("\n");
+        }
+
+        sb.append("\nLoan Shark:\n");
+        sb.append(state.loanShark.buildLoanText(
+                state.absWeekIndex(),
+                state.reportIndex,
+                state.weeksIntoReport,
+                state.reputation
+        ));
+
+        return sb.toString();
     }
 
     private void refreshReportsDialog() {
