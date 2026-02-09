@@ -60,6 +60,10 @@ public class EconomySystem {
             s.weekCosts += amount;
             s.addReportCost(tag, amount);
             s.cash = 0;
+            CreditLine line = s.creditLines.consumeLastAppliedLine();
+            if (line != null && "Loan Shark".equals(line.getLenderName())) {
+                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+            }
             log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
             return true;
         }

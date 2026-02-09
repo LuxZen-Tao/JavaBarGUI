@@ -7,6 +7,8 @@ public class CreditLine {
     private double weeklyPayment;
     private boolean isEnabled;
     private int missedPaymentCount;
+    private int consecutiveMissedPayments;
+    private int weeksInGoodStanding;
 
     public CreditLine(String id,
                       String lenderName,
@@ -32,6 +34,8 @@ public class CreditLine {
     public double getWeeklyPayment() { return weeklyPayment; }
     public boolean isEnabled() { return isEnabled; }
     public int getMissedPaymentCount() { return missedPaymentCount; }
+    public int getConsecutiveMissedPayments() { return consecutiveMissedPayments; }
+    public int getWeeksInGoodStanding() { return weeksInGoodStanding; }
 
     public double availableCredit() {
         return Math.max(0.0, limit - balance);
@@ -61,5 +65,12 @@ public class CreditLine {
 
     public void markMissedPayment() {
         missedPaymentCount++;
+        consecutiveMissedPayments++;
+        weeksInGoodStanding = 0;
+    }
+
+    public void markPaidOnTime() {
+        consecutiveMissedPayments = 0;
+        weeksInGoodStanding++;
     }
 }

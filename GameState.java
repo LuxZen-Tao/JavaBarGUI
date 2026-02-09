@@ -31,6 +31,13 @@ public class GameState {
     public int noDebtUsageWeeks = 0;
     public double supplierTrustPenalty = 0.0;
     public String supplierTrustStatus = "Neutral";
+    public int sharkThreatTier = 0;
+    public int sharkConsecutiveMisses = 0;
+    public int sharkCleanWeeks = 0;
+    public boolean sharkMissedPaymentThisWeek = false;
+    public boolean sharkPaidOnTimeThisWeek = false;
+    public boolean sharkHasBalanceThisWeek = false;
+    public String sharkThreatTrigger = "None";
 
     public final double weeklyRent = 60.0;
     public double rentAccruedThisWeek = 0.0;

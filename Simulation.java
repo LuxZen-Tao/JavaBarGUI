@@ -736,10 +736,64 @@ public class Simulation {
         if (s.loanShark.hasActiveLoan()) { log.neg(" Loan Shark says: you already owe."); return; }
         if (!s.loanShark.canBorrow(amt, s.reputation)) { log.neg(" Loan Shark: can't borrow that amount."); return; }
 
-        s.loanShark.borrow(amt, s.absWeekIndex(), s.reportIndex, s.weeksIntoReport, s.reputation);
-        s.cash += amt;
+    public void openSharkLine() {
+        CreditLine line = s.creditLines.openSharkLine(s.random);
+        if (line == null) {
+            log.info("Loan shark line already open.");
+            return;
+        }
+        s.creditScore = s.clampCreditScore(s.creditScore - 50);
+        log.neg("Loan shark line opened. Credit score takes a hit.");
+        log.pos("Opened loan shark line | limit GBP " + String.format("%.0f", line.getLimit())
+                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+    }
 
-        log.event(" Loan Shark: borrowed GBP " + String.format("%.0f", amt));
+    public void repayCreditLineInFull(String lineId) {
+        CreditLine line = s.creditLines.getLineById(lineId);
+        if (line == null) { log.neg("Credit line not found."); return; }
+        s.creditLines.repayInFull(s, line, log);
+        if ("Loan Shark".equals(line.getLenderName())) {
+            reduceSharkThreat(2, "Loan shark debt cleared");
+        }
+    }
+
+    public boolean paySupplierInvoice(SupplierInvoice invoice, CreditLine selectedLine) {
+        if (invoice == null || invoice.isPaid()) return false;
+        double amountDue = invoice.getAmountDue();
+        if (amountDue <= 0.0) {
+            invoice.markPaid();
+            return true;
+        }
+
+        double cashPaid = Math.min(s.cash, amountDue);
+        double remaining = amountDue - cashPaid;
+
+        CreditLine lineUsed = null;
+        double creditPaid = 0.0;
+        if (remaining > 0.0) {
+            if (selectedLine == null) return false;
+            if (!selectedLine.isEnabled() || selectedLine.availableCredit() < remaining) return false;
+            s.creditLines.addBalanceToLine(selectedLine, remaining);
+            if ("Loan Shark".equals(selectedLine.getLenderName())) {
+                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+            }
+            lineUsed = selectedLine;
+            creditPaid = remaining;
+        }
+
+        s.cash -= cashPaid;
+        invoice.markPaid();
+
+        String lender = lineUsed != null ? (" via " + lineUsed.getLenderName()) : "";
+        log.pos("Invoice paid: " + invoice.getSupplierName()
+                + " GBP " + String.format("%.2f", amountDue)
+                + " (cash " + String.format("%.2f", cashPaid)
+                + ", credit " + String.format("%.2f", creditPaid) + lender + ")");
+        return true;
+    }
+
+    public void borrowFromLoanShark(double amt) {
+        log.neg("Loan shark cash loans are no longer available. Open a loan shark credit line instead.");
     }
 
     public void repayLoanSharkInFull() {
@@ -1137,6 +1191,7 @@ public class Simulation {
 
         s.creditLines.processWeekly(s, log);
         processSupplierInvoicesWeekly();
+        processSharkThreatWeekly();
 
         double raw = staff.wagesDueRaw();
         double eff = upgrades.wageEfficiencyPct();
@@ -1242,7 +1297,8 @@ public class Simulation {
             s.identityArtsy += s.weekActivityNights * 1.1;
         }
 
-        if (s.loanShark.hasActiveLoan()) {
+        CreditLine sharkLine = s.creditLines.getLineByName("Loan Shark");
+        if (sharkLine != null && sharkLine.getBalance() > 0.0) {
             s.identityShady += 0.6;
         }
 
@@ -1619,6 +1675,11 @@ public class Simulation {
                 + "\nSupplier price mult: x" + fmt2(s.supplierPriceMultiplier())
                 + "\nInvoice terms mult: x" + fmt2(s.supplierInvoiceMultiplier())
                 + "\nInvoice Due: GBP " + fmt2(invoiceDueNow())
+                + "\nShark threat: Tier " + s.sharkThreatTier + " (" + sharkTierLabel(s.sharkThreatTier) + ")"
+                + "\nShark trigger: " + s.sharkThreatTrigger
+                + " | Misses: " + s.sharkConsecutiveMisses
+                + " | Reduce: pay on time for 1 week"
+                + "\nShark lines:\n" + buildSharkLineSummary()
                 + "\nOutstanding invoices: GBP " + fmt2(totalOutstandingInvoices())
                 + "\nDue now: GBP " + fmt2(totalDueInvoices())
                 + "\nOverdue: GBP " + fmt2(totalOverdueInvoices())
@@ -1672,12 +1733,7 @@ public class Simulation {
                 + "\nFood: " + (s.kitchenUnlocked ? (s.foodRack.count() + "/" + s.foodRack.getCapacity()) : "Locked")
                 + "\nFood spoiled last night: " + s.foodSpoiledLastNight;
 
-        String loans = s.loanShark.buildLoanText(
-                s.absWeekIndex(),
-                s.reportIndex,
-                s.weeksIntoReport,
-                s.reputation
-        );
+        String loans = buildLoanSummaryText();
 
         String logSummary = "Night events: " + s.nightEvents
                 + "\nBetween-night: " + s.lastBetweenNightEventSummary;
@@ -1918,6 +1974,25 @@ public class Simulation {
                     .append("\n");
             count++;
             if (count >= 4) break;
+        }
+        if (count == 0) return "None";
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
+            sb.deleteCharAt(sb.length() - 1);
+        }
+        return sb.toString();
+    }
+
+    private String buildSharkLineSummary() {
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (CreditLine line : s.creditLines.getOpenLines()) {
+            if (!"Loan Shark".equals(line.getLenderName())) continue;
+            sb.append("- ").append(line.getLenderName())
+                    .append(" | bal ").append(fmt2(line.getBalance()))
+                    .append(" / ").append(fmt2(line.getLimit()))
+                    .append(" | weekly ").append(fmt2(line.getWeeklyPayment()))
+                    .append("\n");
+            count++;
         }
         if (count == 0) return "None";
         if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
@@ -2339,6 +2414,170 @@ public class Simulation {
         } else {
             s.supplierTrustPenalty = Math.max(0.0, s.supplierTrustPenalty - 0.005);
         }
+    }
+
+    private void processSharkThreatWeekly() {
+        int currentTier = s.sharkThreatTier;
+        int targetTier = currentTier;
+
+        if (s.sharkMissedPaymentThisWeek) {
+            s.sharkConsecutiveMisses++;
+            s.sharkCleanWeeks = 0;
+            targetTier = Math.max(targetTier, Math.min(4, s.sharkConsecutiveMisses));
+            s.sharkThreatTrigger = "Missed shark repayment";
+        } else if (s.sharkHasBalanceThisWeek && s.sharkPaidOnTimeThisWeek) {
+            s.sharkCleanWeeks++;
+            if (s.sharkCleanWeeks >= 1 && targetTier > 0) {
+                targetTier = Math.max(0, targetTier - 1);
+                s.sharkThreatTrigger = "Clean week";
+            }
+        } else if (!s.sharkHasBalanceThisWeek) {
+            if (targetTier > 0) {
+                targetTier = Math.max(0, targetTier - 2);
+                s.sharkThreatTrigger = "Shark balance cleared";
+            }
+            s.sharkConsecutiveMisses = 0;
+            s.sharkCleanWeeks = 0;
+        }
+
+        if (targetTier != currentTier) {
+            s.sharkThreatTier = targetTier;
+            if (targetTier > currentTier) {
+                log.neg("Loan shark threat escalated to Tier " + targetTier + ": " + sharkTierLabel(targetTier));
+                applySharkTierEffects(targetTier);
+            } else {
+                log.pos("Loan shark threat reduced to Tier " + targetTier + ": " + sharkTierLabel(targetTier));
+            }
+        }
+    }
+
+    private void reduceSharkThreat(int amount, String reason) {
+        if (amount <= 0) return;
+        int before = s.sharkThreatTier;
+        s.sharkThreatTier = Math.max(0, s.sharkThreatTier - amount);
+        s.sharkConsecutiveMisses = 0;
+        s.sharkCleanWeeks = 0;
+        if (s.sharkThreatTier != before) {
+            log.pos("Loan shark threat reduced to Tier " + s.sharkThreatTier
+                    + ": " + sharkTierLabel(s.sharkThreatTier) + " (" + reason + ")");
+        }
+    }
+
+    private void applySharkTierEffects(int tier) {
+        String phrase = randomSharkPhrase(tier);
+        switch (tier) {
+            case 1 -> {
+                s.chaos += 2.0;
+                adjustAllStaffMorale(-1);
+                eco.applyRep(-1, "Loan shark warning");
+                log.event(" " + phrase);
+            }
+            case 2 -> {
+                s.chaos += 5.0;
+                adjustAllStaffMorale(-2);
+                eco.applyRep(-2, "Loan shark collectors");
+                eco.tryPay(18.0, TransactionType.REPAIR, "Collection fee", CostTag.EVENT);
+                log.event(" " + phrase);
+            }
+            case 3 -> {
+                s.chaos += 8.0;
+                adjustAllStaffMorale(-3);
+                eco.applyRep(-4, "Loan shark damage");
+                eco.tryPay(45.0, TransactionType.REPAIR, "Repairs (damage incident)", CostTag.EVENT);
+                log.event(" " + phrase);
+            }
+            case 4 -> {
+                s.chaos += 12.0;
+                adjustAllStaffMorale(-5);
+                eco.applyRep(-6, "Loan shark blitz");
+                s.creditScore = s.clampCreditScore(s.creditScore - 40);
+                eco.tryPay(80.0, TransactionType.REPAIR, "Repairs (full blitz)", CostTag.EVENT);
+                log.event(" " + phrase);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void adjustAllStaffMorale(int delta) {
+        for (Staff st : s.fohStaff) st.adjustMorale(delta);
+        for (Staff st : s.bohStaff) st.adjustMorale(delta);
+        for (Staff st : s.generalManagers) st.adjustMorale(delta);
+        staff.updateTeamMorale();
+    }
+
+    public String sharkTierLabel(int tier) {
+        return switch (tier) {
+            case 1 -> "Warning";
+            case 2 -> "Collectors";
+            case 3 -> "Damage";
+            case 4 -> "Blitz";
+            default -> "None";
+        };
+    }
+
+    private String buildLoanSummaryText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Credit Lines:\n");
+        if (s.creditLines.getOpenLines().isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (CreditLine line : s.creditLines.getOpenLines()) {
+                sb.append("  ").append(line.getLenderName())
+                        .append(" | Limit ").append(fmt2(line.getLimit()))
+                        .append(" | Balance ").append(fmt2(line.getBalance()))
+                        .append(" | Weekly ").append(fmt2(line.getWeeklyPayment()))
+                        .append(" | APR ").append(String.format("%.2f", line.getInterestAPR() * 100)).append("%")
+                        .append(" | Missed ").append(line.getMissedPaymentCount())
+                        .append("\n");
+            }
+        }
+
+        sb.append("\nLoan Shark Threat:\n");
+        sb.append("  Tier ").append(s.sharkThreatTier)
+                .append(" (").append(sharkTierLabel(s.sharkThreatTier)).append(")")
+                .append(" | Trigger: ").append(s.sharkThreatTrigger)
+                .append(" | Misses: ").append(s.sharkConsecutiveMisses).append("\n");
+        sb.append("  Reduce by clean weeks or paying shark debt in full.\n");
+
+        if (s.loanShark.hasActiveLoan()) {
+            sb.append("\nLegacy Loan Shark Debt:\n");
+            sb.append(s.loanShark.buildLoanText(
+                    s.absWeekIndex(),
+                    s.reportIndex,
+                    s.weeksIntoReport,
+                    s.reputation
+            ));
+        }
+
+        return sb.toString();
+    }
+
+    private String randomSharkPhrase(int tier) {
+        java.util.List<String> phrases = switch (tier) {
+            case 1 -> java.util.List.of(
+                    "A hard stare from a stranger. Message received.",
+                    "A quiet reminder came with a cold look.",
+                    "Someone lingered outside longer than usual."
+            );
+            case 2 -> java.util.List.of(
+                    "Two visitors asked about your arrangement.",
+                    "The collectors stopped by, all business, no smiles.",
+                    "A sharp knock, a short talk, and a heavy silence."
+            );
+            case 3 -> java.util.List.of(
+                    "A chair snapped. Someone laughed on the way out.",
+                    "Glass clinked the wrong way. Repairs won’t be cheap.",
+                    "A back-room mess left a bill on the counter."
+            );
+            case 4 -> java.util.List.of(
+                    "Tonight felt cursed. Everyone noticed.",
+                    "The room went tense. Even regulars kept quiet.",
+                    "The air stayed heavy long after last call."
+            );
+            default -> java.util.List.of("The night passes without incident.");
+        };
+        return phrases.get(s.random.nextInt(phrases.size()));
     }
 
     private void updateKitchenInventoryCap() {

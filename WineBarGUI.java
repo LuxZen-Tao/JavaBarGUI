@@ -1671,13 +1671,28 @@ public class WineBarGUI {
             sb.append("\n");
         }
 
-        sb.append("\nLoan Shark:\n");
-        sb.append(state.loanShark.buildLoanText(
-                state.absWeekIndex(),
-                state.reportIndex,
-                state.weeksIntoReport,
-                state.reputation
-        ));
+        sb.append("\nLoan Shark Credit Line:\n");
+        if (state.creditLines.hasLine("Loan Shark")) {
+            CreditLine shark = state.creditLines.getLineByName("Loan Shark");
+            sb.append("  Open | Limit ").append(money2(shark.getLimit()))
+                    .append(" | Balance ").append(money2(shark.getBalance()))
+                    .append(" | Weekly ").append(money2(shark.getWeeklyPayment()))
+                    .append(" | APR ").append(String.format("%.2f", shark.getInterestAPR() * 100)).append("%\n");
+            sb.append("  Threat Tier ").append(state.sharkThreatTier)
+                    .append(" (").append(sim.sharkTierLabel(state.sharkThreatTier)).append(")")
+                    .append(" | Trigger: ").append(state.sharkThreatTrigger).append("\n");
+        } else {
+            sb.append("  Not open\n");
+        }
+        if (state.loanShark.hasActiveLoan()) {
+            sb.append("\nLegacy Loan Shark Debt (repay in full):\n");
+            sb.append(state.loanShark.buildLoanText(
+                    state.absWeekIndex(),
+                    state.reportIndex,
+                    state.weeksIntoReport,
+                    state.reputation
+            ));
+        }
 
         return sb.toString();
     }
@@ -1688,14 +1703,7 @@ public class WineBarGUI {
             reportsDialogArea.setText(ReportSystem.buildReportText(state));
         }
         if (reportsDialogLoansArea != null) {
-            reportsDialogLoansArea.setText(
-                    state.loanShark.buildLoanText(
-                            state.absWeekIndex(),
-                            state.reportIndex,
-                            state.weeksIntoReport,
-                            state.reputation
-                    )
-            );
+            reportsDialogLoansArea.setText(buildFinanceText());
         }
     }
 
