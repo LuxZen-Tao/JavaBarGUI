@@ -49,7 +49,7 @@ public class GameState {
     public boolean banksLocked = false;
     public boolean businessCollapsed = false;
 
-    public final double weeklyRent = 60.0;
+    public final double weeklyRent = 420.0;
     public double rentAccruedThisWeek = 0.0;
     public double securityUpkeepAccruedThisWeek = 0.0;
     public double opCostBaseThisWeek = 0.0;
