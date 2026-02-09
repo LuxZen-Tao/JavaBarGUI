@@ -320,7 +320,9 @@ public class EventSystem {
 
     private double chanceMultiplier(int security) {
         // With no cap, this bottoms out at 20% chance multiplier.
-        return Math.max(0.20, 1.0 - (security * 0.08));
+        double base = Math.max(0.20, 1.0 - (security * 0.08));
+        double policyMult = s.securityPolicy != null ? s.securityPolicy.getIncidentChanceMultiplier() : 1.0;
+        return Math.max(0.20, base * policyMult);
     }
 
     private double damageMultiplier(int security) {
@@ -348,16 +350,36 @@ public class EventSystem {
     private int applyRep(int baseRep, double dmgMult, String reason) {
         if (baseRep == 0) return 0;
         double mult = dmgMult;
-        if (baseRep < 0 && s.bouncersHiredTonight > 0) {
-            mult *= s.bouncerRepDamageMultiplier();
-        }
         int rep = (int) Math.round(baseRep * mult);
+        if (baseRep < 0) {
+            rep = s.mitigateSecurityRepHit(rep);
+        }
         if (rep == 0 && baseRep < 0) rep = -1;
         eco.applyRep(rep, reason);
-        if (baseRep < 0 && s.bouncersHiredTonight > 0 && mult < dmgMult) {
-            log.event("Bouncers contained some of the fallout.");
+        if (baseRep < 0) {
+            logSecurityMitigation(rep, reason);
         }
         return rep;
+    }
+
+    private int applyIncidentRepHit(int repHit, String reason) {
+        int mitigated = s.mitigateSecurityRepHit(repHit);
+        eco.applyRep(mitigated, reason);
+        logSecurityMitigation(mitigated, reason);
+        s.addSecurityLog("Night event: " + reason + " | rep " + mitigated);
+        return mitigated;
+    }
+
+    private void logSecurityMitigation(int repHit, String reason) {
+        if (repHit >= 0) return;
+        double mult = s.securityIncidentRepMultiplier();
+        if (mult >= 0.99) return;
+        if (s.bouncersHiredTonight > 0) {
+            log.event("Bouncers contained some of the fallout.");
+        }
+        if (s.cctvRepMitigationPct() > 0.0) {
+            log.event("CCTV footage softened the blow.");
+        }
     }
 
     private int applyInventoryLoss(int min, int max, double dmgMult) {
@@ -379,6 +401,7 @@ public class EventSystem {
         String summary = name + " | cash -" + fmt0(cashLoss) + " | rep " + repHit;
         if (invLost > 0) summary += " | bottles -" + invLost;
         s.lastBetweenNightEventSummary = summary;
+        s.addSecurityLog("Between-night: " + summary);
     }
 
     private EventRange rollTier(EventRange a, EventRange b, EventRange c) {
@@ -492,24 +515,24 @@ public class EventSystem {
         } else if (roll < 20) {
             log.popup("Night event", "Police visit.", "Rep -");
             int repHit = Math.max(3, (int) Math.round(7 * (1.0 - reduction)));
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Police attention"));
             popupEvent("Night event", "Police visit.", -repHit, 0.0, 0, "REP");
-            eco.applyRep(-repHit, "Police attention");
         } else if (roll < 30) {
             log.popup("Night event", "Table collapses.", "Rep - | Repairs");
             int repHit = Math.max(3, (int) Math.round(6 * (1.0 - reduction)));
             double repair = Math.max(4, 8 * (1.0 - reduction));
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Embarrassment"));
             popupEvent("Night event", "Table collapses.", -repHit, -repair, 0, "DAMAGE");
-            eco.applyRep(-repHit, "Embarrassment");
             eco.tryPay(repair, TransactionType.REPAIR, "Repairs", CostTag.EVENT);
         } else if (roll < 42) {
             log.popup("Night event", "Bad review thread pops off.", "Rep -");
             int repHit = Math.max(4, (int) Math.round(8 * (1.0 - reduction)));
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Bad reviews"));
             popupEvent("Night event", "Bad review thread pops off.", -repHit, 0.0, 0, "REP");
-            eco.applyRep(-repHit, "Bad reviews");
         } else if (roll < 52 && s.kitchenUnlocked) {
             log.popup("Night event", "Food poisoning scare.", "Rep - | Refunds");
             int repHit = Math.max(4, (int) Math.round(7 * (1.0 - reduction)));
-            eco.applyRep(-repHit, "Food poisoning scare");
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Food poisoning scare"));
             double loss = 12 + s.random.nextInt(18);
             popupEvent("Night event", "Food poisoning scare.", -repHit, -loss, 0, "REFUND");
             if (eco.tryPay(loss, TransactionType.OTHER, "Refunds (food scare)", CostTag.FOOD)) {
@@ -519,31 +542,31 @@ public class EventSystem {
             log.popup("Night event", "Glassware shortage slows service.", "Rep - | Costs");
             int repHit = Math.max(2, (int) Math.round(5 * (1.0 - reduction)));
             double cost = Math.max(5, 12 * (1.0 - reduction));
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Glassware shortage"));
             popupEvent("Night event", "Glassware shortage slows service.", -repHit, -cost, 0, "DAMAGE");
-            eco.applyRep(-repHit, "Glassware shortage");
             eco.tryPay(cost, TransactionType.REPAIR, "Emergency glassware", CostTag.EVENT);
         } else if (roll < 72) {
             log.popup("Night event", "Rowdy stag do swamps the bar.", "Fight risk");
             triggerFight("Stag do chaos", reduction);
-            eco.applyRep(-2, "Rowdy stag do");
+            applyIncidentRepHit(-2, "Rowdy stag do");
         } else if (roll < 80) {
             triggerTeenTrouble(reduction);
         } else if (roll < 90) {
             log.popup("Night event", "Supplier no-show causes a scramble.", "Rep - | Stock lost");
-            eco.applyRep(-2, "Supplier delay");
+            int repHit = Math.abs(applyIncidentRepHit(-2, "Supplier delay"));
             int invLost = applyInventoryLoss(1, 2, 1.0);
-            popupEvent("Night event", "Supplier no-show causes a scramble. Bottles lost: " + invLost + ".", -2, 0.0, 0, "STOCK");
+            popupEvent("Night event", "Supplier no-show causes a scramble. Bottles lost: " + invLost + ".", -repHit, 0.0, 0, "STOCK");
             if (invLost > 0) log.neg("  - Bottles lost to breakage: -" + invLost);
         } else if (roll < 96) {
             log.popup("Night event", "Staff argument rattles the room.", "Rep -");
             int repHit = Math.max(2, (int) Math.round(4 * (1.0 - reduction)));
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Staff drama"));
             popupEvent("Night event", "Staff argument rattles the room.", -repHit, 0.0, 0, "REP");
-            eco.applyRep(-repHit, "Staff drama");
         } else {
             log.popup("Night event", "Influencer backlash erupts.", "Rep -");
             int repHit = Math.max(5, (int) Math.round(9 * (1.0 - reduction)));
+            repHit = Math.abs(applyIncidentRepHit(-repHit, "Influencer backlash"));
             popupEvent("Night event", "Influencer backlash erupts.", -repHit, 0.0, 0, "REP");
-            eco.applyRep(-repHit, "Influencer backlash");
         }
     }
 
@@ -646,16 +669,13 @@ public class EventSystem {
         double totalRed = Math.min(0.75, baseReduction + fightRed);
 
         int repHit = Math.max(3, (int) Math.round(10 * (1.0 - totalRed)));
-        if (s.bouncersHiredTonight > 0) {
-            repHit = Math.max(1, (int)Math.round(repHit * s.bouncerRepDamageMultiplier()));
-        }
+        repHit = Math.abs(s.mitigateSecurityRepHit(-repHit));
         double dmg = Math.max(4, 12 * (1.0 - totalRed));
 
         popupEvent("Fight", "Fight breaks out: " + reason + ".", -repHit, -dmg, 0, "FIGHT");
         eco.applyRep(-repHit, "Fight fallout (" + reason + ")");
-        if (s.bouncersHiredTonight > 0) {
-            log.event("Bouncers kept the damage contained.");
-        }
+        logSecurityMitigation(-repHit, "Fight fallout (" + reason + ")");
+        s.addSecurityLog("Fight: " + reason + " | rep -" + repHit + " | dmg " + fmt0(dmg));
         eco.tryPay(dmg, TransactionType.REPAIR, "Damages (fight)", CostTag.EVENT);
 
         // weekly morale mechanics
@@ -681,7 +701,7 @@ public class EventSystem {
     private void triggerTeenTrouble(double reduction) {
         log.popup("Night event", "Teenagers sneak in and cause chaos.", "Rep hit | Fight risk");
         int repHit = Math.max(2, (int) Math.round(5 * (1.0 - reduction)));
-        eco.applyRep(-repHit, "Underage trouble");
+        applyIncidentRepHit(-repHit, "Underage trouble");
         if (s.random.nextInt(100) < 35) {
             triggerFight("Teen trouble", reduction);
         } else {

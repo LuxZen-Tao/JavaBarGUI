@@ -177,6 +177,13 @@ public class GameState {
     public int pubLevelManagerCapBonus = 0;
     public int pubLevelChefCapBonus = 0;
     public int pubLevelBouncerCapBonus = 0;
+    public final EnumMap<LandlordActionId, LandlordActionState> landlordActionStates = new EnumMap<>(LandlordActionId.class);
+    public int lastLandlordActionRound = -999;
+    public double landlordIdentityScore = 0.0;
+    public double landlordTrafficBonusPct = 0.0;
+    public int landlordTrafficBonusRounds = 0;
+    public SecurityPolicy securityPolicy = SecurityPolicy.BALANCED_DOOR;
+    public final Deque<String> securityEventLog = new ArrayDeque<>();
 
     public double fohMorale = 70.0;
     public double bohMorale = 70.0;
@@ -331,6 +338,9 @@ public class GameState {
             pubIdentityScore.put(identity, 0.0);
             weekIdentitySignals.put(identity, 0.0);
         }
+        for (LandlordActionId id : LandlordActionId.values()) {
+            landlordActionStates.put(id, new LandlordActionState());
+        }
         identityHistory.add(currentIdentity);
     }
 
@@ -354,6 +364,40 @@ public class GameState {
     public double bouncerRepDamageMultiplier() {
         if (bouncersHiredTonight <= 0) return 1.0;
         return Math.max(0.65, 0.9 - (0.05 * Math.min(3, bouncersHiredTonight)));
+    }
+
+    public double securityIncidentRepMultiplier() {
+        double mult = 1.0;
+        if (bouncersHiredTonight > 0) {
+            mult *= bouncerRepDamageMultiplier();
+        }
+        double cctv = cctvRepMitigationPct();
+        if (cctv > 0.0) {
+            mult *= (1.0 - cctv);
+        }
+        return Math.max(0.50, mult);
+    }
+
+    public int mitigateSecurityRepHit(int repHit) {
+        if (repHit >= 0) return repHit;
+        double mult = securityIncidentRepMultiplier();
+        int mitigated = (int) Math.round(repHit * mult);
+        if (mitigated == 0 && repHit < 0) mitigated = -1;
+        return mitigated;
+    }
+
+    public double cctvRepMitigationPct() {
+        if (ownedUpgrades.contains(PubUpgrade.CCTV_PACKAGE)) return 0.10;
+        if (ownedUpgrades.contains(PubUpgrade.CCTV)) return 0.06;
+        return 0.0;
+    }
+
+    public void addSecurityLog(String entry) {
+        if (entry == null || entry.isBlank()) return;
+        securityEventLog.addFirst(entry);
+        while (securityEventLog.size() > 6) {
+            securityEventLog.removeLast();
+        }
     }
 
     public double supplierInvoiceMultiplier() {

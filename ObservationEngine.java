@@ -98,6 +98,18 @@ public class ObservationEngine {
             "Chatter hinted at a rough stretch."
     );
 
+    private static final List<String> POLICY_STRICT_LINES = List.of(
+            "Door was tight tonight.",
+            "Security kept a strict door.",
+            "The room felt more controlled at the door."
+    );
+
+    private static final List<String> POLICY_FRIENDLY_LINES = List.of(
+            "Easygoing door, lively crowd.",
+            "Door was friendly and the room buzzed.",
+            "Welcome felt warm at the door tonight."
+    );
+
     public record ObservationContext(
             int roundIndex,
             int barCount,
@@ -159,6 +171,12 @@ public class ObservationEngine {
 
         if (candidates.isEmpty()) {
             candidates.add(Category.VIBE);
+        } else if (!majorEvent && s.securityPolicy != null && s.random.nextInt(100) < 12) {
+            if (s.securityPolicy == SecurityPolicy.STRICT_DOOR) {
+                candidates.add(Category.POLICY_STRICT);
+            } else if (s.securityPolicy == SecurityPolicy.FRIENDLY_WELCOME) {
+                candidates.add(Category.POLICY_FRIENDLY);
+            }
         } else if (!majorEvent && s.random.nextInt(100) < 20) {
             candidates.add(Category.VIBE);
         }
@@ -175,6 +193,8 @@ public class ObservationEngine {
             case STAFF_CHANGE -> pick(STAFF_CHANGE_LINES, s);
             case REP_HIGH -> pick(REP_HIGH_LINES, s);
             case REP_LOW -> pick(REP_LOW_LINES, s);
+            case POLICY_STRICT -> pick(POLICY_STRICT_LINES, s);
+            case POLICY_FRIENDLY -> pick(POLICY_FRIENDLY_LINES, s);
             case VIBE -> pick(VIBE_LINES, s);
         };
         return formatWithName(pickObservationName(s), line);
@@ -223,6 +243,8 @@ public class ObservationEngine {
         STAFF_CHANGE,
         REP_HIGH,
         REP_LOW,
+        POLICY_STRICT,
+        POLICY_FRIENDLY,
         VIBE
     }
 }
