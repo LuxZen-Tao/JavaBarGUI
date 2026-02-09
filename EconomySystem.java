@@ -54,6 +54,16 @@ public class EconomySystem {
             return true;
         }
 
+        double remaining = amount - s.cash;
+        if (s.creditLines.hasAvailableCredit(remaining) && s.creditLines.applyCredit(remaining)) {
+            s.reportCosts += amount;
+            s.weekCosts += amount;
+            s.addReportCost(tag, amount);
+            s.cash = 0;
+            log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
+            return true;
+        }
+
         log.neg("Insufficient funds: cannot pay GBP " + fmt(amount) + " for " + description + ".");
         return false;
     }

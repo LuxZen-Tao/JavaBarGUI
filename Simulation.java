@@ -665,8 +665,34 @@ public class Simulation {
     }
 
     // --------------------
-    // Loan shark
+    // Credit lines + loan shark
     // --------------------
+    public void openCreditLine(Bank bank) {
+        if (bank == null) return;
+        if (!bank.isUnlocked(s.creditScore)) {
+            log.neg("Credit score too low for " + bank.getName() + " (requires " + bank.getMinScore() + ").");
+            return;
+        }
+        if (s.creditLines.hasLine(bank.getName())) {
+            log.info("Credit line already open with " + bank.getName() + ".");
+            return;
+        }
+        CreditLine line = s.creditLines.openLine(bank, s.random);
+        if (line == null) {
+            log.neg("Could not open credit line with " + bank.getName() + ".");
+            return;
+        }
+        log.pos("Opened credit line: " + bank.getName()
+                + " | limit GBP " + String.format("%.0f", line.getLimit())
+                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+    }
+
+    public void repayCreditLineInFull(String lineId) {
+        CreditLine line = s.creditLines.getLineById(lineId);
+        if (line == null) { log.neg("Credit line not found."); return; }
+        s.creditLines.repayInFull(s, line, log);
+    }
+
     public void borrowFromLoanShark(double amt) {
         if (s.loanShark.hasActiveLoan()) { log.neg(" Loan Shark says: you already owe."); return; }
         if (!s.loanShark.canBorrow(amt, s.reputation)) { log.neg(" Loan Shark: can't borrow that amount."); return; }
@@ -1069,6 +1095,8 @@ public class Simulation {
     private void endOfWeek() {
         //  Weekly debt interest (slow doom)
         eco.applyWeeklyDebtInterest();
+
+        s.creditLines.processWeekly(s, log);
 
         double raw = staff.wagesDueRaw();
         double eff = upgrades.wageEfficiencyPct();
