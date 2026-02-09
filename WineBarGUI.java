@@ -1637,6 +1637,7 @@ public class WineBarGUI {
 
         // OBS box = traffic + forecast + top sellers
         observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
+                + " (natural " + state.lastNaturalDepartures + ")"
                 + "<br>📈 " + forecastLine
                 + "<br>🏆 " + topSalesLine + "</html>");
 

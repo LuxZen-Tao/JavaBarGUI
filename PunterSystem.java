@@ -48,7 +48,11 @@ public class PunterSystem {
     /** Some punters leave naturally each round to keep turnover flowing. */
     public int applyNaturalDepartures() {
         int left = 0;
-        double baseChance = 0.02 + Math.min(0.06, s.weekCount * 0.002);
+        int count = s.nightPunters.size();
+        double occupancyFactor = Math.min(0.04, count * 0.002);
+        double lateNightFactor = Math.min(0.03, Math.max(0, s.roundInNight - 3) * 0.002);
+        double baseChance = 0.015 + occupancyFactor + lateNightFactor;
+        baseChance = Math.min(0.09, baseChance);
         for (Punter p : s.nightPunters) {
             if (p.hasLeftBar() || p.isBanned()) continue;
             if (s.random.nextDouble() < baseChance) {

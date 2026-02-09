@@ -72,6 +72,8 @@ public class GameState {
     public double nightRevenue = 0;
     public int nightUnserved = 0;
     public int nightKickedOut = 0;
+    public int nightNaturalDepartures = 0;
+    public int lastNaturalDepartures = 0;
     public int nightRefusedUnderage = 0;
     public int nightEvents = 0;
     public int nightFights = 0;

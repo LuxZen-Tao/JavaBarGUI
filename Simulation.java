@@ -523,7 +523,7 @@ public class Simulation {
 
         int nights = 1 + s.random.nextInt(4);
         s.pendingUpgradeInstalls.add(new PendingUpgradeInstall(up, nights, nights));
-        log.pos(" Upgrade ordered: " + up.getLabel() + " (ETA " + nights + " night(s)).");
+        log.upgrade(" Upgrade ordered: ", up.getLabel(), " (ETA " + nights + " night(s)).", UILogger.Tone.POS);
         eco.applyRep(+2, "Upgrade hype");
 
         if (s.ownedUpgrades.size() == 3) log.event(" Milestone: 3 upgrades owned - your pub is becoming a 'place'.");
@@ -707,6 +707,8 @@ public class Simulation {
         s.nightEvents = 0;
         s.nightUnserved = 0;
         s.nightKickedOut = 0;
+        s.nightNaturalDepartures = 0;
+        s.lastNaturalDepartures = 0;
         s.nightRefusedUnderage = 0;
         s.roundsSinceLastEvent = 0;
         s.nightRoundCostsTotal = 0;
@@ -868,9 +870,14 @@ public class Simulation {
         int arrivals = rollArrivals(trafficMult, riskyWeekend);
         int added = arrivals > 0 ? punters.addArrivals(arrivals) : 0;
         int leftNaturally = punters.applyNaturalDepartures();
-        if (added > 0 || leftNaturally > 0) {
-            log.info(leftNaturally + " left naturally, " + added + " wandered in.");
+        if (leftNaturally > 0) {
+            log.info(" Some punters headed off — nothing wrong, just time to go. (" + leftNaturally + ")");
         }
+        if (added > 0) {
+            log.info(" " + added + " punter(s) wandered in.");
+        }
+        s.lastNaturalDepartures = leftNaturally;
+        s.nightNaturalDepartures += leftNaturally;
 
 
         // 6) Events
@@ -1046,7 +1053,7 @@ public class Simulation {
                     s.kitchenUnlocked = true;
                     log.event(" Kitchen unlocked. Food supplier now available.");
                 }
-                log.popup(" Upgrade installed", up.getLabel() + " is now active.", "");
+                log.popupUpgrade(" Upgrade installed", up.getLabel(), " is now active.", "");
             } else {
                 s.pendingUpgradeInstalls.set(i, new PendingUpgradeInstall(install.upgrade(), remaining, install.totalNights()));
             }
@@ -1567,6 +1574,7 @@ public class Simulation {
                 + "\nRumor traffic: x" + fmt2(rumorTrafficMultiplier())
                 + "\nActivity traffic: x" + fmt2(activities.trafficMultiplier())
                 + "\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
+                + "\nNatural departures (night): " + s.nightNaturalDepartures
                 + "\nTier mix: " + punterTierBreakdown();
 
         String inventory = "Wine: " + s.rack.count() + "/" + s.rack.getCapacity()

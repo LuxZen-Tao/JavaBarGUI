@@ -74,6 +74,7 @@ public class ReportSystem {
         sb.append("Sales:    ").append(s.nightSales).append("\n");
         sb.append("Unserved: ").append(s.nightUnserved).append("\n");
         sb.append("Food misses: ").append(s.nightFoodUnserved).append("\n");
+        sb.append("Natural departures: ").append(s.nightNaturalDepartures).append("\n");
         sb.append("Kicked:   ").append(s.nightKickedOut).append("\n");
         sb.append("Underage: ").append(s.nightRefusedUnderage).append("\n");
         sb.append("Events:   ").append(s.nightEvents).append("\n");
