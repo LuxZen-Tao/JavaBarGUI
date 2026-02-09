@@ -937,6 +937,23 @@ public class Simulation {
         }
     }
 
+    public void setSecurityPolicy(SecurityPolicy policy) {
+        if (policy == null) return;
+        s.securityPolicy = policy;
+    }
+
+    public SecuritySystem.SecurityBreakdown securityBreakdown() {
+        return security.breakdown();
+    }
+
+    public double securityPolicyTrafficMultiplier() {
+        return s.securityPolicy != null ? s.securityPolicy.getTrafficMultiplier() : 1.0;
+    }
+
+    public double securityPolicyIncidentChanceMultiplier() {
+        return s.securityPolicy != null ? s.securityPolicy.getIncidentChanceMultiplier() : 1.0;
+    }
+
     public void playRound() {
         if (!s.nightOpen) return;
 
@@ -988,6 +1005,7 @@ public class Simulation {
                         * baseTrafficMultiplier()
                         * identityTrafficMultiplier()
                         * rumorTrafficMultiplier()
+                        * securityPolicyTrafficMultiplier()
                         * (1.0 + s.landlordTrafficBonusPct);
 
         if (rumors != null) {
@@ -1015,7 +1033,7 @@ public class Simulation {
         }
 
         boolean riskyWeekend = s.isWeekend();
-        int sec = security.effectiveSecurity() + s.upgradeSecurityBonus; //  upgrade security applies
+        int sec = security.effectiveSecurity(); //  upgrade security applies
         sec = Math.max(0, sec);
 
         double identityTip = s.currentIdentity != null ? s.currentIdentity.getTipBonusPct() : 0.0;
@@ -1148,7 +1166,7 @@ public class Simulation {
         accrueSecurityUpkeep();
 
         // between-nights spice (v2 event system)
-        events.runBetweenNightEvents(Math.max(0, security.effectiveSecurity() + s.upgradeSecurityBonus));
+        events.runBetweenNightEvents(Math.max(0, security.effectiveSecurity()));
 
         // spoilage: bottles that sat too long go off
         int spoiled = s.rack.removeSpoiled(s.absDayIndex());
@@ -2148,7 +2166,8 @@ public class Simulation {
         String identityLine = s.pubIdentity.name().replace('_', ' ') + " " + s.identityDrift;
         String chaosLabel = chaosMoodLabel();
         double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier()
-                * activities.trafficMultiplier() * (1.0 + s.landlordTrafficBonusPct);
+                * activities.trafficMultiplier() * securityPolicyTrafficMultiplier()
+                * (1.0 + s.landlordTrafficBonusPct);
         double creditBalance = s.totalCreditBalance()
                 + (s.loanShark.isOpen() ? s.loanShark.getBalance() : 0.0);
         double creditWeeklyDue = s.totalCreditWeeklyPaymentDue();
@@ -2220,6 +2239,7 @@ public class Simulation {
         String staffText = buildStaffTabSummary(serveCap);
 
         String risk = "Security: " + sec
+                + "\nPolicy: " + (s.securityPolicy != null ? s.securityPolicy.getLabel() : "Balanced")
                 + "\nBouncers hired: " + s.bouncersHiredTonight + "/" + s.bouncerCap
                 + "\nFights (week): " + s.fightsThisWeek
                 + "\nRefunds (week): GBP " + fmt2(s.weekRefundTotal)
@@ -2238,6 +2258,7 @@ public class Simulation {
                 + "\nBase traffic: x" + fmt2(baseTrafficMultiplier())
                 + "\nIdentity traffic: x" + fmt2(identityTrafficMultiplier())
                 + "\nRumor traffic: x" + fmt2(rumorTrafficMultiplier())
+                + "\nSecurity policy traffic: x" + fmt2(securityPolicyTrafficMultiplier())
                 + "\nActivity traffic: x" + fmt2(activities.trafficMultiplier())
                 + "\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
                 + "\nNatural departures (night): " + s.nightNaturalDepartures
@@ -3183,14 +3204,82 @@ public class Simulation {
     }
 
     private String buildSecurityDetailText(int sec) {
+        SecuritySystem.SecurityBreakdown breakdown = security.breakdown();
         StringBuilder sb = new StringBuilder();
+        sb.append("Security policy: ").append(s.securityPolicy != null ? s.securityPolicy.getLabel() : "Balanced").append("\n");
         sb.append("Effective security: ").append(sec).append("\n");
+        sb.append("Incident chance mult: x").append(fmt2(incidentChanceMultiplier(sec))).append("\n");
         sb.append("Bouncers hired: ").append(s.bouncersHiredTonight).append("/").append(s.bouncerCap).append("\n");
+        sb.append("Bouncer quality: ").append(s.bouncerQualitySummary()).append("\n");
         sb.append("Bouncer rep mitigation: x").append(fmt2(s.bouncerRepDamageMultiplier())).append("\n");
+        sb.append("CCTV rep mitigation: ").append((int)Math.round(s.cctvRepMitigationPct() * 100)).append("%\n");
+        sb.append("Combined rep mitigation: x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
         sb.append("Bouncer reductions: theft ").append(pct(s.bouncerTheftReduction))
                 .append(" | negative ").append(pct(s.bouncerNegReduction))
                 .append(" | fights ").append(pct(s.bouncerFightReduction)).append("\n");
+
+        sb.append("\nSecurity breakdown:\n");
+        sb.append("- Base security: ").append(breakdown.base()).append("\n");
+        sb.append("- Upgrade bonuses: ").append(breakdown.upgrades()).append("\n");
+        if (breakdown.upgrades() > 0) {
+            sb.append("  ");
+            java.util.List<String> upgradeParts = new java.util.ArrayList<>();
+            for (PubUpgrade upgrade : s.ownedUpgrades) {
+                if (upgrade.getSecurityBonus() > 0) {
+                    upgradeParts.add(upgrade.getLabel() + " +" + upgrade.getSecurityBonus());
+                }
+            }
+            if (!upgradeParts.isEmpty()) {
+                sb.append(String.join(", ", upgradeParts));
+            } else {
+                sb.append("No security upgrades listed.");
+            }
+            sb.append("\n");
+        }
+        sb.append("- Policy modifier: ").append(breakdown.policy()).append("\n");
+        sb.append("- Bouncer presence: ").append(breakdown.bouncers()).append("\n");
+        sb.append("- Manager bonus: ").append(breakdown.manager()).append("\n");
+        sb.append("- Staff bonus: ").append(breakdown.staff()).append("\n");
+        sb.append("= Total: ").append(breakdown.total()).append("\n");
+
+        sb.append("\nInstalled security upgrades:\n");
+        java.util.List<String> upgradesList = new java.util.ArrayList<>();
+        if (s.ownedUpgrades.contains(PubUpgrade.CCTV) || s.ownedUpgrades.contains(PubUpgrade.CCTV_PACKAGE)) {
+            upgradesList.add("CCTV");
+        }
+        if (s.ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR)) {
+            upgradesList.add("Reinforced Door");
+        }
+        if (s.ownedUpgrades.contains(PubUpgrade.IMPROVED_LIGHTING)) {
+            upgradesList.add("Improved Lighting");
+        }
+        if (upgradesList.isEmpty()) {
+            sb.append("None\n");
+        } else {
+            for (String entry : upgradesList) sb.append("- ").append(entry).append("\n");
+        }
+
+        sb.append("\nWhat this changes:\n");
+        sb.append("- Policy incident chance: x").append(fmt2(securityPolicyIncidentChanceMultiplier())).append("\n");
+        sb.append("- Policy traffic: x").append(fmt2(securityPolicyTrafficMultiplier())).append("\n");
+        sb.append("- Rep mitigation (bouncers+CCTV): x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
+
+        sb.append("\nRecent security log:\n");
+        if (s.securityEventLog.isEmpty()) {
+            sb.append("None");
+        } else {
+            int count = 0;
+            for (String entry : s.securityEventLog) {
+                sb.append("- ").append(entry).append("\n");
+                if (++count >= 6) break;
+            }
+        }
         return sb.toString();
+    }
+
+    private double incidentChanceMultiplier(int sec) {
+        double base = Math.max(0.20, 1.0 - (sec * 0.08));
+        return base * securityPolicyIncidentChanceMultiplier();
     }
 
     private String buildStaffDetailText() {
