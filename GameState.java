@@ -177,6 +177,11 @@ public class GameState {
     public int pubLevelManagerCapBonus = 0;
     public int pubLevelChefCapBonus = 0;
     public int pubLevelBouncerCapBonus = 0;
+    public final EnumMap<LandlordActionId, LandlordActionState> landlordActionStates = new EnumMap<>(LandlordActionId.class);
+    public int lastLandlordActionRound = -999;
+    public double landlordIdentityScore = 0.0;
+    public double landlordTrafficBonusPct = 0.0;
+    public int landlordTrafficBonusRounds = 0;
 
     public double fohMorale = 70.0;
     public double bohMorale = 70.0;
@@ -330,6 +335,9 @@ public class GameState {
         for (PubIdentity identity : PubIdentity.values()) {
             pubIdentityScore.put(identity, 0.0);
             weekIdentitySignals.put(identity, 0.0);
+        }
+        for (LandlordActionId id : LandlordActionId.values()) {
+            landlordActionStates.put(id, new LandlordActionState());
         }
         identityHistory.add(currentIdentity);
     }
