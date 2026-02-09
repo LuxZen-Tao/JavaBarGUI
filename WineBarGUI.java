@@ -1587,6 +1587,32 @@ public class WineBarGUI {
 
         loanButtonsPanel.removeAll();
 
+        loanButtonsPanel.add(new JLabel("Loan Shark:"));
+        JButton b100 = new JButton("Borrow 100");
+        JButton b250 = new JButton("Borrow 250");
+        JButton b500 = new JButton("Borrow 500");
+        JButton b1000 = new JButton("Borrow 1000");
+        JButton repayFull = new JButton("Repay In Full");
+
+        boolean active = state.loanShark.hasActiveLoan();
+        b100.setEnabled(!active);
+        b250.setEnabled(!active);
+        b500.setEnabled(!active);
+        b1000.setEnabled(!active);
+        repayFull.setEnabled(active);
+
+        b100.addActionListener(e -> { sim.borrowFromLoanShark(100); refreshAll(); refreshAllMenus(); });
+        b250.addActionListener(e -> { sim.borrowFromLoanShark(250); refreshAll(); refreshAllMenus(); });
+        b500.addActionListener(e -> { sim.borrowFromLoanShark(500); refreshAll(); refreshAllMenus(); });
+        b1000.addActionListener(e -> { sim.borrowFromLoanShark(1000); refreshAll(); refreshAllMenus(); });
+        repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
+
+        loanButtonsPanel.add(b100);
+        loanButtonsPanel.add(b250);
+        loanButtonsPanel.add(b500);
+        loanButtonsPanel.add(b1000);
+        loanButtonsPanel.add(repayFull);
+
         loanButtonsPanel.add(new JLabel("Banks:"));
         for (Bank bank : Bank.values()) {
             JButton open = new JButton("Open " + bank.getName());
@@ -1599,24 +1625,6 @@ public class WineBarGUI {
                     + (bank.getMinScore() > 0 ? " | Score " + bank.getMinScore() + "+" : ""));
             open.addActionListener(e -> { sim.openCreditLine(bank); refreshAll(); refreshAllMenus(); });
             loanButtonsPanel.add(open);
-        }
-
-        loanButtonsPanel.add(new JLabel("Loan Shark Line:"));
-        JButton openShark = new JButton("Open Loan Shark Line");
-        openShark.setEnabled(!state.creditLines.hasLine("Loan Shark"));
-        openShark.addActionListener(e -> { sim.openSharkLine(); refreshAll(); refreshAllMenus(); });
-        loanButtonsPanel.add(openShark);
-
-        if (state.loanShark.hasActiveLoan()) {
-            loanButtonsPanel.add(new JLabel("Legacy Loan Shark Debt:"));
-            JButton repayFull = new JButton("Repay Legacy Debt");
-            repayFull.setEnabled(state.cash >= state.loanShark.totalDueNow(
-                    state.absWeekIndex(),
-                    state.reportIndex,
-                    state.weeksIntoReport
-            ));
-            repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
-            loanButtonsPanel.add(repayFull);
         }
 
         if (!state.creditLines.getOpenLines().isEmpty()) {
