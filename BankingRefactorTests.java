@@ -6,12 +6,19 @@ public class BankingRefactorTests {
     public static void main(String[] args) {
         testSupplierCreditCapBlocksPurchases();
         testSupplierBalanceOnlyIncreasesOnStock();
+        testSupplierInvoiceAnytimeReducesBalance();
+        testSupplierInvoicePaymentFreesCredit();
+        testSupplierInvoiceNoMinPenalty();
+        testSupplierInvoicePaymentSources();
         testNoAutoPayAtEndOfWeek();
         testLateFeeAndPenaltyOnUnderMin();
         testPenaltyRecoveryStages();
         testCreditScoreBonusForFullPay();
         testCreditLineToCreditLinePayment();
         testWeeklyMinDueIncludesSupplier();
+        testObservationEngineMajorEventOverridesThrottle();
+        testObservationEngineNoBouncerClaims();
+        testObservationEngineLengthClamp();
         testBouncerMitigatesRepDamage();
         testPubLevelRequiresTimeAndMilestones();
         testPubLevelAffectsSupplierCap();
@@ -57,6 +64,78 @@ public class BankingRefactorTests {
         double foodBalanceBefore = state.supplierFoodCredit.getBalance();
         sim.buyFoodFromSupplier(food, 1);
         assert state.supplierFoodCredit.getBalance() > foodBalanceBefore : "Food supplier balance should increase after food purchase.";
+    }
+
+    private static void testSupplierInvoiceAnytimeReducesBalance() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        state.cash = 500.0;
+        state.supplierWineCredit.addBalance(200.0);
+        double beforeBalance = state.supplierWineCredit.getBalance();
+        double beforeCash = state.cash;
+
+        Simulation.SupplierPaymentResult result = sim.paySupplierInvoice(SupplierAccount.WINE, 80.0, "CASH");
+
+        assert result.success() : "Supplier invoice payment should succeed.";
+        assert Math.abs(state.supplierWineCredit.getBalance() - (beforeBalance - 80.0)) < 0.01
+                : "Supplier balance should decrease immediately after payment.";
+        assert Math.abs(state.cash - (beforeCash - 80.0)) < 0.01 : "Cash should decrease with payment.";
+    }
+
+    private static void testSupplierInvoicePaymentFreesCredit() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        Wine wine = state.supplier.get(0);
+        double cap = state.supplierCreditCap();
+        state.cash = 500.0;
+        state.supplierWineCredit.addBalance(cap);
+
+        int beforeCount = state.rack.count();
+        sim.buyFromSupplier(wine, 1);
+        assert state.rack.count() == beforeCount : "Purchase should be blocked when supplier credit is maxed.";
+
+        Simulation.SupplierPaymentResult result = sim.paySupplierInvoice(SupplierAccount.WINE, 150.0, "CASH");
+        assert result.success() : "Supplier invoice payment should succeed.";
+        sim.buyFromSupplier(wine, 1);
+        assert state.rack.count() > beforeCount : "Purchase should succeed after freeing supplier credit.";
+    }
+
+    private static void testSupplierInvoiceNoMinPenalty() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        state.cash = 200.0;
+        state.supplierWineCredit.addBalance(200.0);
+        double minDue = state.supplierWineMinDue();
+        double penaltyBefore = state.supplierWineCredit.getPenaltyAddOnApr();
+        double lateBefore = state.supplierWineCredit.getLateFeesThisWeek();
+
+        Simulation.SupplierPaymentResult result = sim.paySupplierInvoice(SupplierAccount.WINE, minDue - 10.0, "CASH");
+
+        assert result.success() : "Supplier invoice payment should succeed for a custom amount.";
+        assert state.supplierWineCredit.getPenaltyAddOnApr() == penaltyBefore
+                : "Any-time supplier payments should not apply min-due penalties.";
+        assert state.supplierWineCredit.getLateFeesThisWeek() == lateBefore
+                : "Any-time supplier payments should not apply late fees.";
+    }
+
+    private static void testSupplierInvoicePaymentSources() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        state.supplierWineCredit.addBalance(120.0);
+        state.cash = 40.0;
+
+        CreditLine line = state.creditLines.openLine(Bank.TOWNLAND, state.random);
+        double available = line.availableCredit();
+
+        Simulation.SupplierPaymentResult cashResult = sim.paySupplierInvoice(SupplierAccount.WINE, 40.0, "CASH");
+        assert cashResult.success() : "Cash payment should succeed.";
+
+        Simulation.SupplierPaymentResult lineResult = sim.paySupplierInvoice(SupplierAccount.WINE, 60.0, line.getId());
+        assert lineResult.success() : "Credit line payment should succeed.";
+        assert line.getBalance() > 0.0 : "Credit line balance should increase when used for payment.";
+
+        Simulation.SupplierPaymentResult failResult = sim.paySupplierInvoice(SupplierAccount.WINE, available + 10.0, line.getId());
+        assert !failResult.success() : "Payment should fail when exceeding credit line limit.";
     }
 
     private static void testNoAutoPayAtEndOfWeek() {
@@ -182,6 +261,94 @@ public class BankingRefactorTests {
                 + state.wagesAccruedThisWeek;
         assert Math.abs(due.supplier() - expectedSupplierMin) < 0.001 : "Supplier minimum due should be included in weekly totals.";
         assert Math.abs(due.total() - expectedTotal) < 0.001 : "Weekly minimum due total should include supplier mins.";
+    }
+
+    private static void testObservationEngineMajorEventOverridesThrottle() {
+        GameState state = GameFactory.newGame();
+        state.random.setSeed(1);
+        state.lastObservationRound = 10;
+        ObservationEngine engine = new ObservationEngine();
+        ObservationEngine.ObservationContext ctx = new ObservationEngine.ObservationContext(
+                11,
+                6,
+                0,
+                1,
+                0,
+                0,
+                2,
+                1,
+                state.priceMultiplier,
+                0.0,
+                state.rack.count(),
+                state.foodRack.count(),
+                state.kitchenUnlocked,
+                state.bouncersHiredTonight,
+                false,
+                false
+        );
+
+        ObservationEngine.ObservationResult result = engine.nextObservation(state, ctx);
+        assert result != null : "Major events should force observation updates despite throttling.";
+    }
+
+    private static void testObservationEngineNoBouncerClaims() {
+        GameState state = GameFactory.newGame();
+        state.random.setSeed(2);
+        state.lastObservationRound = 1;
+        ObservationEngine engine = new ObservationEngine();
+        ObservationEngine.ObservationContext ctx = new ObservationEngine.ObservationContext(
+                2,
+                6,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                state.priceMultiplier,
+                0.0,
+                state.rack.count(),
+                state.foodRack.count(),
+                state.kitchenUnlocked,
+                0,
+                false,
+                false
+        );
+
+        ObservationEngine.ObservationResult result = engine.nextObservation(state, ctx);
+        assert result != null : "Observation should be produced for a fight trigger.";
+        String text = result.text().toLowerCase();
+        assert !text.contains("bouncer") && !text.contains("door staff") : "No bouncer text should appear without bouncers.";
+    }
+
+    private static void testObservationEngineLengthClamp() {
+        GameState state = GameFactory.newGame();
+        state.random.setSeed(3);
+        state.lastObservationRound = 0;
+        ObservationEngine engine = new ObservationEngine();
+        ObservationEngine.ObservationContext ctx = new ObservationEngine.ObservationContext(
+                5,
+                12,
+                3,
+                0,
+                0,
+                0,
+                4,
+                3,
+                1.35,
+                0.25,
+                state.rack.count(),
+                state.foodRack.count(),
+                state.kitchenUnlocked,
+                state.bouncersHiredTonight,
+                false,
+                false
+        );
+
+        ObservationEngine.ObservationResult result = engine.nextObservation(state, ctx);
+        assert result != null : "Observation should be produced for busy/price triggers.";
+        assert result.text().length() <= ObservationEngine.MAX_OBSERVATION_LENGTH
+                : "Observation text should stay within display constraints.";
     }
 
     private static void testBouncerMitigatesRepDamage() {
