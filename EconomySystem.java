@@ -86,13 +86,18 @@ public class EconomySystem {
     }
 
     public boolean endOfWeekPayBills(double wagesDue) {
-        if (tryPay(s.rentAccruedThisWeek, TransactionType.OTHER, "Rent (accrued daily)", CostTag.RENT)) {
+        double invoiceMult = s.supplierInvoiceMultiplier();
+        double rentDue = s.rentAccruedThisWeek * invoiceMult;
+        double securityDue = s.securityUpkeepAccruedThisWeek * invoiceMult;
+        double wagesDueAdjusted = wagesDue * invoiceMult;
+
+        if (tryPay(rentDue, TransactionType.OTHER, "Rent (accrued daily)", CostTag.RENT)) {
             s.rentAccruedThisWeek = 0.0;
         }
-        if (tryPay(s.securityUpkeepAccruedThisWeek, TransactionType.OTHER, "Security upkeep (accrued daily)", CostTag.SECURITY)) {
+        if (tryPay(securityDue, TransactionType.OTHER, "Security upkeep (accrued daily)", CostTag.SECURITY)) {
             s.securityUpkeepAccruedThisWeek = 0.0;
         }
-        return wagesDue <= 0 || tryPay(wagesDue, TransactionType.WAGES, "Wages", CostTag.WAGES);
+        return wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Wages", CostTag.WAGES);
     }
 
     /** Weekly interest on debt. This is separate from LoanShark (that's its own hell). */

@@ -349,7 +349,7 @@ public class Simulation {
         qty = Math.max(1, qty);
         if (s.nightOpen && s.canEmergencyRestock()) {
             double markup = s.isWeekend() ? 1.7 : 1.3;
-            double baseCost = w.getBaseCost() * qty;
+            double baseCost = w.getBaseCost() * qty * s.supplierPriceMultiplier();
             return Math.max(0.0, baseCost * markup);
         }
         double repMult = inv.repToSupplierCostMultiplier();
@@ -433,7 +433,7 @@ public class Simulation {
             boolean weekend = s.isWeekend();
             double markup = weekend ? 1.7 : 1.3;
             int roundsDelay = 3;
-            double baseCost = w.getBaseCost() * qty;
+            double baseCost = w.getBaseCost() * qty * s.supplierPriceMultiplier();
             double markedCost = baseCost * markup;
             if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER)) return;
 
@@ -459,7 +459,7 @@ public class Simulation {
     public double peekFoodCost(Food food, int qty) {
         if (food == null) return 0.0;
         qty = Math.max(1, qty);
-        double cost = food.getBaseCost() * qty;
+        double cost = food.getBaseCost() * qty * s.supplierPriceMultiplier();
         double disc = foodBulkDiscountPct(qty);
         return Math.max(0.0, cost * (1.0 - disc));
     }
@@ -474,7 +474,7 @@ public class Simulation {
         if (qty <= 0) { log.neg("Kitchen inventory full."); return; }
 
         double disc = foodBulkDiscountPct(qty);
-        double cost = food.getBaseCost() * qty * (1.0 - disc);
+        double cost = food.getBaseCost() * qty * (1.0 - disc) * s.supplierPriceMultiplier();
 
         if (s.nightOpen) {
             if (s.staffCountOfType(Staff.Type.HEAD_CHEF) < 1) {
@@ -685,6 +685,11 @@ public class Simulation {
         log.pos("Opened credit line: " + bank.getName()
                 + " | limit GBP " + String.format("%.0f", line.getLimit())
                 + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+        s.creditLinesOpenedThisWeek++;
+        if (s.creditLinesOpenedThisWeek > 1) {
+            s.creditScore = s.clampCreditScore(s.creditScore - 5);
+            log.neg("Credit score dips from opening multiple lines quickly.");
+        }
     }
 
     public void repayCreditLineInFull(String lineId) {
@@ -1139,6 +1144,7 @@ public class Simulation {
         s.weekChaosTotal = 0.0;
         s.weekChaosRounds = 0;
         s.staffMisconductThisWeek = 0;
+        s.creditLinesOpenedThisWeek = 0;
         s.weekActivityNights = 0;
     }
 
@@ -1553,6 +1559,9 @@ public class Simulation {
 
         java.util.List<String> overview = new java.util.ArrayList<>();
         overview.add("Cash: GBP " + fmt2(s.cash) + " | Debt: GBP " + fmt2(s.debt) + " | Invoice Due: GBP " + fmt2(invoiceDueNow()));
+        overview.add("Credit score: " + s.creditScore
+                + " | Utilisation: " + String.format("%.0f%%", s.creditUtilization * 100)
+                + " | Supplier trust: " + s.supplierTrustLabel());
         overview.add("Reputation: " + s.reputation + " (" + mood + ")");
         overview.add("Identity: " + identityLine);
         overview.add("Chaos: " + String.format("%.1f", s.chaos) + " (" + chaosLabel + ")");
@@ -1569,6 +1578,11 @@ public class Simulation {
                 + "\nProfit (week): GBP " + fmt2(s.weekRevenue - s.weekCosts)
                 + "\nCash: GBP " + fmt2(s.cash)
                 + "\nDebt: GBP " + fmt2(s.debt)
+                + "\nCredit score: " + s.creditScore
+                + "\nCredit utilisation: " + String.format("%.0f%%", s.creditUtilization * 100)
+                + "\nSupplier trust: " + s.supplierTrustLabel()
+                + "\nSupplier price mult: x" + fmt2(s.supplierPriceMultiplier())
+                + "\nInvoice terms mult: x" + fmt2(s.supplierInvoiceMultiplier())
                 + "\nInvoice Due: GBP " + fmt2(invoiceDueNow())
                 + "\nPrice multiplier avg: " + fmt2(avgPriceMultiplier())
                 + "\nPrice volatility: " + fmt2(s.weekPriceMultiplierAbsDelta);

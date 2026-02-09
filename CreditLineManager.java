@@ -28,7 +28,7 @@ public class CreditLineManager {
             if (line.availableCredit() >= amount) {
                 line.addBalance(amount);
                 updateWeeklyPayment(line);
-                // TODO: Enable player choice for selecting credit line in Chunk 3.
+                // TODO: Enable player choice for selecting credit line in Chunk 4.
                 return true;
             }
         }
@@ -70,8 +70,16 @@ public class CreditLineManager {
     }
 
     public void processWeekly(GameState s, UILogger log) {
+        double totalLimit = 0.0;
+        double totalBalance = 0.0;
+        boolean missedPayment = false;
+        boolean paidAllOnTime = true;
+        int openCount = 0;
         for (CreditLine line : openLines) {
             if (!line.isEnabled()) continue;
+            openCount++;
+            totalLimit += line.getLimit();
+            totalBalance += line.getBalance();
             double balance = line.getBalance();
             if (balance > 0.0) {
                 double interest = balance * (line.getInterestAPR() / 52.0);
@@ -92,6 +100,8 @@ public class CreditLineManager {
                                 + " | balance now GBP " + fmt(line.getBalance()));
                     } else {
                         line.markMissedPayment();
+                        missedPayment = true;
+                        paidAllOnTime = false;
                         log.neg("Missed credit line payment: " + line.getLenderName()
                                 + " GBP " + fmt(due) + " due.");
                     }
@@ -100,10 +110,44 @@ public class CreditLineManager {
             if (line.getBalance() <= 0.0) {
                 line.applyPayment(line.getBalance());
                 line.setWeeklyPayment(0.0);
-                if (line.isEnabled()) {
-                    s.creditScore = Math.min(850, s.creditScore + 1);
-                    // TODO: Expand credit score effects in Chunk 3 (suppliers, events).
-                }
+            }
+        }
+
+        s.creditUtilization = totalLimit > 0.0 ? (totalBalance / totalLimit) : 0.0;
+
+        if (missedPayment) {
+            adjustCreditScore(s, -30, "Missed credit payment");
+        }
+
+        if (s.creditUtilization > 0.80 && totalLimit > 0.0) {
+            adjustCreditScore(s, -5, "High credit utilization");
+        }
+
+        if (paidAllOnTime && totalBalance > 0.0) {
+            adjustCreditScore(s, 4, "On-time credit repayments");
+        }
+
+        if (openCount > 0 && totalBalance <= 0.0) {
+            adjustCreditScore(s, 1, "Zero balance credit lines");
+        }
+
+        if (totalBalance <= 0.0) {
+            s.noDebtUsageWeeks++;
+            if (s.noDebtUsageWeeks >= 2) {
+                int bonus = Math.min(3, s.noDebtUsageWeeks - 1);
+                adjustCreditScore(s, bonus, "No credit usage streak");
+            }
+        } else {
+            s.noDebtUsageWeeks = 0;
+        }
+
+        String trust = s.supplierTrustLabel();
+        if (!trust.equals(s.supplierTrustStatus)) {
+            s.supplierTrustStatus = trust;
+            if ("Good".equals(trust)) {
+                log.pos("Suppliers offer better terms due to strong credit.");
+            } else if ("Poor".equals(trust) || "Very Poor".equals(trust)) {
+                log.neg("Suppliers tighten prices due to poor credit.");
             }
         }
     }
@@ -144,5 +188,14 @@ public class CreditLineManager {
 
     private static String fmtPct(double value) {
         return String.format("%.2f", value * 100.0);
+    }
+
+    private void adjustCreditScore(GameState s, int delta, String reason) {
+        if (s == null || delta == 0) return;
+        int before = s.creditScore;
+        s.creditScore = s.clampCreditScore(before + delta);
+        if (s.creditScore != before) {
+            // TODO: Expand credit score effects in Chunk 4 (suppliers, events).
+        }
     }
 }
