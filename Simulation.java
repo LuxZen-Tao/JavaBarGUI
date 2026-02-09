@@ -203,6 +203,10 @@ public class Simulation {
         s.upgradeEventDamageReductionPct = upgrades.eventDamageReductionPct();
         s.upgradeRiskReductionPct = upgrades.riskReductionPct();
         s.upgradeFoodRackCapBonus = upgrades.foodRackCapBonus();
+        s.upgradeIncidentChanceMultiplier = s.computeUpgradeIncidentChanceMultiplier();
+        s.upgradeMoraleStabilityPct = s.computeUpgradeMoraleStabilityPct();
+        s.upgradeRepMitigationPct = s.computeUpgradeRepMitigationPct();
+        s.upgradeLossSeverityMultiplier = s.computeUpgradeLossSeverityMultiplier();
 
         int kitchenLevel = kitchenUpgradeLevel();
         if (!s.kitchenUnlocked) {
@@ -948,7 +952,10 @@ public class Simulation {
 
     public void setSecurityPolicy(SecurityPolicy policy) {
         if (policy == null) return;
+        if (s.securityPolicy == policy) return;
         s.securityPolicy = policy;
+        log.info("Security policy set: " + policy.getLabel() + ".");
+        s.addSecurityLog("Policy set: " + policy.getLabel());
     }
 
     public SecuritySystem.SecurityBreakdown securityBreakdown() {
@@ -1315,10 +1322,30 @@ public class Simulation {
                     log.event(" Kitchen unlocked. Food supplier now available.");
                 }
                 log.popupUpgrade(" Upgrade installed", up.getLabel(), " is now active.", "");
+                if (isSecurityUpgrade(up)) {
+                    s.addSecurityLog("Upgrade installed: " + up.getLabel());
+                }
             } else {
                 s.pendingUpgradeInstalls.set(i, new PendingUpgradeInstall(install.upgrade(), remaining, install.totalNights()));
             }
         }
+    }
+
+    private boolean isSecurityUpgrade(PubUpgrade up) {
+        return switch (up) {
+            case CCTV,
+                    CCTV_PACKAGE,
+                    REINFORCED_DOOR_I,
+                    REINFORCED_DOOR_II,
+                    REINFORCED_DOOR_III,
+                    LIGHTING_I,
+                    LIGHTING_II,
+                    LIGHTING_III,
+                    BURGLAR_ALARM_I,
+                    BURGLAR_ALARM_II,
+                    BURGLAR_ALARM_III -> true;
+            default -> false;
+        };
     }
 
     private void endOfWeek() {
@@ -3300,6 +3327,7 @@ public class Simulation {
         sb.append("Bouncer quality: ").append(s.bouncerQualitySummary()).append("\n");
         sb.append("Bouncer rep mitigation: x").append(fmt2(s.bouncerRepDamageMultiplier())).append("\n");
         sb.append("CCTV rep mitigation: ").append((int)Math.round(s.cctvRepMitigationPct() * 100)).append("%\n");
+        sb.append("Upgrade rep mitigation: ").append((int)Math.round(s.upgradeRepMitigationPct * 100)).append("%\n");
         sb.append("Combined rep mitigation: x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
         sb.append("Bouncer reductions: theft ").append(pct(s.bouncerTheftReduction))
                 .append(" | negative ").append(pct(s.bouncerNegReduction))
@@ -3328,17 +3356,32 @@ public class Simulation {
         sb.append("- Manager bonus: ").append(breakdown.manager()).append("\n");
         sb.append("- Staff bonus: ").append(breakdown.staff()).append("\n");
         sb.append("= Total: ").append(breakdown.total()).append("\n");
+        int doorTier = s.reinforcedDoorTier();
+        int lightTier = s.lightingTier();
+        int alarmTier = s.burglarAlarmTier();
+        sb.append("- Door tier: ").append(doorTier > 0 ? ("Tier " + doorTier) : "None")
+                .append(" | incident x").append(fmt2(doorIncidentMultiplier(doorTier)))
+                .append(" | rep mitig ").append((int)Math.round(doorRepMitigationPct(doorTier) * 100)).append("%\n");
+        sb.append("- Lighting tier: ").append(lightTier > 0 ? ("Tier " + lightTier) : "None")
+                .append(" | incident x").append(fmt2(lightingIncidentMultiplier(lightTier)))
+                .append(" | morale stability ").append((int)Math.round(lightingMoraleStabilityPct(lightTier) * 100)).append("%\n");
+        sb.append("- Alarm tier: ").append(alarmTier > 0 ? ("Tier " + alarmTier) : "None")
+                .append(" | incident x").append(fmt2(alarmIncidentMultiplier(alarmTier)))
+                .append(" | loss severity x").append(fmt2(alarmLossSeverityMultiplier(alarmTier))).append("\n");
 
         sb.append("\nInstalled security upgrades:\n");
         java.util.List<String> upgradesList = new java.util.ArrayList<>();
         if (s.ownedUpgrades.contains(PubUpgrade.CCTV) || s.ownedUpgrades.contains(PubUpgrade.CCTV_PACKAGE)) {
             upgradesList.add("CCTV");
         }
-        if (s.ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR)) {
-            upgradesList.add("Reinforced Door");
+        if (s.reinforcedDoorTier() > 0) {
+            upgradesList.add("Reinforced Door (Tier " + s.reinforcedDoorTier() + ")");
         }
-        if (s.ownedUpgrades.contains(PubUpgrade.IMPROVED_LIGHTING)) {
-            upgradesList.add("Improved Lighting");
+        if (s.lightingTier() > 0) {
+            upgradesList.add("Lighting (Tier " + s.lightingTier() + ")");
+        }
+        if (s.burglarAlarmTier() > 0) {
+            upgradesList.add("Burglar Alarm (Tier " + s.burglarAlarmTier() + ")");
         }
         if (upgradesList.isEmpty()) {
             sb.append("None\n");
@@ -3351,7 +3394,10 @@ public class Simulation {
         sb.append("- Policy traffic: x").append(fmt2(securityPolicyTrafficMultiplier())).append("\n");
         sb.append("- Task incident chance: x").append(fmt2(securityTaskIncidentChanceMultiplier())).append("\n");
         sb.append("- Task traffic: x").append(fmt2(securityTaskTrafficMultiplier())).append("\n");
-        sb.append("- Rep mitigation (bouncers+CCTV): x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
+        sb.append("- Upgrade incident chance: x").append(fmt2(s.upgradeIncidentChanceMultiplier)).append("\n");
+        sb.append("- Upgrade loss severity: x").append(fmt2(s.upgradeLossSeverityMultiplier)).append("\n");
+        sb.append("- Upgrade morale stability: ").append((int)Math.round(s.upgradeMoraleStabilityPct * 100)).append("%\n");
+        sb.append("- Rep mitigation (bouncers+CCTV+upgrades): x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
 
         sb.append("\nRecent security log:\n");
         if (s.securityEventLog.isEmpty()) {
@@ -3374,9 +3420,63 @@ public class Simulation {
         return task.getLabel() + " (" + status + ", CD " + cooldown + "r)";
     }
 
+    private double doorIncidentMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.98;
+            case 2 -> 0.95;
+            case 3 -> 0.92;
+            default -> 1.0;
+        };
+    }
+
+    private double lightingIncidentMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.99;
+            case 2 -> 0.97;
+            case 3 -> 0.95;
+            default -> 1.0;
+        };
+    }
+
+    private double alarmIncidentMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.98;
+            case 2 -> 0.95;
+            case 3 -> 0.90;
+            default -> 1.0;
+        };
+    }
+
+    private double doorRepMitigationPct(int tier) {
+        return switch (tier) {
+            case 2 -> 0.03;
+            case 3 -> 0.06;
+            default -> 0.0;
+        };
+    }
+
+    private double lightingMoraleStabilityPct(int tier) {
+        return switch (tier) {
+            case 2 -> 0.05;
+            case 3 -> 0.10;
+            default -> 0.0;
+        };
+    }
+
+    private double alarmLossSeverityMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 0.96;
+            case 2 -> 0.92;
+            case 3 -> 0.86;
+            default -> 1.0;
+        };
+    }
+
     private double incidentChanceMultiplier(int sec) {
         double base = Math.max(0.20, 1.0 - (sec * 0.08));
-        return base * securityPolicyIncidentChanceMultiplier() * securityTaskIncidentChanceMultiplier();
+        return base * securityPolicyIncidentChanceMultiplier()
+                * securityTaskIncidentChanceMultiplier()
+                * s.upgradeIncidentChanceMultiplier;
     }
 
     private String buildStaffDetailText() {

@@ -205,6 +205,7 @@ public class PunterSystem {
             theftChance = (int) Math.round(theftChance * s.securityPolicy.getIncidentChanceMultiplier());
         }
         theftChance = (int) Math.round(theftChance * s.securityTaskIncidentChanceMultiplier());
+        theftChance = (int) Math.round(theftChance * s.upgradeIncidentChanceMultiplier);
         theftChance = Math.max(0, theftChance);
 
         if (s.random.nextInt(100) < theftChance) attemptTheft(p, sec);

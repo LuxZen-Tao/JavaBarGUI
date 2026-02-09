@@ -188,6 +188,7 @@ public class GameState {
     public int lastSecurityTaskRound = -999;
     public final EnumMap<SecurityTask, Integer> securityTaskCooldowns = new EnumMap<>(SecurityTask.class);
     public final Deque<String> securityEventLog = new ArrayDeque<>();
+    public int lastSecurityEventRound = -999;
 
     public double fohMorale = 70.0;
     public double bohMorale = 70.0;
@@ -199,6 +200,10 @@ public class GameState {
     public double refundRiskReductionPct = 0.0;
     public double staffMisconductReductionPct = 0.0;
     public double tipsThisWeek = 0.0;
+    public double upgradeIncidentChanceMultiplier = 1.0;
+    public double upgradeMoraleStabilityPct = 0.0;
+    public double upgradeRepMitigationPct = 0.0;
+    public double upgradeLossSeverityMultiplier = 1.0;
 
     // bouncer (nightly)
     public int baseBouncerCap = 1;
@@ -379,7 +384,31 @@ public class GameState {
         if (cctv > 0.0) {
             mult *= (1.0 - cctv);
         }
+        if (upgradeRepMitigationPct > 0.0) {
+            mult *= (1.0 - upgradeRepMitigationPct);
+        }
         return Math.max(0.50, mult);
+    }
+
+    public int reinforcedDoorTier() {
+        if (ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR_III)) return 3;
+        if (ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR_II)) return 2;
+        if (ownedUpgrades.contains(PubUpgrade.REINFORCED_DOOR_I)) return 1;
+        return 0;
+    }
+
+    public int lightingTier() {
+        if (ownedUpgrades.contains(PubUpgrade.LIGHTING_III)) return 3;
+        if (ownedUpgrades.contains(PubUpgrade.LIGHTING_II)) return 2;
+        if (ownedUpgrades.contains(PubUpgrade.LIGHTING_I)) return 1;
+        return 0;
+    }
+
+    public int burglarAlarmTier() {
+        if (ownedUpgrades.contains(PubUpgrade.BURGLAR_ALARM_III)) return 3;
+        if (ownedUpgrades.contains(PubUpgrade.BURGLAR_ALARM_II)) return 2;
+        if (ownedUpgrades.contains(PubUpgrade.BURGLAR_ALARM_I)) return 1;
+        return 0;
     }
 
     public int mitigateSecurityRepHit(int repHit) {
@@ -409,7 +438,12 @@ public class GameState {
     }
 
     public double securityTaskIncidentChanceMultiplier() {
-        return isSecurityTaskActive() ? activeSecurityTask.getIncidentChanceMultiplier() : 1.0;
+        if (!isSecurityTaskActive()) return 1.0;
+        double mult = activeSecurityTask.getIncidentChanceMultiplier();
+        if (lightingTier() >= 3 && activeSecurityTask.getCategory() == SecurityTaskCategory.BALANCED) {
+            mult *= 0.98;
+        }
+        return mult;
     }
 
     public double securityTaskTrafficMultiplier() {
@@ -421,9 +455,51 @@ public class GameState {
         return securityTaskCooldowns.getOrDefault(task, 0);
     }
 
+    public double computeUpgradeIncidentChanceMultiplier() {
+        double mult = 1.0;
+        int doorTier = reinforcedDoorTier();
+        if (doorTier == 1) mult *= 0.98;
+        if (doorTier == 2) mult *= 0.95;
+        if (doorTier == 3) mult *= 0.92;
+        int lightTier = lightingTier();
+        if (lightTier == 1) mult *= 0.99;
+        if (lightTier == 2) mult *= 0.97;
+        if (lightTier == 3) mult *= 0.95;
+        int alarmTier = burglarAlarmTier();
+        if (alarmTier == 1) mult *= 0.98;
+        if (alarmTier == 2) mult *= 0.95;
+        if (alarmTier == 3) mult *= 0.90;
+        return Math.max(0.70, mult);
+    }
+
+    public double computeUpgradeMoraleStabilityPct() {
+        int tier = lightingTier();
+        if (tier == 2) return 0.05;
+        if (tier == 3) return 0.10;
+        return 0.0;
+    }
+
+    public double computeUpgradeRepMitigationPct() {
+        double pct = 0.0;
+        int doorTier = reinforcedDoorTier();
+        if (doorTier == 2) pct += 0.03;
+        if (doorTier == 3) pct += 0.06;
+        int lightTier = lightingTier();
+        if (lightTier == 2) pct += 0.02;
+        if (lightTier == 3) pct += 0.04;
+        return Math.min(0.20, pct);
+    }
+
+    public double computeUpgradeLossSeverityMultiplier() {
+        double reduction = Math.max(0.0, Math.min(0.35, upgradeEventDamageReductionPct));
+        return Math.max(0.55, 1.0 - reduction);
+    }
+
     public void addSecurityLog(String entry) {
         if (entry == null || entry.isBlank()) return;
-        securityEventLog.addFirst(entry);
+        String prefix = "W" + weekCount + " D" + (dayIndex + 1) + " R" + roundInNight + ": ";
+        securityEventLog.addFirst(prefix + entry);
+        lastSecurityEventRound = currentRoundIndex();
         while (securityEventLog.size() > 6) {
             securityEventLog.removeLast();
         }

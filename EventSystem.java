@@ -322,7 +322,7 @@ public class EventSystem {
         // With no cap, this bottoms out at 20% chance multiplier.
         double base = Math.max(0.20, 1.0 - (security * 0.08));
         double policyMult = s.securityPolicy != null ? s.securityPolicy.getIncidentChanceMultiplier() : 1.0;
-        return Math.max(0.20, base * policyMult);
+        return Math.max(0.20, base * policyMult * s.upgradeIncidentChanceMultiplier);
     }
 
     private double damageMultiplier(int security) {
@@ -379,6 +379,9 @@ public class EventSystem {
         }
         if (s.cctvRepMitigationPct() > 0.0) {
             log.event("CCTV footage softened the blow.");
+        }
+        if (s.upgradeRepMitigationPct > 0.0) {
+            log.event("Reinforced security upgrades reduced the fallout.");
         }
     }
 
