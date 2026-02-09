@@ -24,6 +24,7 @@ public class GameState {
     public double cash = 100.0;
     public double debt = 0.0;
     public final double maxDebt = 10_000.0;
+    public final CreditLineManager creditLines = new CreditLineManager();
 
     public final double weeklyRent = 60.0;
     public double rentAccruedThisWeek = 0.0;
