@@ -147,6 +147,10 @@ public class StaffSystem {
             delta = (int)Math.round(delta * (1.0 - damp));
         }
 
+        if (delta != 0) {
+            delta = (int)Math.round(delta * 1.15);
+        }
+
         double negMult = chaosMoraleNegMultiplier(chaos);
         double posMult = chaosMoralePosMultiplier(chaos);
         s.lastChaosMoraleNegMult = negMult;
@@ -174,17 +178,17 @@ public class StaffSystem {
     private int smallMoraleDrift(double chaos, boolean smoothNight) {
         int roll = s.random.nextInt(100);
         if (chaos >= 55) {
-            if (roll < 50) return -1;
-            if (roll < 85) return 0;
+            if (roll < 55) return -1;
+            if (roll < 80) return 0;
             return 1;
         }
         if (smoothNight) {
-            if (roll < 20) return -1;
-            if (roll < 60) return 0;
+            if (roll < 25) return -1;
+            if (roll < 55) return 0;
             return 1;
         }
-        if (roll < 34) return -1;
-        if (roll < 67) return 0;
+        if (roll < 38) return -1;
+        if (roll < 62) return 0;
         return 1;
     }
 

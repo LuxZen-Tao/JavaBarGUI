@@ -159,7 +159,7 @@ public class ReportSystem {
         double wages = s.wagesAccruedThisWeek + (s.tipsThisWeek * 0.50);
         double rent = s.rentAccruedThisWeek;
         double security = s.securityUpkeepAccruedThisWeek;
-        double supplier = s.supplierMinDue();
+        double supplier = s.supplierWineMinDue() + s.supplierFoodMinDue();
         double credit = s.totalCreditWeeklyPaymentDue();
         double shark = s.loanShark.isOpen() ? s.loanShark.minPaymentDue() : 0.0;
         return wages + rent + security + supplier + credit + shark;

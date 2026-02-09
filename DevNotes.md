@@ -2,7 +2,7 @@
 
 ## System Map (Economy + Weekly Cycles)
 - **Entry point:** `Main.java` launches `WineBarGUI` with a fresh `GameState`.
-- **Economy state owner:** `GameState` (cash, credit score, credit lines, supplier trade credit, wage escalation flags, shark threat tier).
+- **Economy state owner:** `GameState` (cash, credit score, credit lines, supplier trade credit for wine + food, wage escalation flags, shark threat tier).
 - **Central payment path:** `EconomySystem.tryPay(...)` (cash-first, then credit line draw).
 - **Credit lines + banks:** `CreditLineManager` (open lines, apply credit, weekly interest + repayment checks, credit score adjustments).
 - **Loan shark escalation:** `Simulation.processSharkThreatWeekly()` + `Simulation.applySharkTierEffects(...)`.

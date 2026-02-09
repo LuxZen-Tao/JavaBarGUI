@@ -347,9 +347,16 @@ public class EventSystem {
 
     private int applyRep(int baseRep, double dmgMult, String reason) {
         if (baseRep == 0) return 0;
-        int rep = (int) Math.round(baseRep * dmgMult);
+        double mult = dmgMult;
+        if (baseRep < 0 && s.bouncersHiredTonight > 0) {
+            mult *= s.bouncerRepDamageMultiplier();
+        }
+        int rep = (int) Math.round(baseRep * mult);
         if (rep == 0 && baseRep < 0) rep = -1;
         eco.applyRep(rep, reason);
+        if (baseRep < 0 && s.bouncersHiredTonight > 0 && mult < dmgMult) {
+            log.event("Bouncers contained some of the fallout.");
+        }
         return rep;
     }
 
@@ -639,10 +646,16 @@ public class EventSystem {
         double totalRed = Math.min(0.75, baseReduction + fightRed);
 
         int repHit = Math.max(3, (int) Math.round(10 * (1.0 - totalRed)));
+        if (s.bouncersHiredTonight > 0) {
+            repHit = Math.max(1, (int)Math.round(repHit * s.bouncerRepDamageMultiplier()));
+        }
         double dmg = Math.max(4, 12 * (1.0 - totalRed));
 
         popupEvent("Fight", "Fight breaks out: " + reason + ".", -repHit, -dmg, 0, "FIGHT");
         eco.applyRep(-repHit, "Fight fallout (" + reason + ")");
+        if (s.bouncersHiredTonight > 0) {
+            log.event("Bouncers kept the damage contained.");
+        }
         eco.tryPay(dmg, TransactionType.REPAIR, "Damages (fight)", CostTag.EVENT);
 
         // weekly morale mechanics

@@ -435,7 +435,7 @@ public class Simulation {
             int roundsDelay = 3;
             double baseCost = w.getBaseCost() * qty * s.supplierPriceMultiplier();
             double markedCost = baseCost * markup;
-            if (!applySupplierTradeCredit(markedCost, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER)) {
+            if (!applySupplierTradeCredit(s.supplierWineCredit, markedCost, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER)) {
                 return;
             }
             s.pendingSupplierDeliveries.add(new PendingSupplierDelivery(w, qty, s.roundInNight + roundsDelay, markedCost));
@@ -443,7 +443,7 @@ public class Simulation {
             return;
         }
 
-        if (!applySupplierTradeCredit(cost, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER)) {
+        if (!applySupplierTradeCredit(s.supplierWineCredit, cost, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER)) {
             return;
         }
 
@@ -457,15 +457,15 @@ public class Simulation {
                 + (s.supplierDeal != null && s.supplierDeal.appliesTo(w) ? " (DEAL applied)" : ""));
     }
 
-    private boolean applySupplierTradeCredit(double amount, String label, CostTag tag) {
+    private boolean applySupplierTradeCredit(SupplierTradeCredit account, double amount, String label, CostTag tag) {
         if (amount <= 0.0) return true;
         double cap = s.supplierCreditCap();
-        if (s.supplierBalance + amount > cap) {
+        if (account.getBalance() + amount > cap) {
             log.neg("Supplier credit cap reached. Need GBP " + String.format("%.2f", amount)
-                    + " but only GBP " + String.format("%.2f", (cap - s.supplierBalance)) + " available.");
+                    + " but only GBP " + String.format("%.2f", (cap - account.getBalance())) + " available.");
             return false;
         }
-        s.supplierBalance += amount;
+        account.addBalance(amount);
         eco.recordCostOnly(amount, tag, label);
         return true;
     }
@@ -499,7 +499,7 @@ public class Simulation {
             double markup = weekend ? 1.7 : 1.4;
             int roundsDelay = weekend ? 4 : 3;
             double markedCost = cost * markup;
-            if (!applySupplierTradeCredit(markedCost, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
+            if (!applySupplierTradeCredit(s.supplierFoodCredit, markedCost, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
                 return;
             }
 
@@ -508,7 +508,7 @@ public class Simulation {
             return;
         }
 
-        if (!applySupplierTradeCredit(cost, "Restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
+        if (!applySupplierTradeCredit(s.supplierFoodCredit, cost, "Restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
             return;
         }
 
@@ -1102,7 +1102,8 @@ public class Simulation {
         s.creditLines.applyWeeklyInterest(s, log);
         applySupplierWeeklyInterest();
         applyLoanSharkWeeklyInterest();
-        s.supplierLateFeesThisWeek = 0.0;
+        s.supplierWineCredit.clearLateFees();
+        s.supplierFoodCredit.clearLateFees();
 
         double raw = staff.wagesDueRaw();
         double eff = upgrades.wageEfficiencyPct();
@@ -1123,6 +1124,7 @@ public class Simulation {
         endOfWeekReport();
         preparePaydayBills(wagesDue, tipsDue);
         milestones.onWeekEnd();
+        applyPersistentUpgrades();
         if (s.wageServePenaltyWeeks > 0) {
             s.wageServePenaltyWeeks = Math.max(0, s.wageServePenaltyWeeks - 1);
             if (s.wageServePenaltyWeeks == 0) s.wageServePenaltyPct = 0.0;
@@ -1543,13 +1545,23 @@ public class Simulation {
 
     private void preparePaydayBills(double wagesDue, double tipsDue) {
         s.paydayBills.clear();
-        if (s.supplierBalance > 0.0) {
+        if (s.supplierWineCredit.getBalance() > 0.0) {
             s.paydayBills.add(new PaydayBill(
                     PaydayBill.Type.SUPPLIER,
-                    "Supplier trade credit",
-                    s.supplierMinDue(),
-                    s.supplierBalance,
-                    null
+                    "Wine supplier credit",
+                    s.supplierWineMinDue(),
+                    s.supplierWineCredit.getBalance(),
+                    "SUPPLIER_WINE"
+            ));
+        }
+
+        if (s.supplierFoodCredit.getBalance() > 0.0) {
+            s.paydayBills.add(new PaydayBill(
+                    PaydayBill.Type.SUPPLIER,
+                    "Food supplier credit",
+                    s.supplierFoodMinDue(),
+                    s.supplierFoodCredit.getBalance(),
+                    "SUPPLIER_FOOD"
             ));
         }
 
@@ -1610,12 +1622,17 @@ public class Simulation {
     }
 
     private void applySupplierWeeklyInterest() {
-        if (s.supplierBalance <= 0.0) return;
+        applySupplierWeeklyInterest(s.supplierWineCredit, "Wine supplier");
+        applySupplierWeeklyInterest(s.supplierFoodCredit, "Food supplier");
+    }
+
+    private void applySupplierWeeklyInterest(SupplierTradeCredit account, String label) {
+        if (account == null || account.getBalance() <= 0.0) return;
         double baseApr = 0.10;
-        double interest = s.supplierBalance * ((baseApr + s.supplierPenaltyAddOnApr) / 52.0);
+        double interest = account.getBalance() * ((baseApr + account.getPenaltyAddOnApr()) / 52.0);
         if (interest <= 0.0) return;
-        s.supplierBalance += interest;
-        log.info("Supplier trade credit interest +GBP " + String.format("%.2f", interest));
+        account.addBalance(interest);
+        log.info(label + " credit interest +GBP " + String.format("%.2f", interest));
     }
 
     private void applyLoanSharkWeeklyInterest() {
@@ -1634,7 +1651,7 @@ public class Simulation {
     }
 
     public WeeklyDueBreakdown weeklyMinDueBreakdown() {
-        double supplier = s.supplierMinDue();
+        double supplier = s.supplierWineMinDue() + s.supplierFoodMinDue();
         double wages = staff.wagesDue() + (s.tipsThisWeek * 0.50);
         double rent = s.rentAccruedThisWeek;
         double security = s.securityUpkeepAccruedThisWeek;
@@ -1712,7 +1729,7 @@ public class Simulation {
 
             switch (bill.getType()) {
                 case SUPPLIER -> {
-                    applySupplierPayment(paidAmount, bill.getMinDue(), paidFull);
+                    applySupplierPayment(paidAmount, bill.getMinDue(), paidFull, bill.getReferenceId());
                 }
                 case WAGES -> {
                     applyWagePayment(paidAmount, bill.getMinDue(), paidFull);
@@ -1801,26 +1818,28 @@ public class Simulation {
         s.paydayReady = false;
     }
 
-    private void applySupplierPayment(double amount, double minDue, boolean paidFull) {
-        s.supplierBalance = Math.max(0.0, s.supplierBalance - amount);
+    private void applySupplierPayment(double amount, double minDue, boolean paidFull, String referenceId) {
+        SupplierTradeCredit account = "SUPPLIER_FOOD".equals(referenceId)
+                ? s.supplierFoodCredit
+                : s.supplierWineCredit;
+        account.applyPayment(amount);
         if (amount + 0.01 < minDue) {
             double shortfall = Math.max(0.0, minDue - amount);
             double lateFee = Math.max(6.0, shortfall * 0.08);
-            s.supplierBalance += lateFee;
-            s.supplierLateFeesThisWeek = lateFee;
-            s.supplierPenaltyAddOnApr = Math.min(0.20, s.supplierPenaltyAddOnApr + 0.02);
-            s.supplierConsecutiveFullPays = 0;
+            account.addLateFee(lateFee);
+            account.setPenaltyAddOnApr(Math.min(0.20, account.getPenaltyAddOnApr() + 0.02));
+            account.setConsecutiveFullPays(0);
             s.creditScore = s.clampCreditScore(s.creditScore - 6);
             adjustSupplierTrustPenalty(0.02);
             adjustAllStaffMorale(-2);
             log.neg("Supplier payment below minimum. Late fee GBP " + String.format("%.2f", lateFee));
         } else {
-            s.supplierLateFeesThisWeek = 0.0;
+            account.clearLateFees();
             if (paidFull) {
-                s.supplierConsecutiveFullPays++;
-                applyPenaltyRecoverySupplier();
+                account.setConsecutiveFullPays(account.getConsecutiveFullPays() + 1);
+                applyPenaltyRecoverySupplier(account);
             } else {
-                s.supplierConsecutiveFullPays = 0;
+                account.setConsecutiveFullPays(0);
             }
         }
     }
@@ -1880,20 +1899,22 @@ public class Simulation {
         line.setConsecutiveFullPays(0);
     }
 
-    private void applyPenaltyRecoverySupplier() {
-        if (s.supplierConsecutiveFullPays < 3) return;
-        int stage = s.supplierPenaltyRecoveryStage;
-        if (stage == 0) s.supplierPenaltyAddOnApr *= 0.5;
-        else if (stage == 1) s.supplierPenaltyAddOnApr *= 0.7;
-        else if (stage == 2) s.supplierPenaltyAddOnApr *= 0.8;
+    private void applyPenaltyRecoverySupplier(SupplierTradeCredit account) {
+        if (account == null || account.getConsecutiveFullPays() < 3) return;
+        int stage = account.getPenaltyRecoveryStage();
+        double addOn = account.getPenaltyAddOnApr();
+        if (stage == 0) addOn *= 0.5;
+        else if (stage == 1) addOn *= 0.7;
+        else if (stage == 2) addOn *= 0.8;
         else {
-            s.supplierPenaltyAddOnApr = 0.0;
-            s.supplierPenaltyRecoveryStage = 0;
-            s.supplierConsecutiveFullPays = 0;
+            account.setPenaltyAddOnApr(0.0);
+            account.setPenaltyRecoveryStage(0);
+            account.setConsecutiveFullPays(0);
             return;
         }
-        s.supplierPenaltyRecoveryStage = stage + 1;
-        s.supplierConsecutiveFullPays = 0;
+        account.setPenaltyAddOnApr(addOn);
+        account.setPenaltyRecoveryStage(stage + 1);
+        account.setConsecutiveFullPays(0);
     }
 
     private void applyPenaltyRecovery(LoanSharkAccount shark) {
@@ -1997,9 +2018,12 @@ public class Simulation {
                 + " | Misses: " + s.sharkConsecutiveMisses
                 + " | Reduce: pay on time for 1 week"
                 + "\nCredit lines:\n" + buildCreditLineSummary()
-                + "\nSupplier balance: GBP " + fmt2(s.supplierBalance)
-                + "\nSupplier min due: GBP " + fmt2(s.supplierMinDue())
-                + "\nSupplier late fees (this week): GBP " + fmt2(s.supplierLateFeesThisWeek)
+                + "\nWine supplier balance: GBP " + fmt2(s.supplierWineCredit.getBalance())
+                + "\nWine supplier min due: GBP " + fmt2(s.supplierWineMinDue())
+                + "\nWine supplier late fees: GBP " + fmt2(s.supplierWineCredit.getLateFeesThisWeek())
+                + "\nFood supplier balance: GBP " + fmt2(s.supplierFoodCredit.getBalance())
+                + "\nFood supplier min due: GBP " + fmt2(s.supplierFoodMinDue())
+                + "\nFood supplier late fees: GBP " + fmt2(s.supplierFoodCredit.getLateFeesThisWeek())
                 + "\n\nWages / Stability:"
                 + "\nWages due (this week): GBP " + fmt2(staff.wagesDue())
                 + "\nStatus: " + (s.wagesPaidLastWeek ? "Paid" : "Unpaid")
@@ -2055,6 +2079,13 @@ public class Simulation {
 
         String loans = buildLoanSummaryText();
 
+        String financeBanking = buildFinanceBankingText(creditBalance, creditWeeklyDue);
+        String payday = buildPaydayDetailText();
+        String suppliers = buildSuppliersDetailText();
+        String progression = buildProgressionDetailText();
+        String securityDetail = buildSecurityDetailText(sec);
+        String staffDetail = buildStaffDetailText();
+
         String logSummary = "Night events: " + s.nightEvents
                 + "\nBetween-night: " + s.lastBetweenNightEventSummary;
 
@@ -2083,7 +2114,13 @@ public class Simulation {
                 trafficPunters,
                 inventory,
                 loans,
-                logSummary
+                logSummary,
+                financeBanking,
+                payday,
+                suppliers,
+                progression,
+                securityDetail,
+                staffDetail
         );
     }
 
@@ -2900,6 +2937,104 @@ public class Simulation {
         return sb.toString();
     }
 
+    private String buildFinanceBankingText(double creditBalance, double creditWeeklyDue) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Cash: GBP ").append(fmt2(s.cash)).append("\n");
+        sb.append("Credit score: ").append(s.creditScore)
+                .append(" | Utilisation: ").append(String.format("%.0f%%", s.creditUtilization * 100)).append("\n");
+        sb.append("Total bank debt: GBP ").append(fmt2(creditBalance)).append(" / ")
+                .append(fmt2(s.totalCreditLimit())).append("\n");
+        sb.append("Weekly bank repayments due: GBP ").append(fmt2(creditWeeklyDue)).append("\n");
+        if (s.loanShark.isOpen()) {
+            sb.append("Loan shark balance: GBP ").append(fmt2(s.loanShark.getBalance()))
+                    .append(" | Weekly due ").append(fmt2(s.loanShark.minPaymentDue()))
+                    .append(" | APR ").append(String.format("%.2f", s.loanShark.getApr() * 100)).append("%\n");
+        } else {
+            sb.append("Loan shark: None\n");
+        }
+        sb.append("\nCredit lines:\n");
+        for (CreditLine line : s.creditLines.getOpenLines()) {
+            sb.append("  ").append(line.getLenderName())
+                    .append(" | Balance ").append(fmt2(line.getBalance()))
+                    .append(" / Limit ").append(fmt2(line.getLimit()))
+                    .append(" | Weekly ").append(fmt2(line.getWeeklyPayment()))
+                    .append(" | APR ").append(String.format("%.2f", line.getInterestAPR() * 100)).append("%")
+                    .append(" | Penalty ").append(String.format("%.2f", line.getPenaltyAddOnApr() * 100)).append("%\n");
+        }
+        if (s.creditLines.getOpenLines().isEmpty()) sb.append("  None\n");
+        return sb.toString();
+    }
+
+    private String buildPaydayDetailText() {
+        StringBuilder sb = new StringBuilder();
+        double minTotal = 0.0;
+        double fullTotal = 0.0;
+        for (PaydayBill bill : s.paydayBills) {
+            minTotal += bill.getMinDue();
+            fullTotal += bill.getFullDue();
+        }
+        sb.append("Weekly minimum due: GBP ").append(fmt2(minTotal)).append("\n");
+        sb.append("Weekly full due:    GBP ").append(fmt2(fullTotal)).append("\n");
+        sb.append("Bills due:\n");
+        if (s.paydayBills.isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (PaydayBill bill : s.paydayBills) {
+                sb.append("  ").append(bill.getDisplayName())
+                        .append(" | Min ").append(fmt2(bill.getMinDue()))
+                        .append(" | Full ").append(fmt2(bill.getFullDue()))
+                        .append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    private String buildSuppliersDetailText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Supplier trust: ").append(s.supplierTrustLabel()).append("\n");
+        sb.append("Supplier credit cap: GBP ").append(fmt2(s.supplierCreditCap())).append("\n");
+        sb.append("Price multiplier: x").append(fmt2(s.supplierPriceMultiplier())).append("\n");
+        sb.append("Wine supplier balance: GBP ").append(fmt2(s.supplierWineCredit.getBalance()))
+                .append(" | Min due ").append(fmt2(s.supplierWineMinDue()))
+                .append(" | Penalty APR ").append(String.format("%.2f", s.supplierWineCredit.getPenaltyAddOnApr() * 100)).append("%\n");
+        sb.append("Food supplier balance: GBP ").append(fmt2(s.supplierFoodCredit.getBalance()))
+                .append(" | Min due ").append(fmt2(s.supplierFoodMinDue()))
+                .append(" | Penalty APR ").append(String.format("%.2f", s.supplierFoodCredit.getPenaltyAddOnApr() * 100)).append("%\n");
+        return sb.toString();
+    }
+
+    private String buildProgressionDetailText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Pub level: ").append(s.pubLevel).append("\n");
+        sb.append("Weeks active: ").append(s.weekCount).append("\n");
+        sb.append("Milestones achieved: ").append(s.achievedMilestones.size()).append("\n");
+        sb.append(pubLevelSystem.progressionSummary(s)).append("\n");
+        return sb.toString();
+    }
+
+    private String buildSecurityDetailText(int sec) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Effective security: ").append(sec).append("\n");
+        sb.append("Bouncers hired: ").append(s.bouncersHiredTonight).append("/").append(s.bouncerCap).append("\n");
+        sb.append("Bouncer rep mitigation: x").append(fmt2(s.bouncerRepDamageMultiplier())).append("\n");
+        sb.append("Bouncer reductions: theft ").append(pct(s.bouncerTheftReduction))
+                .append(" | negative ").append(pct(s.bouncerNegReduction))
+                .append(" | fights ").append(pct(s.bouncerFightReduction)).append("\n");
+        return sb.toString();
+    }
+
+    private String buildStaffDetailText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Team morale: ").append((int)Math.round(s.teamMorale)).append("\n");
+        sb.append("FOH morale: ").append((int)Math.round(s.fohMorale))
+                .append(" | BOH morale: ").append((int)Math.round(s.bohMorale)).append("\n");
+        sb.append("Last staff incident: ").append(s.lastStaffIncidentSummary).append("\n");
+        sb.append("Incident drivers: ").append(s.lastStaffIncidentDrivers).append("\n");
+        sb.append("Chaos morale mult: -").append(fmt2(s.lastChaosMoraleNegMult))
+                .append(" / +").append(fmt2(s.lastChaosMoralePosMult)).append("\n");
+        return sb.toString();
+    }
+
     private String randomSharkPhrase(int tier) {
         java.util.List<String> phrases = switch (tier) {
             case 1 -> java.util.List.of(
@@ -3216,6 +3351,10 @@ public class Simulation {
 
     private static String fmt1(double value) {
         return String.format("%.1f", value);
+    }
+
+    private static String pct(double value) {
+        return String.format("%.0f%%", value * 100.0);
     }
 
     private static String money0(double value) {

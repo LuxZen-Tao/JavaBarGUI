@@ -23,6 +23,12 @@ public class MetricsSnapshot {
     public final String inventory;
     public final String loans;
     public final String logEvents;
+    public final String financeBanking;
+    public final String payday;
+    public final String suppliers;
+    public final String progression;
+    public final String security;
+    public final String staffDetail;
 
     public MetricsSnapshot(
             String hudCash,
@@ -46,7 +52,13 @@ public class MetricsSnapshot {
             String trafficPunters,
             String inventory,
             String loans,
-            String logEvents
+            String logEvents,
+            String financeBanking,
+            String payday,
+            String suppliers,
+            String progression,
+            String security,
+            String staffDetail
     ) {
         this.hudCash = hudCash;
         this.hudDebt = hudDebt;
@@ -70,5 +82,11 @@ public class MetricsSnapshot {
         this.inventory = inventory;
         this.loans = loans;
         this.logEvents = logEvents;
+        this.financeBanking = financeBanking;
+        this.payday = payday;
+        this.suppliers = suppliers;
+        this.progression = progression;
+        this.security = security;
+        this.staffDetail = staffDetail;
     }
 }

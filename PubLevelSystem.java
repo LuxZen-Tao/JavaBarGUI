@@ -1,25 +1,17 @@
 import java.util.EnumSet;
+import java.util.List;
 
 public class PubLevelSystem {
 
-    private static final EnumSet<PubUpgrade> KEY_UPGRADES = EnumSet.of(
-            PubUpgrade.EXTENDED_BAR,
-            PubUpgrade.KITCHEN,
-            PubUpgrade.BEER_GARDEN
-    );
-
     public void updatePubLevel(GameState s) {
-        int ownedKeys = 0;
-        for (PubUpgrade upgrade : KEY_UPGRADES) {
-            if (s.ownedUpgrades.contains(upgrade)) ownedKeys++;
+        int level = 0;
+        for (int i = 1; i <= 3; i++) {
+            if (meetsLevelRequirement(s, i)) {
+                level = i;
+            } else {
+                break;
+            }
         }
-
-        int level = switch (ownedKeys) {
-            case 3 -> 3;
-            case 2 -> 2;
-            case 1 -> 1;
-            default -> 0;
-        };
 
         s.pubLevel = level;
         s.pubLevelServeCapBonus = level * 1;
@@ -36,6 +28,54 @@ public class PubLevelSystem {
         s.pubLevelManagerCapBonus = Math.max(0, level - 1);
         s.pubLevelChefCapBonus = Math.max(0, level - 1);
         s.pubLevelBouncerCapBonus = Math.max(0, level - 1);
+    }
+
+    public boolean meetsLevelRequirement(GameState s, int targetLevel) {
+        return switch (targetLevel) {
+            case 1 -> s.weekCount >= 2 && s.achievedMilestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS);
+            case 2 -> s.weekCount >= 4
+                    && s.achievedMilestones.contains(MilestoneSystem.Milestone.KNOWN_VENUE)
+                    && s.achievedMilestones.contains(MilestoneSystem.Milestone.KITCHEN_LAUNCH);
+            case 3 -> s.weekCount >= 6
+                    && s.achievedMilestones.contains(MilestoneSystem.Milestone.PROFIT_STREAK_4)
+                    && s.achievedMilestones.contains(MilestoneSystem.Milestone.REP_STAR);
+            default -> true;
+        };
+    }
+
+    public String progressionSummary(GameState s) {
+        int next = Math.min(3, s.pubLevel + 1);
+        if (next <= s.pubLevel) return "Max pub level reached.";
+        StringBuilder sb = new StringBuilder();
+        sb.append("Next level requirements (Lv ").append(next).append("):\n");
+        for (String req : levelRequirementsText(s, next)) {
+            sb.append(" - ").append(req).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private List<String> levelRequirementsText(GameState s, int level) {
+        return switch (level) {
+            case 1 -> List.of(
+                    formatRequirement("Week 2+", s.weekCount >= 2),
+                    formatRequirement("Milestone: Five Nights", s.achievedMilestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS))
+            );
+            case 2 -> List.of(
+                    formatRequirement("Week 4+", s.weekCount >= 4),
+                    formatRequirement("Milestone: Known Venue", s.achievedMilestones.contains(MilestoneSystem.Milestone.KNOWN_VENUE)),
+                    formatRequirement("Milestone: Kitchen Launch", s.achievedMilestones.contains(MilestoneSystem.Milestone.KITCHEN_LAUNCH))
+            );
+            case 3 -> List.of(
+                    formatRequirement("Week 6+", s.weekCount >= 6),
+                    formatRequirement("Milestone: Profit Streak (4 weeks)", s.achievedMilestones.contains(MilestoneSystem.Milestone.PROFIT_STREAK_4)),
+                    formatRequirement("Milestone: Reputation Star", s.achievedMilestones.contains(MilestoneSystem.Milestone.REP_STAR))
+            );
+            default -> List.of("No further requirements.");
+        };
+    }
+
+    private String formatRequirement(String label, boolean met) {
+        return (met ? "[✓] " : "[ ] ") + label;
     }
 
     public boolean canAccessUpgradeTier(GameState s, PubUpgrade upgrade) {

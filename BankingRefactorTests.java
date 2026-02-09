@@ -11,6 +11,10 @@ public class BankingRefactorTests {
         testPenaltyRecoveryStages();
         testCreditScoreBonusForFullPay();
         testCreditLineToCreditLinePayment();
+        testWeeklyMinDueIncludesSupplier();
+        testBouncerMitigatesRepDamage();
+        testPubLevelRequiresTimeAndMilestones();
+        testPubLevelAffectsSupplierCap();
         System.out.println("All BankingRefactorTests passed.");
     }
 
@@ -24,22 +28,35 @@ public class BankingRefactorTests {
         Wine wine = state.supplier.get(0);
 
         double cap = state.supplierCreditCap();
-        state.supplierBalance = cap;
+        state.supplierWineCredit.addBalance(cap);
         int beforeCount = state.rack.count();
-        double beforeBalance = state.supplierBalance;
+        double beforeBalance = state.supplierWineCredit.getBalance();
 
         sim.buyFromSupplier(wine, 1);
 
-        assert state.supplierBalance == beforeBalance : "Supplier balance should not increase past cap.";
+        assert state.supplierWineCredit.getBalance() == beforeBalance : "Supplier balance should not increase past cap.";
         assert state.rack.count() == beforeCount : "Purchase should be blocked when credit cap exceeded.";
     }
 
     private static void testSupplierBalanceOnlyIncreasesOnStock() {
         GameState state = GameFactory.newGame();
         Simulation sim = newSimulation(state);
-        double beforeBalance = state.supplierBalance;
+        double beforeWine = state.supplierWineCredit.getBalance();
+        double beforeFood = state.supplierFoodCredit.getBalance();
         sim.openCreditLine(Bank.TOWNLAND);
-        assert state.supplierBalance == beforeBalance : "Supplier balance should not change for non-stock actions.";
+        assert state.supplierWineCredit.getBalance() == beforeWine : "Wine supplier balance should not change for non-stock actions.";
+        assert state.supplierFoodCredit.getBalance() == beforeFood : "Food supplier balance should not change for non-stock actions.";
+
+        Wine wine = state.supplier.get(0);
+        double wineBalanceBefore = state.supplierWineCredit.getBalance();
+        sim.buyFromSupplier(wine, 1);
+        assert state.supplierWineCredit.getBalance() > wineBalanceBefore : "Wine supplier balance should increase after wine purchase.";
+
+        state.kitchenUnlocked = true;
+        Food food = state.foodSupplier.get(0);
+        double foodBalanceBefore = state.supplierFoodCredit.getBalance();
+        sim.buyFoodFromSupplier(food, 1);
+        assert state.supplierFoodCredit.getBalance() > foodBalanceBefore : "Food supplier balance should increase after food purchase.";
     }
 
     private static void testNoAutoPayAtEndOfWeek() {
@@ -107,9 +124,9 @@ public class BankingRefactorTests {
         state.cash = 100000.0;
         int beforeScore = state.creditScore;
 
-        state.supplierBalance = 200.0;
-        PaydayBill supplier = new PaydayBill(PaydayBill.Type.SUPPLIER, "Supplier", state.supplierMinDue(), state.supplierBalance, null);
-        supplier.setSelectedAmount(state.supplierBalance);
+        state.supplierWineCredit.addBalance(200.0);
+        PaydayBill supplier = new PaydayBill(PaydayBill.Type.SUPPLIER, "Wine supplier", state.supplierWineMinDue(), state.supplierWineCredit.getBalance(), "SUPPLIER_WINE");
+        supplier.setSelectedAmount(state.supplierWineCredit.getBalance());
 
         CreditLine line = state.creditLines.openLine(Bank.TOWNLAND, state.random);
         line.addBalance(200.0);
@@ -149,5 +166,66 @@ public class BankingRefactorTests {
 
         assert lineA.getBalance() < balanceABefore : "Line A balance should decrease when paid by another credit line.";
         assert lineB.getBalance() > balanceBBefore : "Line B balance should increase when used as payment source.";
+    }
+
+    private static void testWeeklyMinDueIncludesSupplier() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        state.supplierWineCredit.addBalance(150.0);
+        state.supplierFoodCredit.addBalance(120.0);
+        Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
+        double expectedSupplierMin = state.supplierWineMinDue() + state.supplierFoodMinDue();
+        double expectedTotal = expectedSupplierMin
+                + state.rentAccruedThisWeek
+                + state.securityUpkeepAccruedThisWeek
+                + state.tipsThisWeek * 0.50
+                + state.wagesAccruedThisWeek;
+        assert Math.abs(due.supplier() - expectedSupplierMin) < 0.001 : "Supplier minimum due should be included in weekly totals.";
+        assert Math.abs(due.total() - expectedTotal) < 0.001 : "Weekly minimum due total should include supplier mins.";
+    }
+
+    private static void testBouncerMitigatesRepDamage() {
+        GameState stateNoBouncer = GameFactory.newGame();
+        GameState stateWithBouncer = GameFactory.newGame();
+        UILogger log = new UILogger(new JTextPane());
+        EconomySystem ecoNo = new EconomySystem(stateNoBouncer, log);
+        EconomySystem ecoYes = new EconomySystem(stateWithBouncer, log);
+        EventSystem eventsNo = new EventSystem(stateNoBouncer, ecoNo, log);
+        EventSystem eventsYes = new EventSystem(stateWithBouncer, ecoYes, log);
+
+        stateNoBouncer.reputation = 50;
+        stateWithBouncer.reputation = 50;
+        stateWithBouncer.bouncersHiredTonight = 1;
+
+        int repBeforeNo = stateNoBouncer.reputation;
+        int repBeforeYes = stateWithBouncer.reputation;
+
+        eventsNo.triggerFight("test", 0.0);
+        eventsYes.triggerFight("test", 0.0);
+
+        int lossNo = repBeforeNo - stateNoBouncer.reputation;
+        int lossYes = repBeforeYes - stateWithBouncer.reputation;
+        assert lossYes < lossNo : "Bouncer mitigation should reduce rep damage.";
+    }
+
+    private static void testPubLevelRequiresTimeAndMilestones() {
+        GameState state = GameFactory.newGame();
+        PubLevelSystem levels = new PubLevelSystem();
+
+        state.weekCount = 4;
+        levels.updatePubLevel(state);
+        assert state.pubLevel == 0 : "Pub level should not increase without milestones.";
+
+        state.achievedMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
+        levels.updatePubLevel(state);
+        assert state.pubLevel >= 1 : "Pub level should increase once time + milestone requirements met.";
+    }
+
+    private static void testPubLevelAffectsSupplierCap() {
+        GameState state = GameFactory.newGame();
+        double baseCap = state.supplierCreditCap();
+        state.pubLevel = 2;
+        double boostedCap = state.supplierCreditCap();
+        assert boostedCap > baseCap : "Supplier credit cap should increase with pub level.";
     }
 }

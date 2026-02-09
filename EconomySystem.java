@@ -55,21 +55,49 @@ public class EconomySystem {
         }
 
         double remaining = amount - s.cash;
-        if (s.creditLines.hasAvailableCredit(remaining) && s.creditLines.applyCredit(remaining)) {
-            s.reportCosts += amount;
-            s.weekCosts += amount;
-            s.addReportCost(tag, amount);
-            s.cash = 0;
-            CreditLine line = s.creditLines.consumeLastAppliedLine();
-            if (line != null && "Loan Shark".equals(line.getLenderName())) {
-                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+        if (s.creditLines.hasAvailableCredit(remaining)) {
+            CreditLine selectedLine = selectCreditLineForShortfall(remaining, description);
+            if (selectedLine == null) {
+                log.neg("Payment cancelled: select a credit line to cover GBP " + fmt(remaining) + ".");
+                return false;
             }
-            log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
-            return true;
+            if (selectedLine.isEnabled() && selectedLine.availableCredit() >= remaining) {
+                s.creditLines.addBalanceToLine(selectedLine, remaining);
+                s.reportCosts += amount;
+                s.weekCosts += amount;
+                s.addReportCost(tag, amount);
+                s.cash = 0;
+                if ("Loan Shark".equals(selectedLine.getLenderName())) {
+                    s.creditScore = s.clampCreditScore(s.creditScore - 10);
+                }
+                log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
+                return true;
+            }
         }
 
         log.neg("Insufficient funds: cannot pay GBP " + fmt(amount) + " for " + description + ".");
         return false;
+    }
+
+    private CreditLine selectCreditLineForShortfall(double shortfall, String description) {
+        java.util.List<CreditLine> options = new java.util.ArrayList<>();
+        for (CreditLine line : s.creditLines.getOpenLines()) {
+            if (!line.isEnabled()) continue;
+            if (line.availableCredit() >= shortfall) {
+                options.add(line);
+            }
+        }
+        if (options.isEmpty()) return null;
+        if (options.size() == 1) return options.get(0);
+        if (s.creditLineSelector != null) {
+            CreditLine selected = s.creditLineSelector.select(options, shortfall, description);
+            if (selected != null) return selected;
+        }
+        CreditLine best = options.get(0);
+        for (CreditLine line : options) {
+            if (line.availableCredit() > best.availableCredit()) best = line;
+        }
+        return best;
     }
 
     public void addCash(double amount, String reason) {

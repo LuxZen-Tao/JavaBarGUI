@@ -44,12 +44,14 @@ public class WineBarGUI {
     private JDialog supplierDialog;
     private JPanel supplierListPanel;
     private JLabel supplierDealLabel;
+    private JLabel supplierCreditLabel;
     private JDialog paydayDialog;
     private JPanel paydayListPanel;
     private JLabel paydaySummaryLabel;
     private JDialog kitchenSupplierDialog;
     private JPanel kitchenSupplierListPanel;
     private JLabel kitchenSupplierNoticeLabel;
+    private JLabel kitchenSupplierCreditLabel;
 
     // Staff window (hire + fire)
     private JDialog staffDialog;
@@ -137,9 +139,15 @@ public class WineBarGUI {
     private JDialog missionControlDialog;
     private JTextArea missionOverviewArea;
     private JTextArea missionEconomyArea;
+    private JTextArea missionFinanceArea;
+    private JTextArea missionPaydayArea;
+    private JTextArea missionSuppliersArea;
+    private JTextArea missionProgressionArea;
     private JTextArea missionOperationsArea;
     private JTextArea missionStaffArea;
+    private JTextArea missionStaffDetailArea;
     private JTextArea missionRiskArea;
+    private JTextArea missionSecurityArea;
     private JTextArea missionReputationArea;
     private JTextArea missionRumorsArea;
     private JTextArea missionTrafficArea;
@@ -182,6 +190,7 @@ public class WineBarGUI {
 
         this.log = new UILogger(logPane);
         this.sim = new Simulation(state, log);
+        this.state.creditLineSelector = this::selectCreditLineForPayment;
 
         buildUI();
         eventFeedDialog = new EventFeedDialog(frame);
@@ -497,9 +506,15 @@ public class WineBarGUI {
             JTabbedPane tabs = new JTabbedPane();
             missionOverviewArea = createMissionTextArea();
             missionEconomyArea = createMissionTextArea();
+            missionFinanceArea = createMissionTextArea();
+            missionPaydayArea = createMissionTextArea();
+            missionSuppliersArea = createMissionTextArea();
+            missionProgressionArea = createMissionTextArea();
             missionOperationsArea = createMissionTextArea();
             missionStaffArea = createMissionTextArea();
+            missionStaffDetailArea = createMissionTextArea();
             missionRiskArea = createMissionTextArea();
+            missionSecurityArea = createMissionTextArea();
             missionReputationArea = createMissionTextArea();
             missionRumorsArea = createMissionTextArea();
             missionTrafficArea = createMissionTextArea();
@@ -508,9 +523,14 @@ public class WineBarGUI {
             missionLogArea = createMissionTextArea();
 
             tabs.add("Overview", new JScrollPane(missionOverviewArea));
+            tabs.add("Finance & Banking", new JScrollPane(missionFinanceArea));
+            tabs.add("Payday", new JScrollPane(missionPaydayArea));
+            tabs.add("Suppliers", new JScrollPane(missionSuppliersArea));
+            tabs.add("Pub Progression", new JScrollPane(missionProgressionArea));
+            tabs.add("Security", new JScrollPane(missionSecurityArea));
+            tabs.add("Staff", new JScrollPane(missionStaffDetailArea));
             tabs.add("Economy", new JScrollPane(missionEconomyArea));
             tabs.add("Operations", new JScrollPane(missionOperationsArea));
-            tabs.add("Staff", new JScrollPane(missionStaffArea));
             tabs.add("Risk & Security", new JScrollPane(missionRiskArea));
             tabs.add("Reputation & Identity", new JScrollPane(missionReputationArea));
             tabs.add("Rumors", new JScrollPane(missionRumorsArea));
@@ -681,7 +701,15 @@ public class WineBarGUI {
 
             supplierDealLabel = new JLabel("Supplier deal: (loading...)");
             supplierDealLabel.setBorder(new EmptyBorder(8, 10, 0, 10));
-            supplierDialog.add(supplierDealLabel, BorderLayout.NORTH);
+            supplierCreditLabel = new JLabel(" ");
+            supplierCreditLabel.setBorder(new EmptyBorder(2, 10, 0, 10));
+            supplierCreditLabel.setForeground(new Color(170, 90, 90));
+            JPanel header = new JPanel();
+            header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+            header.add(supplierDealLabel);
+            header.add(supplierCreditLabel);
+            header.setOpaque(false);
+            supplierDialog.add(header, BorderLayout.NORTH);
 
             supplierListPanel = new JPanel();
             supplierListPanel.setLayout(new BoxLayout(supplierListPanel, BoxLayout.Y_AXIS));
@@ -731,10 +759,15 @@ public class WineBarGUI {
     }
 
     private void refreshSupplierButtons() {
-        if (supplierDialog == null || supplierListPanel == null || supplierDealLabel == null) return;
+        if (supplierDialog == null || supplierListPanel == null || supplierDealLabel == null || supplierCreditLabel == null) return;
 
         String dealText = (state.supplierDeal == null) ? "No supplier deal today." : state.supplierDeal.getLabel();
         supplierDealLabel.setText("Supplier deal (locked until next night ends): " + dealText);
+        supplierCreditLabel.setText(buildSupplierCreditSummary(
+                "Wine supplier",
+                state.supplierWineCredit,
+                state.supplierWineMinDue()
+        ));
 
         boolean emergencyAllowed = state.canEmergencyRestock();
         boolean canBuy = !state.nightOpen || emergencyAllowed;
@@ -990,6 +1023,49 @@ public class WineBarGUI {
                 + " | Credit usage: " + money2(creditUsed));
     }
 
+    private String buildSupplierCreditSummary(String label, SupplierTradeCredit account, double minDue) {
+        double balance = account.getBalance();
+        double cap = state.supplierCreditCap();
+        String trust = state.supplierTrustLabel();
+        String priceMult = String.format("%.2f", state.supplierPriceMultiplier());
+        return "<html>" + label + " credit: balance " + money2(balance)
+                + " / cap " + money2(cap)
+                + " | min due " + money2(minDue)
+                + " | full due " + money2(balance)
+                + "<br/>Trust: " + trust + " | Price mult x" + priceMult
+                + "</html>";
+    }
+
+    private CreditLine selectCreditLineForPayment(List<CreditLine> options, double shortfall, String reason) {
+        if (options == null || options.isEmpty()) return null;
+        if (options.size() == 1) return options.get(0);
+        Object[] choices = new Object[options.size()];
+        for (int i = 0; i < options.size(); i++) {
+            CreditLine line = options.get(i);
+            choices[i] = line.getLenderName()
+                    + " | avail " + money2(line.availableCredit())
+                    + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%"
+                    + " | bal " + money2(line.getBalance()) + "/" + money2(line.getLimit());
+        }
+        Object pick = JOptionPane.showInputDialog(
+                frame,
+                "Select credit line to cover GBP " + String.format("%.2f", shortfall) + "\n" + reason,
+                "Select Credit Line",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                choices,
+                choices[0]
+        );
+        if (pick == null) return null;
+        String choice = pick.toString();
+        for (CreditLine line : options) {
+            if (choice.startsWith(line.getLenderName())) {
+                return line;
+            }
+        }
+        return null;
+    }
+
     // -----------------------
     // Kitchen Supplier Window
     // -----------------------
@@ -1013,10 +1089,14 @@ public class WineBarGUI {
             kitchenSupplierNoticeLabel = new JLabel(" ");
             kitchenSupplierNoticeLabel.setBorder(new EmptyBorder(2, 10, 0, 10));
             kitchenSupplierNoticeLabel.setForeground(new Color(170, 90, 90));
+            kitchenSupplierCreditLabel = new JLabel(" ");
+            kitchenSupplierCreditLabel.setBorder(new EmptyBorder(2, 10, 0, 10));
+            kitchenSupplierCreditLabel.setForeground(new Color(170, 90, 90));
             JPanel header = new JPanel();
             header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
             header.add(top);
             header.add(kitchenSupplierNoticeLabel);
+            header.add(kitchenSupplierCreditLabel);
             header.setOpaque(false);
             kitchenSupplierDialog.add(header, BorderLayout.NORTH);
 
@@ -1065,7 +1145,7 @@ public class WineBarGUI {
     }
 
     private void refreshKitchenSupplierButtons() {
-        if (kitchenSupplierDialog == null || kitchenSupplierListPanel == null) return;
+        if (kitchenSupplierDialog == null || kitchenSupplierListPanel == null || kitchenSupplierCreditLabel == null) return;
 
         if (!canUseKitchen()) {
             if (kitchenSupplierNoticeLabel != null) {
@@ -1087,6 +1167,11 @@ public class WineBarGUI {
                     ? "Requires Head Chef for emergency orders."
                     : " ");
         }
+        kitchenSupplierCreditLabel.setText(buildSupplierCreditSummary(
+                "Food supplier",
+                state.supplierFoodCredit,
+                state.supplierFoodMinDue()
+        ));
 
         for (Component rowC : kitchenSupplierListPanel.getComponents()) {
             if (!(rowC instanceof JPanel row)) continue;
@@ -1699,6 +1784,12 @@ public class WineBarGUI {
         if (missionOverviewArea != null) {
             missionOverviewArea.setText(String.join("\n", snapshot.overviewLines));
         }
+        if (missionFinanceArea != null) missionFinanceArea.setText(snapshot.financeBanking);
+        if (missionPaydayArea != null) missionPaydayArea.setText(snapshot.payday);
+        if (missionSuppliersArea != null) missionSuppliersArea.setText(snapshot.suppliers);
+        if (missionProgressionArea != null) missionProgressionArea.setText(snapshot.progression);
+        if (missionSecurityArea != null) missionSecurityArea.setText(snapshot.security);
+        if (missionStaffDetailArea != null) missionStaffDetailArea.setText(snapshot.staffDetail);
         if (missionEconomyArea != null) missionEconomyArea.setText(snapshot.economy);
         if (missionOperationsArea != null) missionOperationsArea.setText(snapshot.operations);
         if (missionStaffArea != null) missionStaffArea.setText(snapshot.staff);
@@ -1861,6 +1952,7 @@ public class WineBarGUI {
         sec = Math.max(0, sec);
         String bouncerInfo = state.bouncersHiredTonight > 0
                 ? "Bouncer: " + state.bouncersHiredTonight + " (" + state.bouncerQualitySummary() + ")"
+                + " | Rep Mit x" + String.format("%.2f", state.bouncerRepDamageMultiplier())
                 : "Bouncer: None";
         securityLabel.setText(buildSecurityBadgeText(sec, bouncerInfo));
 
