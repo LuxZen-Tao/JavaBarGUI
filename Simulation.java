@@ -201,7 +201,16 @@ public class Simulation {
             "Turned a messy moment into a clean win."
     );
 
+    private static final int GOOD_UNSERVED_MAX = 1;
+    private static final int BAD_UNSERVED_MIN = 4;
+    private static final int BAD_FOOD_MISSES_MIN = 2;
+    private static final double CHAOS_BASE_RISE = 3.0;
+    private static final double CHAOS_BASE_FALL = 4.0;
+    private static final double CHAOS_NEG_RAMP = 0.55;
+    private static final double CHAOS_POS_RAMP = 0.65;
+
     private enum RumorTone { NEGATIVE, MIXED, POSITIVE }
+    private enum RoundClassification { STRONGLY_NEGATIVE, MOSTLY_POSITIVE, NEUTRAL }
     private enum MisconductType {
         FREE_DRINKS,
         TILL_SHORT,
@@ -667,8 +676,17 @@ public class Simulation {
         s.happyHourBacklashShown = false;
         s.overpricingRobberyPopupShown = false;
         s.staffIncidentThisNight = false;
+        s.staffIncidentThisRound = false;
         s.lastRumorDrivers = "None";
         s.lastRumorHeadline = "None";
+        s.posStreak = 0;
+        s.negStreak = 0;
+        s.lastRoundClassification = "None";
+        s.lastChaosDelta = 0.0;
+        s.lastChaosDeltaBase = 0.0;
+        s.lastChaosDeltaStreak = 0.0;
+        s.lastChaosMoraleNegMult = 1.0;
+        s.lastChaosMoralePosMult = 1.0;
 
         staff.updateTeamMorale();
 
@@ -732,6 +750,7 @@ public class Simulation {
         s.happyHourCheatRepHitThisRound = false;
         s.foodDisappointmentThisRound = 0;
         s.foodDisappointmentPopupShown = false;
+        s.staffIncidentThisRound = false;
         log.header("- Round " + s.roundInNight + "/" + s.closingRound + " -");
         s.roundItemSales.clear();
 
@@ -861,6 +880,11 @@ public class Simulation {
         int refundsThisRound = Math.max(0, s.nightRefunds - refundsBefore);
         punters.refreshChaosContributions();
         s.chaos = recomputeChaos(barCount, demand, serveCap, unserved, fightsThisRound, refundsThisRound, eventsThisRound);
+
+        checkHighRepScandal();
+
+        handleStaffMisconduct(sec);
+        updateChaosFromRound(unserved, eventsThisRound, fightsThisRound, refundsThisRound, s.foodDisappointmentThisRound);
         s.weekChaosTotal += s.chaos;
         s.weekChaosRounds++;
 
@@ -874,11 +898,7 @@ public class Simulation {
             addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 4, RumorSource.PUNTER);
         }
 
-
-        checkHighRepScandal();
-
         staff.adjustMoraleAfterRound(unserved, eventsThisRound, s.reputation, tipRate, sec, s.chaos);
-        handleStaffMisconduct(sec);
 
         if (s.consecutiveNeg100Rounds >= 3) {
             closeNight("Reputation collapsed. Licence revoked! (-100 for 3 rounds).");
@@ -1467,6 +1487,7 @@ public class Simulation {
                 + "\nTraffic multiplier: x" + fmt2(trafficMult)
                 + "\nChaos: " + String.format("%.1f", s.chaos) + " (" + chaosLabel + ")"
                 + "\nChaos breakdown: " + chaosBreakdownLine()
+                + "\nChaos insights: " + buildChaosInsightsLine()
                 + "\nLast between-night event: " + s.lastBetweenNightEventSummary;
 
         String staffText = buildStaffTabSummary(serveCap);
@@ -1719,6 +1740,7 @@ public class Simulation {
         MisconductType type = boh ? rollBohMisconduct() : rollFohMisconduct();
         s.staffMisconductThisWeek++;
         s.staffIncidentThisNight = true;
+        s.staffIncidentThisRound = true;
 
         String driverLine = buildMisconductDriverLine(security, minMorale, chance);
         String dept = boh ? "BOH" : "FOH";
@@ -1966,6 +1988,68 @@ public class Simulation {
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
     }
 
+    private void updateChaosFromRound(int unserved,
+                                      int eventsThisRound,
+                                      int fightsThisRound,
+                                      int refundsThisRound,
+                                      int foodMissesThisRound) {
+        RoundClassification classification = classifyRound(unserved, eventsThisRound, fightsThisRound, refundsThisRound, foodMissesThisRound);
+        double base = 0.0;
+        double streakDelta = 0.0;
+
+        if (classification == RoundClassification.STRONGLY_NEGATIVE) {
+            s.negStreak += 1;
+            s.posStreak = 0;
+            base = CHAOS_BASE_RISE;
+            streakDelta = CHAOS_BASE_RISE * (s.negStreak * CHAOS_NEG_RAMP);
+        } else if (classification == RoundClassification.MOSTLY_POSITIVE) {
+            s.posStreak += 1;
+            s.negStreak = 0;
+            base = -CHAOS_BASE_FALL;
+            streakDelta = -CHAOS_BASE_FALL * (s.posStreak * CHAOS_POS_RAMP);
+        } else {
+            s.posStreak = 0;
+            s.negStreak = 0;
+        }
+
+        double delta = base + streakDelta;
+        s.chaos = Math.max(0.0, Math.min(100.0, s.chaos + delta));
+
+        s.lastRoundClassification = formatClassification(classification);
+        s.lastChaosDelta = delta;
+        s.lastChaosDeltaBase = base;
+        s.lastChaosDeltaStreak = streakDelta;
+    }
+
+    private RoundClassification classifyRound(int unserved,
+                                              int eventsThisRound,
+                                              int fightsThisRound,
+                                              int refundsThisRound,
+                                              int foodMissesThisRound) {
+        boolean stronglyNegative = eventsThisRound > 0
+                || fightsThisRound > 0
+                || refundsThisRound > 0
+                || unserved >= BAD_UNSERVED_MIN
+                || foodMissesThisRound >= BAD_FOOD_MISSES_MIN
+                || s.staffIncidentThisRound
+                || s.happyHourCheatRepHitThisRound;
+        if (stronglyNegative) return RoundClassification.STRONGLY_NEGATIVE;
+
+        boolean mostlyPositive = eventsThisRound == 0
+                && fightsThisRound == 0
+                && refundsThisRound == 0
+                && unserved <= GOOD_UNSERVED_MAX
+                && foodMissesThisRound <= 0
+                && !s.staffIncidentThisRound;
+        if (mostlyPositive) return RoundClassification.MOSTLY_POSITIVE;
+
+        return RoundClassification.NEUTRAL;
+    }
+
+    private String formatClassification(RoundClassification classification) {
+        return classification.name().replace('_', ' ');
+    }
+
     private double recomputeChaos(int barCount,
                                   int demand,
                                   int serveCap,
@@ -2112,6 +2196,17 @@ public class Simulation {
                 + ", overcrowd " + fmt1(overcrowdPressure)
                 + (s.activityTonight != null ? ", activity " + fmt1(2.0 + (s.activityTonight.getRiskBonusPct() * 18.0)) : "")
                 + (s.betweenNightChaos > 0 ? ", between-night " + fmt1(s.betweenNightChaos) : "");
+    }
+
+    private String buildChaosInsightsLine() {
+        return s.lastRoundClassification
+                + " | pos " + s.posStreak
+                + " | neg " + s.negStreak
+                + "\nChaos delta: " + fmt1(s.lastChaosDelta)
+                + " (base " + fmt1(s.lastChaosDeltaBase)
+                + ", streak " + fmt1(s.lastChaosDeltaStreak) + ")"
+                + "\nMorale mult: neg x" + fmt2(s.lastChaosMoraleNegMult)
+                + ", pos x" + fmt2(s.lastChaosMoralePosMult);
     }
 
     private int riskRumorCount() {

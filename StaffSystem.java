@@ -127,6 +127,16 @@ public class StaffSystem {
             delta = (int)Math.round(delta * (1.0 - damp));
         }
 
+        double negMult = chaosMoraleNegMultiplier(chaos);
+        double posMult = chaosMoralePosMultiplier(chaos);
+        s.lastChaosMoraleNegMult = negMult;
+        s.lastChaosMoralePosMult = posMult;
+        if (delta < 0) {
+            delta = (int)Math.round(delta * negMult);
+        } else if (delta > 0) {
+            delta = (int)Math.round(delta * posMult);
+        }
+
         boolean smoothNight = unserved <= 0 && eventsThisRound <= 0 && chaos < 18;
         for (Staff st : s.fohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
         for (Staff st : s.bohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
@@ -152,6 +162,24 @@ public class StaffSystem {
         if (roll < 34) return -1;
         if (roll < 67) return 0;
         return 1;
+    }
+
+    private double chaosMoraleNegMultiplier(double chaos) {
+        double normalized = clamp01(chaos / 100.0);
+        return clamp(0.85 + (0.40 * normalized), 0.85, 1.25);
+    }
+
+    private double chaosMoralePosMultiplier(double chaos) {
+        double normalized = clamp01(chaos / 100.0);
+        return clamp(1.20 - (0.30 * normalized), 0.90, 1.20);
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private double clamp01(double value) {
+        return clamp(value, 0.0, 1.0);
     }
 
     public void updateTeamMorale() {
