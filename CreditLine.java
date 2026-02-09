@@ -9,6 +9,9 @@ public class CreditLine {
     private int missedPaymentCount;
     private int consecutiveMissedPayments;
     private int weeksInGoodStanding;
+    private double penaltyAddOnApr;
+    private int consecutiveFullPays;
+    private int penaltyRecoveryStage;
 
     public CreditLine(String id,
                       String lenderName,
@@ -36,6 +39,9 @@ public class CreditLine {
     public int getMissedPaymentCount() { return missedPaymentCount; }
     public int getConsecutiveMissedPayments() { return consecutiveMissedPayments; }
     public int getWeeksInGoodStanding() { return weeksInGoodStanding; }
+    public double getPenaltyAddOnApr() { return penaltyAddOnApr; }
+    public int getConsecutiveFullPays() { return consecutiveFullPays; }
+    public int getPenaltyRecoveryStage() { return penaltyRecoveryStage; }
 
     public double availableCredit() {
         return Math.max(0.0, limit - balance);
@@ -67,10 +73,31 @@ public class CreditLine {
         missedPaymentCount++;
         consecutiveMissedPayments++;
         weeksInGoodStanding = 0;
+        consecutiveFullPays = 0;
     }
 
     public void markPaidOnTime() {
         consecutiveMissedPayments = 0;
         weeksInGoodStanding++;
+    }
+
+    public void markFullPayment() {
+        consecutiveFullPays++;
+    }
+
+    public void resetFullPayStreak() {
+        consecutiveFullPays = 0;
+    }
+
+    public void setPenaltyAddOnApr(double penaltyAddOnApr) {
+        this.penaltyAddOnApr = Math.max(0.0, penaltyAddOnApr);
+    }
+
+    public void setPenaltyRecoveryStage(int penaltyRecoveryStage) {
+        this.penaltyRecoveryStage = Math.max(0, penaltyRecoveryStage);
+    }
+
+    public void setConsecutiveFullPays(int consecutiveFullPays) {
+        this.consecutiveFullPays = Math.max(0, consecutiveFullPays);
     }
 }

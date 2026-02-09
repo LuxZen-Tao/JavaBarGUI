@@ -59,7 +59,7 @@ public class ReportSystem {
         sb.append("Security upkeep (daily): ").append(fmt2(dailySecurity)).append("\n");
         sb.append("Security upkeep accrued: ").append(fmt2(s.securityUpkeepAccruedThisWeek)).append("\n");
         sb.append("Wages accrued (this week): ").append(fmt2(s.wagesAccruedThisWeek)).append("\n");
-        sb.append("Invoice due (weekend): ").append(fmt2(s.invoiceDueNow(s.wagesAccruedThisWeek))).append("\n");
+        sb.append("Weekly costs due at payday: ").append(fmt2(weeklyMinDueEstimate(s))).append("\n");
         sb.append("Refunds this week: ").append(fmt2(s.weekRefundTotal)).append("\n");
         sb.append("Operating cost breakdown: base ").append(fmt2(s.opCostBaseThisWeek))
                 .append(" | staff ").append(fmt2(s.opCostStaffThisWeek))
@@ -128,7 +128,7 @@ public class ReportSystem {
         sb.append("Costs:   ").append(fmt2(s.reportCosts)).append("\n");
         sb.append("Profit:  ").append(fmt2(profit)).append("\n\n");
         sb.append("Refunds: ").append(fmt2(s.reportRefundTotal)).append("\n\n");
-        sb.append("Invoice due (current): ").append(fmt2(s.invoiceDueNow(s.wagesAccruedThisWeek))).append("\n\n");
+        sb.append("Weekly costs due (current): ").append(fmt2(weeklyMinDueEstimate(s))).append("\n\n");
 
         sb.append("Costs breakdown:\n");
         sb.append("  Rent:       ").append(fmt2(s.reportCost(CostTag.RENT))).append("\n");
@@ -154,6 +154,16 @@ public class ReportSystem {
 
 
     private static String fmt2(double d){return String.format("%.2f",d);} 
+
+    private static double weeklyMinDueEstimate(GameState s) {
+        double wages = s.wagesAccruedThisWeek + (s.tipsThisWeek * 0.50);
+        double rent = s.rentAccruedThisWeek;
+        double security = s.securityUpkeepAccruedThisWeek;
+        double supplier = s.supplierMinDue();
+        double credit = s.totalCreditWeeklyPaymentDue();
+        double shark = s.loanShark.isOpen() ? s.loanShark.minPaymentDue() : 0.0;
+        return wages + rent + security + supplier + credit + shark;
+    }
 
     private static double identityTrafficMult(GameState s){
         if(s.pubIdentity==null) return 1.0;

@@ -120,6 +120,13 @@ public class Staff {
         return due;
     }
 
+    public double applyWagePayment(double amount) {
+        if (amount <= 0) return 0.0;
+        double paid = Math.min(accruedThisWeek, amount);
+        accruedThisWeek -= paid;
+        return paid;
+    }
+
     public void adjustMorale(int delta) {
         morale = clamp(morale + delta);
     }

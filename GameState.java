@@ -29,6 +29,11 @@ public class GameState {
     public int noDebtUsageWeeks = 0;
     public double supplierTrustPenalty = 0.0;
     public String supplierTrustStatus = "Neutral";
+    public double supplierBalance = 0.0;
+    public double supplierPenaltyAddOnApr = 0.0;
+    public int supplierConsecutiveFullPays = 0;
+    public int supplierPenaltyRecoveryStage = 0;
+    public double supplierLateFeesThisWeek = 0.0;
     public int sharkThreatTier = 0;
     public int sharkConsecutiveMisses = 0;
     public int sharkCleanWeeks = 0;
@@ -68,8 +73,7 @@ public class GameState {
 
     // supplier
     public SupplierDeal supplierDeal = SupplierDeal.none();
-    public final java.util.List<SupplierInvoice> supplierInvoices = new java.util.ArrayList<>();
-    public double invoiceLateFeesThisWeek = 0.0;
+    public final LoanSharkAccount loanShark = new LoanSharkAccount();
 
     // reports
     public int reportIndex = 1;
@@ -211,6 +215,8 @@ public class GameState {
     public boolean fourWeekReportReady = false;
     public String weeklyReportText = "";
     public String fourWeekReportText = "";
+    public boolean paydayReady = false;
+    public final java.util.List<PaydayBill> paydayBills = new java.util.ArrayList<>();
     public String weeklyIdentityFlavorText = "";
     public String identityDriftSummary = "";
     public String identityDrift = "";
@@ -359,6 +365,21 @@ public class GameState {
         return "Very Poor";
     }
 
+    public double supplierCreditCap() {
+        double base;
+        if (creditScore >= 700) base = 3200.0;
+        else if (creditScore >= 600) base = 2500.0;
+        else if (creditScore >= 500) base = 1800.0;
+        else base = 1200.0;
+        double trustMult = Math.max(0.6, 1.0 - (supplierTrustPenalty * 3.0));
+        return base * trustMult;
+    }
+
+    public double supplierMinDue() {
+        if (supplierBalance <= 0.0) return 0.0;
+        return Math.max(35.0, supplierBalance * 0.12);
+    }
+
     public void addReportCost(CostTag tag, double amount) {
         if (amount <= 0) return;
         if (tag == null) tag = CostTag.OTHER;
@@ -375,12 +396,6 @@ public class GameState {
 
     public double reportCost(CostTag tag) {
         return reportCostBreakdown.getOrDefault(tag, 0.0);
-    }
-
-    public double invoiceDueNow(double wagesDue) {
-        double tipsDue = tipsThisWeek * 0.50;
-        double base = wagesDue + rentAccruedThisWeek + securityUpkeepAccruedThisWeek + tipsDue;
-        return base * supplierInvoiceMultiplier();
     }
 
     public void recordWeeklyPriceMultiplier(double multiplier) {
