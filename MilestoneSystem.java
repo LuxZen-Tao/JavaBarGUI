@@ -116,7 +116,7 @@ public class MilestoneSystem {
                     this::grantSkilledStaffHire);
         }
 
-        if (s.debt <= 0.0) {
+        if (s.totalCreditBalance() <= 0.0) {
             grantMilestone(Milestone.ZERO_DEBT_WEEK,
                     "Zero-debt week",
                     "Finish a week with zero debt",
@@ -124,7 +124,7 @@ public class MilestoneSystem {
                     () -> reduceChaos(8, "Zero-debt week"));
         }
 
-        if (s.debt <= 0.0 && s.fightsThisWeek == 0 && s.reputation > 0) {
+        if (s.totalCreditBalance() <= 0.0 && s.fightsThisWeek == 0 && s.reputation > 0) {
             grantMilestone(Milestone.PERFECT_WEEK,
                     "Perfect week",
                     "Zero debt + no fights + positive rep",

@@ -14,6 +14,34 @@ public class CreditLineManager {
         return Collections.unmodifiableList(openLines);
     }
 
+    public double totalBalance() {
+        double total = 0.0;
+        for (CreditLine line : openLines) {
+            if (!line.isEnabled()) continue;
+            total += Math.max(0.0, line.getBalance());
+        }
+        return total;
+    }
+
+    public double totalLimit() {
+        double total = 0.0;
+        for (CreditLine line : openLines) {
+            if (!line.isEnabled()) continue;
+            total += Math.max(0.0, line.getLimit());
+        }
+        return total;
+    }
+
+    public double totalWeeklyPaymentDue() {
+        double total = 0.0;
+        for (CreditLine line : openLines) {
+            if (!line.isEnabled()) continue;
+            if (line.getBalance() <= 0.0) continue;
+            total += Math.max(0.0, line.getWeeklyPayment());
+        }
+        return total;
+    }
+
     public boolean hasAvailableCredit(double amount) {
         if (amount <= 0) return true;
         for (CreditLine line : openLines) {

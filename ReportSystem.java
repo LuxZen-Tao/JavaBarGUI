@@ -6,7 +6,7 @@ public class ReportSystem {
         double profit = s.reportRevenue - s.reportCosts;
 
         double cashDelta = s.cash - s.reportStartCash;
-        double debtDelta = s.debt - s.reportStartDebt;
+        double debtDelta = s.totalCreditBalance() - s.reportStartDebt;
 
         StringBuilder sb = new StringBuilder();
         sb.append("REPORT #").append(s.reportIndex)
@@ -48,8 +48,9 @@ public class ReportSystem {
 
         sb.append("Cash start: ").append(fmt2(s.reportStartCash)).append("\n");
         sb.append("Cash now:   ").append(fmt2(s.cash)).append(" ( ").append(fmt2(cashDelta)).append(")\n");
-        sb.append("Debt start: ").append(fmt2(s.reportStartDebt)).append("\n");
-        sb.append("Debt now:   ").append(fmt2(s.debt)).append(" ( ").append(fmt2(debtDelta)).append(")\n\n");
+        sb.append("Credit debt start: ").append(fmt2(s.reportStartDebt)).append("\n");
+        sb.append("Credit debt now:   ").append(fmt2(s.totalCreditBalance()))
+                .append(" ( ").append(fmt2(debtDelta)).append(")\n\n");
 
         sb.append("Rent accrued: ").append(fmt2(s.rentAccruedThisWeek))
                 .append(" / ").append(fmt2(s.weeklyRent)).append("\n");
@@ -85,7 +86,9 @@ public class ReportSystem {
         }
 
         // Tiny tycoon sauce: simple health hint
-        if (s.debt > 0 && profit < 0) sb.append("\n Warning: Debt + loss combo. Cut costs or raise prices.\n");
+        if (s.totalCreditBalance() > 0 && profit < 0) {
+            sb.append("\n Warning: Debt + loss combo. Cut costs or raise prices.\n");
+        }
         if (s.reputation <= -60) sb.append("\n Reputation is radioactive. Expect chaos + theft.\n");
         if (s.reputation >= 60) sb.append("\n Reputation is booming. You can charge more safely.\n");
 

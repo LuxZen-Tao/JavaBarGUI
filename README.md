@@ -13,8 +13,9 @@ You’re the owner-operator of a small pub. The game simulates nights of service
 
 ## Key systems & features
 ### Economy & costs
-- Cash + debt management with a hard debt cap.
-- Weekly rent, wages, security upkeep, and interest.
+- Cash-first spending with optional credit lines (banks + loan shark).
+- Weekly rent, wages, security upkeep, and credit-line repayments.
+- Credit score impacts pricing, invoice terms, and lender access.
 - Operating costs that scale with staffing and crowd size.
 
 ### Inventory & suppliers
