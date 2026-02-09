@@ -349,7 +349,7 @@ public class Simulation {
         qty = Math.max(1, qty);
         if (s.nightOpen && s.canEmergencyRestock()) {
             double markup = s.isWeekend() ? 1.7 : 1.3;
-            double baseCost = w.getBaseCost() * qty;
+            double baseCost = w.getBaseCost() * qty * s.supplierPriceMultiplier();
             return Math.max(0.0, baseCost * markup);
         }
         double repMult = inv.repToSupplierCostMultiplier();
@@ -395,8 +395,7 @@ public class Simulation {
         }
         if (s.activityTonight != null) { log.info("Activity already running tonight."); return; }
 
-        eco.payOrDebt(a.getCost(), "Activity: " + a.getLabel(), CostTag.ACTIVITY);
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(a.getCost(), TransactionType.ACTIVITY, "Activity: " + a.getLabel(), CostTag.ACTIVITY)) return;
 
         int delay = 1 + s.random.nextInt(3);
         int startIndex = s.absDayIndex() + delay;
@@ -434,22 +433,18 @@ public class Simulation {
             boolean weekend = s.isWeekend();
             double markup = weekend ? 1.7 : 1.3;
             int roundsDelay = 3;
-            double baseCost = w.getBaseCost() * qty;
+            double baseCost = w.getBaseCost() * qty * s.supplierPriceMultiplier();
             double markedCost = baseCost * markup;
-            eco.payOrDebt(markedCost, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER);
-            if (s.debt > s.maxDebt) return;
-
+            createSupplierInvoice("Wine Supplier", markedCost);
             s.pendingSupplierDeliveries.add(new PendingSupplierDelivery(w, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency supplier", qty + "x " + w.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
             return;
         }
 
-        eco.payOrDebt(cost, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER);
-        if (s.debt > s.maxDebt) return;
-
         int added = s.rack.addBottles(w, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Inventory full."); return; }
 
+        createSupplierInvoice("Wine Supplier", cost);
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
         log.pos(" Bought " + added + "x " + w.getName()
                 + " for GBP " + String.format("%.2f", cost)
@@ -460,7 +455,7 @@ public class Simulation {
     public double peekFoodCost(Food food, int qty) {
         if (food == null) return 0.0;
         qty = Math.max(1, qty);
-        double cost = food.getBaseCost() * qty;
+        double cost = food.getBaseCost() * qty * s.supplierPriceMultiplier();
         double disc = foodBulkDiscountPct(qty);
         return Math.max(0.0, cost * (1.0 - disc));
     }
@@ -475,7 +470,7 @@ public class Simulation {
         if (qty <= 0) { log.neg("Kitchen inventory full."); return; }
 
         double disc = foodBulkDiscountPct(qty);
-        double cost = food.getBaseCost() * qty * (1.0 - disc);
+        double cost = food.getBaseCost() * qty * (1.0 - disc) * s.supplierPriceMultiplier();
 
         if (s.nightOpen) {
             if (s.staffCountOfType(Staff.Type.HEAD_CHEF) < 1) {
@@ -486,20 +481,16 @@ public class Simulation {
             double markup = weekend ? 1.7 : 1.4;
             int roundsDelay = weekend ? 4 : 3;
             double markedCost = cost * markup;
-            eco.payOrDebt(markedCost, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD);
-            if (s.debt > s.maxDebt) return;
-
+            createSupplierInvoice("Food Supplier", markedCost);
             s.pendingFoodDeliveries.add(new PendingFoodDelivery(food, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency food supplier", qty + "x " + food.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
             return;
         }
 
-        eco.payOrDebt(cost, "Restock " + qty + "x " + food.getName(), CostTag.FOOD);
-        if (s.debt > s.maxDebt) return;
-
         int added = s.foodRack.addMeals(food, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Kitchen inventory full."); return; }
 
+        createSupplierInvoice("Food Supplier", cost);
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
         log.pos(" Bought " + added + "x " + food.getName()
                 + " for GBP " + String.format("%.2f", cost) + bulkTag);
@@ -518,8 +509,7 @@ public class Simulation {
         if (isUpgradeInstalling(up)) { log.info("Upgrade already installing."); return; }
         if (!milestones.canBuyUpgrade(up)) { log.neg("Upgrade locked. Hit a milestone first."); return; }
 
-        eco.payOrDebt(up.getCost(), "Upgrade: " + up.getLabel(), CostTag.UPGRADE);
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(up.getCost(), TransactionType.UPGRADE, "Upgrade: " + up.getLabel(), CostTag.UPGRADE)) return;
 
         int nights = 1 + s.random.nextInt(4);
         s.pendingUpgradeInstalls.add(new PendingUpgradeInstall(up, nights, nights));
@@ -597,7 +587,9 @@ public class Simulation {
 
         Staff st = s.fohStaff.get(index);
         double due = st.getAccruedThisWeek();
-        if (due > 0) eco.payOrDebt(due, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES);
+        if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES)) {
+            return;
+        }
         st.cashOutAccrued();
         s.fohStaff.remove(index);
         staff.updateTeamMorale();
@@ -613,7 +605,9 @@ public class Simulation {
 
         Staff st = s.bohStaff.get(index);
         double due = st.getAccruedThisWeek();
-        if (due > 0) eco.payOrDebt(due, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES);
+        if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES)) {
+            return;
+        }
         st.cashOutAccrued();
         s.bohStaff.remove(index);
         staff.updateTeamMorale();
@@ -629,7 +623,9 @@ public class Simulation {
 
         Staff mgr = s.generalManagers.get(index);
         double due = mgr.getAccruedThisWeek();
-        if (due > 0) eco.payOrDebt(due, "Wages payout (firing manager)", CostTag.WAGES);
+        if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (firing manager)", CostTag.WAGES)) {
+            return;
+        }
         mgr.cashOutAccrued();
         s.generalManagers.remove(index);
         staff.updateTeamMorale();
@@ -659,16 +655,91 @@ public class Simulation {
     }
 
     // --------------------
-    // Loan shark
+    // Credit lines + loan shark
     // --------------------
+    public void openCreditLine(Bank bank) {
+        if (bank == null) return;
+        if (!bank.isUnlocked(s.creditScore)) {
+            log.neg("Credit score too low for " + bank.getName() + " (requires " + bank.getMinScore() + ").");
+            return;
+        }
+        if (s.creditLines.hasLine(bank.getName())) {
+            log.info("Credit line already open with " + bank.getName() + ".");
+            return;
+        }
+        CreditLine line = s.creditLines.openLine(bank, s.random);
+        if (line == null) {
+            log.neg("Could not open credit line with " + bank.getName() + ".");
+            return;
+        }
+        log.pos("Opened credit line: " + bank.getName()
+                + " | limit GBP " + String.format("%.0f", line.getLimit())
+                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+        s.creditLinesOpenedThisWeek++;
+        if (s.creditLinesOpenedThisWeek > 1) {
+            s.creditScore = s.clampCreditScore(s.creditScore - 5);
+            log.neg("Credit score dips from opening multiple lines quickly.");
+        }
+    }
+
+    public void openSharkLine() {
+        CreditLine line = s.creditLines.openSharkLine(s.random);
+        if (line == null) {
+            log.info("Loan shark line already open.");
+            return;
+        }
+        s.creditScore = s.clampCreditScore(s.creditScore - 50);
+        log.neg("Loan shark line opened. Credit score takes a hit.");
+        log.pos("Opened loan shark line | limit GBP " + String.format("%.0f", line.getLimit())
+                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+    }
+
+    public void repayCreditLineInFull(String lineId) {
+        CreditLine line = s.creditLines.getLineById(lineId);
+        if (line == null) { log.neg("Credit line not found."); return; }
+        s.creditLines.repayInFull(s, line, log);
+        if ("Loan Shark".equals(line.getLenderName())) {
+            reduceSharkThreat(2, "Loan shark debt cleared");
+        }
+    }
+
+    public boolean paySupplierInvoice(SupplierInvoice invoice, CreditLine selectedLine) {
+        if (invoice == null || invoice.isPaid()) return false;
+        double amountDue = invoice.getAmountDue();
+        if (amountDue <= 0.0) {
+            invoice.markPaid();
+            return true;
+        }
+
+        double cashPaid = Math.min(s.cash, amountDue);
+        double remaining = amountDue - cashPaid;
+
+        CreditLine lineUsed = null;
+        double creditPaid = 0.0;
+        if (remaining > 0.0) {
+            if (selectedLine == null) return false;
+            if (!selectedLine.isEnabled() || selectedLine.availableCredit() < remaining) return false;
+            s.creditLines.addBalanceToLine(selectedLine, remaining);
+            if ("Loan Shark".equals(selectedLine.getLenderName())) {
+                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+            }
+            lineUsed = selectedLine;
+            creditPaid = remaining;
+        }
+
+        s.cash -= cashPaid;
+        invoice.markPaid();
+
+        String lender = lineUsed != null ? (" via " + lineUsed.getLenderName()) : "";
+        log.pos("Invoice paid: " + invoice.getSupplierName()
+                + " GBP " + String.format("%.2f", amountDue)
+                + " (cash " + String.format("%.2f", cashPaid)
+                + ", credit " + String.format("%.2f", creditPaid) + lender + ")");
+        return true;
+    }
+
     public void borrowFromLoanShark(double amt) {
-        if (s.loanShark.hasActiveLoan()) { log.neg(" Loan Shark says: you already owe."); return; }
-        if (!s.loanShark.canBorrow(amt, s.reputation)) { log.neg(" Loan Shark: can't borrow that amount."); return; }
-
-        s.loanShark.borrow(amt, s.absWeekIndex(), s.reportIndex, s.weeksIntoReport, s.reputation);
-        s.cash += amt;
-
-        log.event(" Loan Shark: borrowed GBP " + String.format("%.0f", amt));
+        log.neg("Loan shark cash loans are no longer available. Open a loan shark credit line instead.");
     }
 
     public void repayLoanSharkInFull() {
@@ -809,7 +880,7 @@ public class Simulation {
 
         // 1b) Operating costs per round (tiny now, matters later)
         double opCost = staff.roundOperatingCost(s.nightPunters.size());
-        eco.payOrDebt(opCost, "Operating costs (this round)", CostTag.OPERATING);
+        if (!eco.tryPay(opCost, TransactionType.OTHER, "Operating costs (this round)", CostTag.OPERATING)) return;
         s.nightRoundCostsTotal += opCost;
 
         // 2) Reputation drift
@@ -1064,6 +1135,10 @@ public class Simulation {
         //  Weekly debt interest (slow doom)
         eco.applyWeeklyDebtInterest();
 
+        s.creditLines.processWeekly(s, log);
+        processSupplierInvoicesWeekly();
+        processSharkThreatWeekly();
+
         double raw = staff.wagesDueRaw();
         double eff = upgrades.wageEfficiencyPct();
         double wagesDue = staff.wagesDue();
@@ -1076,10 +1151,12 @@ public class Simulation {
                     + ", " + (int)Math.round(eff * 100) + "%)");
         }
 
-        eco.endOfWeekPayBills(wagesDue);
+        boolean wagesPaid = eco.endOfWeekPayBills(wagesDue);
         payOutTips();
-        staff.resetAccrual();
-        s.wagesAccruedThisWeek = 0.0;
+        if (wagesPaid) {
+            staff.resetAccrual();
+            s.wagesAccruedThisWeek = 0.0;
+        }
 
         staff.weeklyMoraleCheck(s.fightsThisWeek, s.random, log);
         staff.handleWeeklyLevelUps(s.random, log, s.chaos);
@@ -1103,6 +1180,7 @@ public class Simulation {
         s.weekChaosTotal = 0.0;
         s.weekChaosRounds = 0;
         s.staffMisconductThisWeek = 0;
+        s.creditLinesOpenedThisWeek = 0;
         s.weekActivityNights = 0;
     }
 
@@ -1165,7 +1243,8 @@ public class Simulation {
             s.identityArtsy += s.weekActivityNights * 1.1;
         }
 
-        if (s.loanShark.hasActiveLoan()) {
+        CreditLine sharkLine = s.creditLines.getLineByName("Loan Shark");
+        if (sharkLine != null && sharkLine.getBalance() > 0.0) {
             s.identityShady += 0.6;
         }
 
@@ -1517,6 +1596,9 @@ public class Simulation {
 
         java.util.List<String> overview = new java.util.ArrayList<>();
         overview.add("Cash: GBP " + fmt2(s.cash) + " | Debt: GBP " + fmt2(s.debt) + " | Invoice Due: GBP " + fmt2(invoiceDueNow()));
+        overview.add("Credit score: " + s.creditScore
+                + " | Utilisation: " + String.format("%.0f%%", s.creditUtilization * 100)
+                + " | Supplier trust: " + s.supplierTrustLabel());
         overview.add("Reputation: " + s.reputation + " (" + mood + ")");
         overview.add("Identity: " + identityLine);
         overview.add("Chaos: " + String.format("%.1f", s.chaos) + " (" + chaosLabel + ")");
@@ -1533,7 +1615,23 @@ public class Simulation {
                 + "\nProfit (week): GBP " + fmt2(s.weekRevenue - s.weekCosts)
                 + "\nCash: GBP " + fmt2(s.cash)
                 + "\nDebt: GBP " + fmt2(s.debt)
+                + "\nCredit score: " + s.creditScore
+                + "\nCredit utilisation: " + String.format("%.0f%%", s.creditUtilization * 100)
+                + "\nSupplier trust: " + s.supplierTrustLabel()
+                + "\nSupplier price mult: x" + fmt2(s.supplierPriceMultiplier())
+                + "\nInvoice terms mult: x" + fmt2(s.supplierInvoiceMultiplier())
                 + "\nInvoice Due: GBP " + fmt2(invoiceDueNow())
+                + "\nShark threat: Tier " + s.sharkThreatTier + " (" + sharkTierLabel(s.sharkThreatTier) + ")"
+                + "\nShark trigger: " + s.sharkThreatTrigger
+                + " | Misses: " + s.sharkConsecutiveMisses
+                + " | Reduce: pay on time for 1 week"
+                + "\nShark lines:\n" + buildSharkLineSummary()
+                + "\nOutstanding invoices: GBP " + fmt2(totalOutstandingInvoices())
+                + "\nDue now: GBP " + fmt2(totalDueInvoices())
+                + "\nOverdue: GBP " + fmt2(totalOverdueInvoices())
+                + "\nNext due window: " + nextInvoiceDueWindow()
+                + "\nLate fees this week: GBP " + fmt2(s.invoiceLateFeesThisWeek)
+                + "\n\nInvoices:\n" + buildInvoiceListSummary()
                 + "\nPrice multiplier avg: " + fmt2(avgPriceMultiplier())
                 + "\nPrice volatility: " + fmt2(s.weekPriceMultiplierAbsDelta);
 
@@ -1581,12 +1679,7 @@ public class Simulation {
                 + "\nFood: " + (s.kitchenUnlocked ? (s.foodRack.count() + "/" + s.foodRack.getCapacity()) : "Locked")
                 + "\nFood spoiled last night: " + s.foodSpoiledLastNight;
 
-        String loans = s.loanShark.buildLoanText(
-                s.absWeekIndex(),
-                s.reportIndex,
-                s.weeksIntoReport,
-                s.reputation
-        );
+        String loans = buildLoanSummaryText();
 
         String logSummary = "Night events: " + s.nightEvents
                 + "\nBetween-night: " + s.lastBetweenNightEventSummary;
@@ -1769,6 +1862,91 @@ public class Simulation {
         return sb.toString();
     }
 
+    private double totalOutstandingInvoices() {
+        double total = 0.0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            total += invoice.getAmountDue();
+        }
+        return total;
+    }
+
+    private double totalDueInvoices() {
+        double total = 0.0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() == SupplierInvoice.Status.DUE
+                    || invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                total += invoice.getAmountDue();
+            }
+        }
+        return total;
+    }
+
+    private double totalOverdueInvoices() {
+        double total = 0.0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                total += invoice.getAmountDue();
+            }
+        }
+        return total;
+    }
+
+    private String nextInvoiceDueWindow() {
+        int min = Integer.MAX_VALUE;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() == SupplierInvoice.Status.OPEN && invoice.getDueInWeeks() >= 0) {
+                min = Math.min(min, invoice.getDueInWeeks());
+            }
+        }
+        if (min == Integer.MAX_VALUE) return "None";
+        if (min == 0) return "Due now";
+        return "In " + min + " week(s)";
+    }
+
+    private String buildInvoiceListSummary() {
+        if (s.supplierInvoices.isEmpty()) return "None";
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            sb.append("- ").append(invoice.getSupplierName())
+                    .append(" | GBP ").append(fmt2(invoice.getAmountDue()))
+                    .append(" | ").append(invoice.getStatus())
+                    .append(" | overdue ").append(invoice.getWeeksOverdue())
+                    .append("\n");
+            count++;
+            if (count >= 4) break;
+        }
+        if (count == 0) return "None";
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
+            sb.deleteCharAt(sb.length() - 1);
+        }
+        return sb.toString();
+    }
+
+    private String buildSharkLineSummary() {
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (CreditLine line : s.creditLines.getOpenLines()) {
+            if (!"Loan Shark".equals(line.getLenderName())) continue;
+            sb.append("- ").append(line.getLenderName())
+                    .append(" | bal ").append(fmt2(line.getBalance()))
+                    .append(" / ").append(fmt2(line.getLimit()))
+                    .append(" | weekly ").append(fmt2(line.getWeeklyPayment()))
+                    .append("\n");
+            count++;
+        }
+        if (count == 0) return "None";
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
+            sb.deleteCharAt(sb.length() - 1);
+        }
+        return sb.toString();
+    }
+
     private void rollReport() {
         double profit = s.reportRevenue - s.reportCosts;
 
@@ -1896,23 +2074,23 @@ public class Simulation {
         switch (type) {
             case FREE_DRINKS -> {
                 double loss = 8 + s.random.nextInt(14);
-                applyMisconductLoss(loss, CostTag.OTHER);
+                double paidLoss = applyMisconductLoss(loss, CostTag.OTHER);
                 String detail = pickPhrase(FOH_FREE_DRINKS_LINES);
                 log.popup(new EventCard("Staff misconduct",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -loss, 0, "THEFT"));
+                        0, -paidLoss, 0, "THEFT"));
                 addRumorHeat(Rumor.STAFF_STEALING, 10, RumorSource.STAFF);
-                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") comped drinks. Cash -" + money0(loss);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") comped drinks. Cash -" + money0(paidLoss);
             }
             case TILL_SHORT -> {
                 double loss = 12 + s.random.nextInt(18);
-                applyMisconductLoss(loss, CostTag.OTHER);
+                double paidLoss = applyMisconductLoss(loss, CostTag.OTHER);
                 String detail = pickPhrase(FOH_TILL_SHORT_LINES);
                 log.popup(new EventCard("Staff misconduct",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -loss, 0, "THEFT"));
+                        0, -paidLoss, 0, "THEFT"));
                 addRumorHeat(Rumor.STAFF_STEALING, 12, RumorSource.STAFF);
-                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") left the till short. Cash -" + money0(loss);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") left the till short. Cash -" + money0(paidLoss);
             }
             case MANAGEMENT_INSULT -> {
                 eco.applyRep(-2, "Management insult");
@@ -1952,46 +2130,46 @@ public class Simulation {
                 boolean kitchenActive = s.kitchenUnlocked;
                 int removed = drainKitchenStock(2 + s.random.nextInt(3));
                 double cost = removed > 0 ? 0.0 : (10 + s.random.nextInt(12));
-                if (removed <= 0) applyMisconductLoss(cost, CostTag.FOOD);
+                double paidLoss = removed <= 0 ? applyMisconductLoss(cost, CostTag.FOOD) : 0.0;
                 String detail = pickPhrase(BOH_INGREDIENTS_LINES);
                 log.popup(new EventCard("Kitchen incident",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -cost, 0, "STOCK"));
+                        0, -paidLoss, 0, "STOCK"));
                 if (removed > 0) {
                     s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") miscounted prep. Stock -" + removed;
                 } else {
                     String note = kitchenActive ? "Stock 0" : "Stock impact N/A";
-                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") lost ingredients. " + note + ", cost -" + money0(cost);
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") lost ingredients. " + note + ", cost -" + money0(paidLoss);
                 }
                 addRumorHeat(Rumor.FOOD_POISONING_SCARE, 6, RumorSource.STAFF);
             }
             case HYGIENE_SLIP -> {
                 double cost = 8 + s.random.nextInt(12);
-                applyMisconductLoss(cost, CostTag.FOOD);
+                double paidLoss = applyMisconductLoss(cost, CostTag.FOOD);
                 eco.applyRep(-2, "Hygiene slip");
                 s.nightFoodUnserved++;
                 String detail = pickPhrase(BOH_HYGIENE_LINES);
                 log.popup(new EventCard("Kitchen incident",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        -2, -cost, 0, "HYGIENE"));
+                        -2, -paidLoss, 0, "HYGIENE"));
                 addRumorHeat(Rumor.FOOD_POISONING_SCARE, 10, RumorSource.PUNTER);
-                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") hygiene slip. Rep -2, cost -" + money0(cost);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") hygiene slip. Rep -2, cost -" + money0(paidLoss);
             }
             case WASTED_BATCH -> {
                 boolean kitchenActive = s.kitchenUnlocked;
                 int removed = drainKitchenStock(2 + s.random.nextInt(4));
                 double cost = removed > 0 ? 0.0 : (12 + s.random.nextInt(16));
-                if (removed <= 0) applyMisconductLoss(cost, CostTag.FOOD);
+                double paidLoss = removed <= 0 ? applyMisconductLoss(cost, CostTag.FOOD) : 0.0;
                 s.nightFoodUnserved += 1;
                 String detail = pickPhrase(BOH_WASTED_BATCH_LINES);
                 log.popup(new EventCard("Kitchen incident",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -cost, 0, "WASTE"));
+                        0, -paidLoss, 0, "WASTE"));
                 if (removed > 0) {
                     s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. Stock -" + removed;
                 } else {
                     String note = kitchenActive ? "Stock 0" : "Stock impact N/A";
-                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. " + note + ", cost -" + money0(cost);
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. " + note + ", cost -" + money0(paidLoss);
                 }
                 addRumorHeat(Rumor.SLOW_SERVICE, 6, RumorSource.PUNTER);
             }
@@ -2089,11 +2267,11 @@ public class Simulation {
         return removed;
     }
 
-    private void applyMisconductLoss(double loss, CostTag tag) {
-        s.cash = Math.max(0.0, s.cash - loss);
-        s.reportCosts += loss;
-        s.weekCosts += loss;
-        s.addReportCost(tag, loss);
+    private double applyMisconductLoss(double loss, CostTag tag) {
+        if (!eco.tryPay(loss, TransactionType.OTHER, "Staff misconduct losses", tag)) {
+            return 0.0;
+        }
+        return loss;
     }
 
     private String buildMisconductDriverLine(int security, int minMorale, double chance) {
@@ -2130,6 +2308,222 @@ public class Simulation {
             s.reportStartCash = s.cash;
             s.reportStartDebt = s.debt;
         }
+    }
+
+    private void createSupplierInvoice(String supplierName, double amount) {
+        if (amount <= 0.0) return;
+        int dueWeeks;
+        if (s.creditScore >= 700) dueWeeks = 3;
+        else if (s.creditScore >= 550) dueWeeks = 2;
+        else dueWeeks = 1;
+
+        SupplierInvoice invoice = new SupplierInvoice(supplierName, amount, dueWeeks, s.weekCount);
+        s.supplierInvoices.add(invoice);
+        log.event("Invoice created: " + supplierName + " GBP " + String.format("%.2f", amount)
+                + " due in " + dueWeeks + " week(s).");
+    }
+
+    private void processSupplierInvoicesWeekly() {
+        if (s.supplierInvoices.isEmpty()) return;
+
+        s.invoiceLateFeesThisWeek = 0.0;
+        boolean anyOverdue = false;
+        double lateFees = 0.0;
+        int overdueCount = 0;
+
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            SupplierInvoice.Status before = invoice.getStatus();
+            invoice.advanceWeek();
+            if (before == SupplierInvoice.Status.OPEN && invoice.getStatus() == SupplierInvoice.Status.DUE) {
+                log.event("Invoice due: " + invoice.getSupplierName()
+                        + " GBP " + String.format("%.2f", invoice.getAmountDue()));
+            }
+            if (invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                anyOverdue = true;
+                overdueCount++;
+                double fee = Math.max(2.0, invoice.getAmountDue() * 0.02);
+                invoice.applyLateFee(fee);
+                lateFees += fee;
+                log.neg("Invoice overdue: " + invoice.getSupplierName()
+                        + " late fee applied GBP " + String.format("%.2f", fee));
+            } else if (invoice.getStatus() == SupplierInvoice.Status.DUE) {
+                // still due, no late fee yet
+            }
+        }
+
+        s.invoiceLateFeesThisWeek = lateFees;
+
+        if (anyOverdue) {
+            s.supplierTrustPenalty = Math.min(0.05, s.supplierTrustPenalty + 0.01);
+            s.creditScore = s.clampCreditScore(s.creditScore - Math.min(6, 2 + overdueCount));
+        } else {
+            s.supplierTrustPenalty = Math.max(0.0, s.supplierTrustPenalty - 0.005);
+        }
+    }
+
+    private void processSharkThreatWeekly() {
+        int currentTier = s.sharkThreatTier;
+        int targetTier = currentTier;
+
+        if (s.sharkMissedPaymentThisWeek) {
+            s.sharkConsecutiveMisses++;
+            s.sharkCleanWeeks = 0;
+            targetTier = Math.max(targetTier, Math.min(4, s.sharkConsecutiveMisses));
+            s.sharkThreatTrigger = "Missed shark repayment";
+        } else if (s.sharkHasBalanceThisWeek && s.sharkPaidOnTimeThisWeek) {
+            s.sharkCleanWeeks++;
+            if (s.sharkCleanWeeks >= 1 && targetTier > 0) {
+                targetTier = Math.max(0, targetTier - 1);
+                s.sharkThreatTrigger = "Clean week";
+            }
+        } else if (!s.sharkHasBalanceThisWeek) {
+            if (targetTier > 0) {
+                targetTier = Math.max(0, targetTier - 2);
+                s.sharkThreatTrigger = "Shark balance cleared";
+            }
+            s.sharkConsecutiveMisses = 0;
+            s.sharkCleanWeeks = 0;
+        }
+
+        if (targetTier != currentTier) {
+            s.sharkThreatTier = targetTier;
+            if (targetTier > currentTier) {
+                log.neg("Loan shark threat escalated to Tier " + targetTier + ": " + sharkTierLabel(targetTier));
+                applySharkTierEffects(targetTier);
+            } else {
+                log.pos("Loan shark threat reduced to Tier " + targetTier + ": " + sharkTierLabel(targetTier));
+            }
+        }
+    }
+
+    private void reduceSharkThreat(int amount, String reason) {
+        if (amount <= 0) return;
+        int before = s.sharkThreatTier;
+        s.sharkThreatTier = Math.max(0, s.sharkThreatTier - amount);
+        s.sharkConsecutiveMisses = 0;
+        s.sharkCleanWeeks = 0;
+        if (s.sharkThreatTier != before) {
+            log.pos("Loan shark threat reduced to Tier " + s.sharkThreatTier
+                    + ": " + sharkTierLabel(s.sharkThreatTier) + " (" + reason + ")");
+        }
+    }
+
+    private void applySharkTierEffects(int tier) {
+        String phrase = randomSharkPhrase(tier);
+        switch (tier) {
+            case 1 -> {
+                s.chaos += 2.0;
+                adjustAllStaffMorale(-1);
+                eco.applyRep(-1, "Loan shark warning");
+                log.event(" " + phrase);
+            }
+            case 2 -> {
+                s.chaos += 5.0;
+                adjustAllStaffMorale(-2);
+                eco.applyRep(-2, "Loan shark collectors");
+                eco.tryPay(18.0, TransactionType.REPAIR, "Collection fee", CostTag.EVENT);
+                log.event(" " + phrase);
+            }
+            case 3 -> {
+                s.chaos += 8.0;
+                adjustAllStaffMorale(-3);
+                eco.applyRep(-4, "Loan shark damage");
+                eco.tryPay(45.0, TransactionType.REPAIR, "Repairs (damage incident)", CostTag.EVENT);
+                log.event(" " + phrase);
+            }
+            case 4 -> {
+                s.chaos += 12.0;
+                adjustAllStaffMorale(-5);
+                eco.applyRep(-6, "Loan shark blitz");
+                s.creditScore = s.clampCreditScore(s.creditScore - 40);
+                eco.tryPay(80.0, TransactionType.REPAIR, "Repairs (full blitz)", CostTag.EVENT);
+                log.event(" " + phrase);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void adjustAllStaffMorale(int delta) {
+        for (Staff st : s.fohStaff) st.adjustMorale(delta);
+        for (Staff st : s.bohStaff) st.adjustMorale(delta);
+        for (Staff st : s.generalManagers) st.adjustMorale(delta);
+        staff.updateTeamMorale();
+    }
+
+    public String sharkTierLabel(int tier) {
+        return switch (tier) {
+            case 1 -> "Warning";
+            case 2 -> "Collectors";
+            case 3 -> "Damage";
+            case 4 -> "Blitz";
+            default -> "None";
+        };
+    }
+
+    private String buildLoanSummaryText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Credit Lines:\n");
+        if (s.creditLines.getOpenLines().isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (CreditLine line : s.creditLines.getOpenLines()) {
+                sb.append("  ").append(line.getLenderName())
+                        .append(" | Limit ").append(fmt2(line.getLimit()))
+                        .append(" | Balance ").append(fmt2(line.getBalance()))
+                        .append(" | Weekly ").append(fmt2(line.getWeeklyPayment()))
+                        .append(" | APR ").append(String.format("%.2f", line.getInterestAPR() * 100)).append("%")
+                        .append(" | Missed ").append(line.getMissedPaymentCount())
+                        .append("\n");
+            }
+        }
+
+        sb.append("\nLoan Shark Threat:\n");
+        sb.append("  Tier ").append(s.sharkThreatTier)
+                .append(" (").append(sharkTierLabel(s.sharkThreatTier)).append(")")
+                .append(" | Trigger: ").append(s.sharkThreatTrigger)
+                .append(" | Misses: ").append(s.sharkConsecutiveMisses).append("\n");
+        sb.append("  Reduce by clean weeks or paying shark debt in full.\n");
+
+        if (s.loanShark.hasActiveLoan()) {
+            sb.append("\nLegacy Loan Shark Debt:\n");
+            sb.append(s.loanShark.buildLoanText(
+                    s.absWeekIndex(),
+                    s.reportIndex,
+                    s.weeksIntoReport,
+                    s.reputation
+            ));
+        }
+
+        return sb.toString();
+    }
+
+    private String randomSharkPhrase(int tier) {
+        java.util.List<String> phrases = switch (tier) {
+            case 1 -> java.util.List.of(
+                    "A hard stare from a stranger. Message received.",
+                    "A quiet reminder came with a cold look.",
+                    "Someone lingered outside longer than usual."
+            );
+            case 2 -> java.util.List.of(
+                    "Two visitors asked about your arrangement.",
+                    "The collectors stopped by, all business, no smiles.",
+                    "A sharp knock, a short talk, and a heavy silence."
+            );
+            case 3 -> java.util.List.of(
+                    "A chair snapped. Someone laughed on the way out.",
+                    "Glass clinked the wrong way. Repairs won’t be cheap.",
+                    "A back-room mess left a bill on the counter."
+            );
+            case 4 -> java.util.List.of(
+                    "Tonight felt cursed. Everyone noticed.",
+                    "The room went tense. Even regulars kept quiet.",
+                    "The air stayed heavy long after last call."
+            );
+            default -> java.util.List.of("The night passes without incident.");
+        };
+        return phrases.get(s.random.nextInt(phrases.size()));
     }
 
     private void updateKitchenInventoryCap() {
@@ -2496,14 +2890,12 @@ public class Simulation {
             if (s.random.nextInt(10000) < (int)Math.round(refundChance * 10000)) {
                 double refundPct = 0.25 + (s.random.nextDouble() * 0.75);
                 double refund = order.price() * refundPct;
-                s.cash = Math.max(0.0, s.cash - refund);
-                s.reportCosts += refund;
-                s.weekCosts += refund;
-                s.addReportCost(CostTag.FOOD, refund);
-                s.recordRefund(refund);
-                s.nightRefunds++;
-                eco.applyRep(-1, "Food refund");
-                log.popup("Food refund", "<b>" + order.food().getName() + "</b> was sent back.", "Cash -" + String.format("%.2f", refund));
+                if (eco.tryPay(refund, TransactionType.OTHER, "Food refund", CostTag.FOOD)) {
+                    s.recordRefund(refund);
+                    s.nightRefunds++;
+                    eco.applyRep(-1, "Food refund");
+                    log.popup("Food refund", "<b>" + order.food().getName() + "</b> was sent back.", "Cash -" + String.format("%.2f", refund));
+                }
             }
             s.pendingFoodOrders.remove(i);
         }
@@ -2653,7 +3045,7 @@ public class Simulation {
         double payout = s.tipsThisWeek * 0.50;
         if (payout <= 0) return;
 
-        eco.payOrDebt(payout, "Tips payout (50%)", CostTag.WAGES);
+        if (!eco.tryPay(payout, TransactionType.WAGES, "Tips payout (50%)", CostTag.WAGES)) return;
 
         int moraleDelta = 0;
         if (s.tipsThisWeek >= 60) moraleDelta += 3;

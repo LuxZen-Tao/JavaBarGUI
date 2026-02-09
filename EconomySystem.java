@@ -38,42 +38,38 @@ public class EconomySystem {
         if (milestones != null) milestones.onRepChanged();
     }
 
-    public void payOrDebt(double amount, String reason) {
-        payOrDebt(amount, reason, CostTag.OTHER);
+    public boolean tryPay(double amount, TransactionType type, String description) {
+        return tryPay(amount, type, description, costTagFor(type));
     }
 
-    public void payOrDebt(double amount, String reason, CostTag tag) {
-        if (amount <= 0) return;
+    public boolean tryPay(double amount, TransactionType type, String description, CostTag tag) {
+        if (amount <= 0) return true;
 
         if (s.cash >= amount) {
             s.cash -= amount;
             s.reportCosts += amount;
             s.weekCosts += amount;
             s.addReportCost(tag, amount);
-            log.info("Paid GBP " + fmt(amount) + " - " + reason);
-            return;
+            log.info("Paid GBP " + fmt(amount) + " - " + description);
+            return true;
         }
 
-        double shortfall = amount - s.cash;
-
-        // cash part
-        s.reportCosts += s.cash;
-        s.weekCosts += s.cash;
-        s.addReportCost(tag, s.cash);
-        s.cash = 0;
-
-        // debt part
-        s.reportCosts += shortfall;
-        s.weekCosts += shortfall;
-        s.addReportCost(tag, shortfall);
-        s.debt += shortfall;
-
-        log.neg("Could not fully pay (GBP " + fmt(shortfall) + " short). Added to DEBT - " + reason);
-
-        if (s.debt > s.maxDebt) {
-            log.header(" GAME OVER");
-            log.neg("Debt exceeded GBP " + fmt(s.maxDebt) + ". Shut down.");
+        double remaining = amount - s.cash;
+        if (s.creditLines.hasAvailableCredit(remaining) && s.creditLines.applyCredit(remaining)) {
+            s.reportCosts += amount;
+            s.weekCosts += amount;
+            s.addReportCost(tag, amount);
+            s.cash = 0;
+            CreditLine line = s.creditLines.consumeLastAppliedLine();
+            if (line != null && "Loan Shark".equals(line.getLenderName())) {
+                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+            }
+            log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
+            return true;
         }
+
+        log.neg("Insufficient funds: cannot pay GBP " + fmt(amount) + " for " + description + ".");
+        return false;
     }
 
     public void addCash(double amount, String reason) {
@@ -93,12 +89,19 @@ public class EconomySystem {
         s.securityUpkeepAccruedThisWeek += baseSecurityLevel * dailyRate;
     }
 
-    public void endOfWeekPayBills(double wagesDue) {
-        payOrDebt(s.rentAccruedThisWeek, "Rent (accrued daily)", CostTag.RENT);
-        payOrDebt(s.securityUpkeepAccruedThisWeek, "Security upkeep (accrued daily)", CostTag.SECURITY);
-        payOrDebt(wagesDue, "Wages", CostTag.WAGES);
-        s.rentAccruedThisWeek = 0.0;
-        s.securityUpkeepAccruedThisWeek = 0.0;
+    public boolean endOfWeekPayBills(double wagesDue) {
+        double invoiceMult = s.supplierInvoiceMultiplier();
+        double rentDue = s.rentAccruedThisWeek * invoiceMult;
+        double securityDue = s.securityUpkeepAccruedThisWeek * invoiceMult;
+        double wagesDueAdjusted = wagesDue * invoiceMult;
+
+        if (tryPay(rentDue, TransactionType.OTHER, "Rent (accrued daily)", CostTag.RENT)) {
+            s.rentAccruedThisWeek = 0.0;
+        }
+        if (tryPay(securityDue, TransactionType.OTHER, "Security upkeep (accrued daily)", CostTag.SECURITY)) {
+            s.securityUpkeepAccruedThisWeek = 0.0;
+        }
+        return wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Wages", CostTag.WAGES);
     }
 
     /** Weekly interest on debt. This is separate from LoanShark (that's its own hell). */
@@ -119,4 +122,16 @@ public class EconomySystem {
     }
 
     private static String fmt(double d) { return String.format("%.2f", d); }
+
+    private CostTag costTagFor(TransactionType type) {
+        return switch (type) {
+            case UPGRADE -> CostTag.UPGRADE;
+            case SUPPLIER_INVOICE -> CostTag.SUPPLIER;
+            case WAGES -> CostTag.WAGES;
+            case ACTIVITY -> CostTag.ACTIVITY;
+            case REPAIR -> CostTag.EVENT;
+            case RESTOCK -> CostTag.SUPPLIER;
+            case OTHER -> CostTag.OTHER;
+        };
+    }
 }
