@@ -38,6 +38,15 @@ public class GameState {
     public boolean sharkPaidOnTimeThisWeek = false;
     public boolean sharkHasBalanceThisWeek = false;
     public String sharkThreatTrigger = "None";
+    public int consecutiveMissedWagePayments = 0;
+    public boolean wagesPaidLastWeek = true;
+    public int wagesPaidOnTimeWeeks = 0;
+    public double wageTrafficPenaltyMultiplier = 1.0;
+    public int wageTrafficPenaltyRounds = 0;
+    public double wageServePenaltyPct = 0.0;
+    public int wageServePenaltyWeeks = 0;
+    public boolean banksLocked = false;
+    public boolean businessCollapsed = false;
 
     public final double weeklyRent = 60.0;
     public double rentAccruedThisWeek = 0.0;

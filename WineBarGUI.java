@@ -1662,6 +1662,9 @@ public class WineBarGUI {
         }
 
         sb.append("\nAvailable banks:\n");
+        if (state.banksLocked) {
+            sb.append("  Banks are refusing new credit until wages stabilize.\n");
+        }
         for (Bank bank : Bank.values()) {
             sb.append("  ").append(bank.getName())
                     .append(" | Limit ").append(bank.getMinLimit()).append("-").append(bank.getMaxLimit())

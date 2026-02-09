@@ -93,14 +93,16 @@ public class EconomySystem {
         double invoiceMult = s.supplierInvoiceMultiplier();
         double rentDue = s.rentAccruedThisWeek * invoiceMult;
         double securityDue = s.securityUpkeepAccruedThisWeek * invoiceMult;
-        double wagesDueAdjusted = wagesDue * invoiceMult;
+        double wagesDueAdjusted = wagesDue;
 
+        boolean wagesPaid = wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Staff wages", CostTag.WAGES);
         if (tryPay(rentDue, TransactionType.OTHER, "Rent (accrued daily)", CostTag.RENT)) {
             s.rentAccruedThisWeek = 0.0;
         }
         if (tryPay(securityDue, TransactionType.OTHER, "Security upkeep (accrued daily)", CostTag.SECURITY)) {
             s.securityUpkeepAccruedThisWeek = 0.0;
         }
+        return wagesPaid;
         return wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Wages", CostTag.WAGES);
     }
 

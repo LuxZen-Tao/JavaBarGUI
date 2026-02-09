@@ -34,6 +34,9 @@ public class StaffSystem {
         cap += s.upgradeServeCapBonus;
         cap += s.pubLevelServeCapBonus;
         cap += s.tempServeBonusTonight;
+        if (s.wageServePenaltyWeeks > 0 && s.wageServePenaltyPct > 0.0) {
+            cap = Math.max(1, (int)Math.floor(cap * (1.0 - s.wageServePenaltyPct)));
+        }
         return cap;
     }
 

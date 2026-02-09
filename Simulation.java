@@ -671,6 +671,10 @@ public class Simulation {
     // --------------------
     public void openCreditLine(Bank bank) {
         if (bank == null) return;
+        if (s.banksLocked) {
+            log.neg("Banks refuse new credit lines while your business is unstable.");
+            return;
+        }
         if (!bank.isUnlocked(s.creditScore)) {
             log.neg("Credit score too low for " + bank.getName() + " (requires " + bank.getMinScore() + ").");
             return;
@@ -694,10 +698,25 @@ public class Simulation {
         }
     }
 
+    public void openSharkLine() {
+        CreditLine line = s.creditLines.openSharkLine(s.random);
+        if (line == null) {
+            log.info("Loan shark line already open.");
+            return;
+        }
+        s.creditScore = s.clampCreditScore(s.creditScore - 50);
+        log.neg("Loan shark line opened. Credit score takes a hit.");
+        log.pos("Opened loan shark line | limit GBP " + String.format("%.0f", line.getLimit())
+                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
+    }
+
     public void repayCreditLineInFull(String lineId) {
         CreditLine line = s.creditLines.getLineById(lineId);
         if (line == null) { log.neg("Credit line not found."); return; }
         s.creditLines.repayInFull(s, line, log);
+        if ("Loan Shark".equals(line.getLenderName())) {
+            reduceSharkThreat(2, "Loan shark debt cleared");
+        }
     }
 
     public boolean paySupplierInvoice(SupplierInvoice invoice, CreditLine selectedLine) {
@@ -717,6 +736,9 @@ public class Simulation {
             if (selectedLine == null) return false;
             if (!selectedLine.isEnabled() || selectedLine.availableCredit() < remaining) return false;
             s.creditLines.addBalanceToLine(selectedLine, remaining);
+            if ("Loan Shark".equals(selectedLine.getLenderName())) {
+                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+            }
             lineUsed = selectedLine;
             creditPaid = remaining;
         }
@@ -962,6 +984,13 @@ public class Simulation {
 
         if (rumors != null) {
             trafficMult *= rumors.trafficMultiplier();
+        }
+        if (s.wageTrafficPenaltyRounds > 0 && s.wageTrafficPenaltyMultiplier < 1.0) {
+            trafficMult *= s.wageTrafficPenaltyMultiplier;
+            s.wageTrafficPenaltyRounds = Math.max(0, s.wageTrafficPenaltyRounds - 1);
+            if (s.wageTrafficPenaltyRounds == 0) {
+                s.wageTrafficPenaltyMultiplier = 1.0;
+            }
         }
 
 
@@ -1210,6 +1239,9 @@ public class Simulation {
         if (wagesPaid) {
             staff.resetAccrual();
             s.wagesAccruedThisWeek = 0.0;
+            handleWagesPaid();
+        } else {
+            handleWageMiss();
         }
 
         staff.weeklyMoraleCheck(s.fightsThisWeek, s.random, log);
@@ -1218,6 +1250,10 @@ public class Simulation {
         rumors.updateWeeklyRumors();
         endOfWeekReport();
         milestones.onWeekEnd();
+        if (s.wageServePenaltyWeeks > 0) {
+            s.wageServePenaltyWeeks = Math.max(0, s.wageServePenaltyWeeks - 1);
+            if (s.wageServePenaltyWeeks == 0) s.wageServePenaltyPct = 0.0;
+        }
         s.fightsThisWeek = 0;
         s.weekRefundTotal = 0.0;
         s.weekRevenue = 0.0;
@@ -1663,6 +1699,7 @@ public class Simulation {
                 + " | Bar cap: " + s.maxBarOccupancy + " | Traffic x" + String.format("%.2f", trafficMult));
         overview.add("Activity: " + activitySummaryLine());
         overview.add("Active rumors: " + s.activeRumors.size());
+        overview.add("Business status: " + (s.businessCollapsed ? "Collapsed (Recovery Possible)" : "Operating"));
 
         String economy = "Revenue (week): GBP " + fmt2(s.weekRevenue)
                 + "\nCosts (week): GBP " + fmt2(s.weekCosts)
@@ -1686,6 +1723,12 @@ public class Simulation {
                 + "\nNext due window: " + nextInvoiceDueWindow()
                 + "\nLate fees this week: GBP " + fmt2(s.invoiceLateFeesThisWeek)
                 + "\n\nInvoices:\n" + buildInvoiceListSummary()
+                + "\n\nWages / Stability:"
+                + "\nWages due (this week): GBP " + fmt2(staff.wagesDue())
+                + "\nStatus: " + (s.wagesPaidLastWeek ? "Paid" : "Unpaid")
+                + "\nConsecutive misses: " + s.consecutiveMissedWagePayments
+                + "\nNext escalation: " + wageEscalationWarning()
+                + "\nRecovery: " + wageRecoveryGuidance()
                 + "\nPrice multiplier avg: " + fmt2(avgPriceMultiplier())
                 + "\nPrice volatility: " + fmt2(s.weekPriceMultiplierAbsDelta);
 
@@ -1980,6 +2023,23 @@ public class Simulation {
             sb.deleteCharAt(sb.length() - 1);
         }
         return sb.toString();
+    }
+
+    private String wageEscalationWarning() {
+        return switch (s.consecutiveMissedWagePayments) {
+            case 0 -> "None";
+            case 1 -> "Another miss will trigger mass walkouts.";
+            case 2 -> "Another miss will cause a full collapse.";
+            default -> "Collapsed. Stabilize wages to recover.";
+        };
+    }
+
+    private String wageRecoveryGuidance() {
+        if (!s.businessCollapsed) {
+            return "Pay wages on time to rebuild trust.";
+        }
+        int remaining = Math.max(0, 3 - s.wagesPaidOnTimeWeeks);
+        return "Pay wages on time for " + remaining + " more week(s) to stabilize.";
     }
 
     private String buildSharkLineSummary() {
@@ -2414,6 +2474,132 @@ public class Simulation {
         } else {
             s.supplierTrustPenalty = Math.max(0.0, s.supplierTrustPenalty - 0.005);
         }
+    }
+
+    private void handleWagesPaid() {
+        s.wagesPaidLastWeek = true;
+        s.consecutiveMissedWagePayments = 0;
+        s.wagesPaidOnTimeWeeks++;
+        if (s.wagesPaidOnTimeWeeks >= 2) {
+            s.creditScore = s.clampCreditScore(s.creditScore + 3);
+        }
+        if (s.supplierTrustPenalty > 0.0) {
+            s.supplierTrustPenalty = Math.max(0.0, s.supplierTrustPenalty - 0.01);
+        }
+        if (s.businessCollapsed) {
+            int totalStaff = totalStaffCount();
+            if (totalStaff > 0 && s.wagesPaidOnTimeWeeks >= 3) {
+                s.businessCollapsed = false;
+                s.banksLocked = false;
+                log.pos("Business stability improving. Banks are willing to talk again.");
+            }
+        }
+    }
+
+    private void handleWageMiss() {
+        s.wagesPaidLastWeek = false;
+        s.wagesPaidOnTimeWeeks = 0;
+        s.consecutiveMissedWagePayments++;
+        applyWageMissEffects(s.consecutiveMissedWagePayments);
+    }
+
+    private void applyWageMissEffects(int level) {
+        int totalStaff = totalStaffCount();
+        if (level <= 0 || totalStaff == 0) return;
+
+        switch (level) {
+            case 1 -> {
+                adjustAllStaffMorale(-25);
+                int walkouts = Math.min(Math.max(0, totalStaff - 1), 1 + s.random.nextInt(2));
+                int removed = removeLowestMoraleStaff(walkouts);
+                eco.applyRep(-12, "Missed wages");
+                s.creditScore = s.clampCreditScore(s.creditScore - 90);
+                s.chaos += 12.0;
+                s.wageTrafficPenaltyMultiplier = 0.75;
+                s.wageTrafficPenaltyRounds = Math.max(s.wageTrafficPenaltyRounds, 6);
+                adjustSupplierTrustPenalty(0.03);
+                addRumorHeat(Rumor.SLOW_SERVICE, 6, RumorSource.EVENT);
+                addRumorHeat(Rumor.STAFF_STEALING, 4, RumorSource.EVENT);
+                log.neg("Staff wages missed. Trust shattered.");
+                if (removed > 0) log.neg(removed + " staff walked out after wages were missed.");
+            }
+            case 2 -> {
+                adjustAllStaffMorale(-35);
+                int walkouts = Math.min(Math.max(0, totalStaff - 1), Math.max(2, totalStaff / 2));
+                int removed = removeLowestMoraleStaff(walkouts);
+                s.wageServePenaltyPct = 0.25;
+                s.wageServePenaltyWeeks = Math.max(s.wageServePenaltyWeeks, 2);
+                eco.applyRep(-22, "Wages missed again");
+                s.creditScore = s.clampCreditScore(s.creditScore - 140);
+                s.chaos += 20.0;
+                s.wageTrafficPenaltyMultiplier = 0.55;
+                s.wageTrafficPenaltyRounds = Math.max(s.wageTrafficPenaltyRounds, 10);
+                adjustSupplierTrustPenalty(0.06);
+                addRumorHeat(Rumor.SLOW_SERVICE, 10, RumorSource.EVENT);
+                addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 6, RumorSource.EVENT);
+                log.neg("Wages missed again. Staff feel betrayed.");
+                if (removed > 0) log.neg("Major walkouts: " + removed + " staff left.");
+            }
+            default -> {
+                adjustAllStaffMorale(-45);
+                int walkouts = Math.max(0, totalStaff - 1);
+                int removed = removeLowestMoraleStaff(walkouts);
+                s.wageServePenaltyPct = 0.45;
+                s.wageServePenaltyWeeks = Math.max(s.wageServePenaltyWeeks, 3);
+                eco.applyRep(-35, "Wages collapse");
+                s.creditScore = s.clampCreditScore(s.creditScore - 200);
+                s.chaos += 30.0;
+                s.wageTrafficPenaltyMultiplier = 0.35;
+                s.wageTrafficPenaltyRounds = Math.max(s.wageTrafficPenaltyRounds, 14);
+                adjustSupplierTrustPenalty(0.10);
+                s.banksLocked = true;
+                s.businessCollapsed = true;
+                addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 12, RumorSource.EVENT);
+                addRumorHeat(Rumor.STAFF_STEALING, 8, RumorSource.EVENT);
+                log.neg("Third missed wages. The business staggers under a full collapse.");
+                if (removed > 0) log.neg("Mass walkout: " + removed + " staff left.");
+            }
+        }
+    }
+
+    private int totalStaffCount() {
+        return s.fohStaff.size() + s.bohStaff.size() + s.generalManagers.size();
+    }
+
+    private int removeLowestMoraleStaff(int count) {
+        int removed = 0;
+        for (int i = 0; i < count; i++) {
+            Staff lowest = null;
+            java.util.List<Staff> source = null;
+            for (Staff st : s.fohStaff) {
+                if (lowest == null || st.getMorale() < lowest.getMorale()) {
+                    lowest = st;
+                    source = s.fohStaff;
+                }
+            }
+            for (Staff st : s.bohStaff) {
+                if (lowest == null || st.getMorale() < lowest.getMorale()) {
+                    lowest = st;
+                    source = s.bohStaff;
+                }
+            }
+            for (Staff st : s.generalManagers) {
+                if (lowest == null || st.getMorale() < lowest.getMorale()) {
+                    lowest = st;
+                    source = s.generalManagers;
+                }
+            }
+            if (lowest == null || source == null) break;
+            source.remove(lowest);
+            removed++;
+        }
+        if (removed > 0) staff.updateTeamMorale();
+        return removed;
+    }
+
+    private void adjustSupplierTrustPenalty(double delta) {
+        if (delta == 0.0) return;
+        s.supplierTrustPenalty = Math.max(0.0, Math.min(0.30, s.supplierTrustPenalty + delta));
     }
 
     private void processSharkThreatWeekly() {
