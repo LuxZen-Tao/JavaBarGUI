@@ -654,18 +654,6 @@ public class Simulation {
     public boolean canBuyUpgrade(PubUpgrade up) { return milestones.canBuyUpgrade(up); }
     public boolean isActivityUnlocked(PubActivity a) { return milestones.isActivityUnlocked(a); }
 
-    public void payDebt(double amount) {
-        if (amount <= 0) { log.neg("Pay amount must be > 0."); return; }
-        if (s.debt <= 0) { log.info("No debt to pay."); return; }
-        if (s.cash <= 0) { log.neg("No cash."); return; }
-
-        double pay = Math.min(amount, Math.min(s.cash, s.debt));
-        s.cash -= pay;
-        s.debt -= pay;
-
-        log.pos(" Paid debt: GBP " + String.format("%.2f", pay) + " | debt now GBP " + String.format("%.2f", s.debt));
-    }
-
     // --------------------
     // Credit lines + loan shark
     // --------------------
@@ -754,86 +742,6 @@ public class Simulation {
         return true;
     }
 
-    public void borrowFromLoanShark(double amt) {
-        if (s.loanShark.hasActiveLoan()) { log.neg(" Loan Shark says: you already owe."); return; }
-        if (!s.loanShark.canBorrow(amt, s.reputation)) { log.neg(" Loan Shark: can't borrow that amount."); return; }
-
-    public void openSharkLine() {
-        CreditLine line = s.creditLines.openSharkLine(s.random);
-        if (line == null) {
-            log.info("Loan shark line already open.");
-            return;
-        }
-        s.creditScore = s.clampCreditScore(s.creditScore - 50);
-        log.neg("Loan shark line opened. Credit score takes a hit.");
-        log.pos("Opened loan shark line | limit GBP " + String.format("%.0f", line.getLimit())
-                + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%");
-    }
-
-    public void repayCreditLineInFull(String lineId) {
-        CreditLine line = s.creditLines.getLineById(lineId);
-        if (line == null) { log.neg("Credit line not found."); return; }
-        s.creditLines.repayInFull(s, line, log);
-        if ("Loan Shark".equals(line.getLenderName())) {
-            reduceSharkThreat(2, "Loan shark debt cleared");
-        }
-    }
-
-    public boolean paySupplierInvoice(SupplierInvoice invoice, CreditLine selectedLine) {
-        if (invoice == null || invoice.isPaid()) return false;
-        double amountDue = invoice.getAmountDue();
-        if (amountDue <= 0.0) {
-            invoice.markPaid();
-            return true;
-        }
-
-        double cashPaid = Math.min(s.cash, amountDue);
-        double remaining = amountDue - cashPaid;
-
-        CreditLine lineUsed = null;
-        double creditPaid = 0.0;
-        if (remaining > 0.0) {
-            if (selectedLine == null) return false;
-            if (!selectedLine.isEnabled() || selectedLine.availableCredit() < remaining) return false;
-            s.creditLines.addBalanceToLine(selectedLine, remaining);
-            if ("Loan Shark".equals(selectedLine.getLenderName())) {
-                s.creditScore = s.clampCreditScore(s.creditScore - 10);
-            }
-            lineUsed = selectedLine;
-            creditPaid = remaining;
-        }
-
-        s.cash -= cashPaid;
-        invoice.markPaid();
-
-        String lender = lineUsed != null ? (" via " + lineUsed.getLenderName()) : "";
-        log.pos("Invoice paid: " + invoice.getSupplierName()
-                + " GBP " + String.format("%.2f", amountDue)
-                + " (cash " + String.format("%.2f", cashPaid)
-                + ", credit " + String.format("%.2f", creditPaid) + lender + ")");
-        return true;
-    }
-
-    public void borrowFromLoanShark(double amt) {
-        log.neg("Loan shark cash loans are no longer available. Open a loan shark credit line instead.");
-    }
-
-    public void repayLoanSharkInFull() {
-        if (!s.loanShark.hasActiveLoan()) { log.info("No active loan shark debt."); return; }
-
-        double due = s.loanShark.totalDueNow(s.absWeekIndex(), s.reportIndex, s.weeksIntoReport);
-        if (s.cash < due) {
-            log.neg("Not enough cash to repay in full. Need GBP " + String.format("%.2f", due));
-            return;
-        }
-
-        s.cash -= due;
-        double rate = s.loanShark.payInFull(s.absWeekIndex(), s.reportIndex, s.weeksIntoReport);
-
-        log.pos(" Repaid in full: GBP " + String.format("%.2f", due) + " (interest band " + (int)(rate * 100) + "%)");
-        if (s.loanShark.annoyedByLowInterest()) log.event(" He smiles. That's worse than anger.");
-    }
-
     // ---------- Night loop ----------
     public void openNight() {
         if (s.nightOpen) { log.info("Pub already open."); return; }
@@ -896,7 +804,6 @@ public class Simulation {
         s.nextNightServeCapBonus = 0;
 
         s.nightStartCash = s.cash;
-        s.nightStartDebt = s.debt;
 
         if (s.scheduledActivity != null && s.absDayIndex() >= s.scheduledActivity.startAbsDayIndex()) {
             s.activityTonight = s.scheduledActivity.activity();
@@ -1215,9 +1122,6 @@ public class Simulation {
     }
 
     private void endOfWeek() {
-        //  Weekly debt interest (slow doom)
-        eco.applyWeeklyDebtInterest();
-
         s.creditLines.processWeekly(s, log);
         processSupplierInvoicesWeekly();
         processSharkThreatWeekly();
@@ -1683,9 +1587,11 @@ public class Simulation {
         String identityLine = s.pubIdentity.name().replace('_', ' ') + " " + s.identityDrift;
         String chaosLabel = chaosMoodLabel();
         double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier() * activities.trafficMultiplier();
+        double creditBalance = s.totalCreditBalance();
+        double creditWeeklyDue = s.totalCreditWeeklyPaymentDue();
 
         java.util.List<String> overview = new java.util.ArrayList<>();
-        overview.add("Cash: GBP " + fmt2(s.cash) + " | Debt: GBP " + fmt2(s.debt) + " | Invoice Due: GBP " + fmt2(invoiceDueNow()));
+        overview.add("Cash: GBP " + fmt2(s.cash) + " | Debt: GBP " + fmt2(creditBalance) + " | Invoice Due: GBP " + fmt2(invoiceDueNow()));
         overview.add("Credit score: " + s.creditScore
                 + " | Utilisation: " + String.format("%.0f%%", s.creditUtilization * 100)
                 + " | Supplier trust: " + s.supplierTrustLabel());
@@ -1705,18 +1611,19 @@ public class Simulation {
                 + "\nCosts (week): GBP " + fmt2(s.weekCosts)
                 + "\nProfit (week): GBP " + fmt2(s.weekRevenue - s.weekCosts)
                 + "\nCash: GBP " + fmt2(s.cash)
-                + "\nDebt: GBP " + fmt2(s.debt)
+                + "\nDebt: GBP " + fmt2(creditBalance)
                 + "\nCredit score: " + s.creditScore
                 + "\nCredit utilisation: " + String.format("%.0f%%", s.creditUtilization * 100)
                 + "\nSupplier trust: " + s.supplierTrustLabel()
                 + "\nSupplier price mult: x" + fmt2(s.supplierPriceMultiplier())
                 + "\nInvoice terms mult: x" + fmt2(s.supplierInvoiceMultiplier())
                 + "\nInvoice Due: GBP " + fmt2(invoiceDueNow())
+                + "\nWeekly credit repayments due: GBP " + fmt2(creditWeeklyDue)
                 + "\nShark threat: Tier " + s.sharkThreatTier + " (" + sharkTierLabel(s.sharkThreatTier) + ")"
                 + "\nShark trigger: " + s.sharkThreatTrigger
                 + " | Misses: " + s.sharkConsecutiveMisses
                 + " | Reduce: pay on time for 1 week"
-                + "\nShark lines:\n" + buildSharkLineSummary()
+                + "\nCredit lines:\n" + buildCreditLineSummary()
                 + "\nOutstanding invoices: GBP " + fmt2(totalOutstandingInvoices())
                 + "\nDue now: GBP " + fmt2(totalDueInvoices())
                 + "\nOverdue: GBP " + fmt2(totalOverdueInvoices())
@@ -1783,7 +1690,7 @@ public class Simulation {
 
         return new MetricsSnapshot(
                 "Cash: GBP " + fmt2(s.cash),
-                "Debt: GBP " + fmt2(s.debt),
+                "Debt: GBP " + fmt2(creditBalance),
                 "Reputation: " + s.reputation + " (" + mood + ")",
                 " " + s.pubName + " (Lv " + s.pubLevel + ")",
                 "Invoice Due: GBP " + fmt2(invoiceDueNow()),
@@ -2042,15 +1949,16 @@ public class Simulation {
         return "Pay wages on time for " + remaining + " more week(s) to stabilize.";
     }
 
-    private String buildSharkLineSummary() {
+    private String buildCreditLineSummary() {
         StringBuilder sb = new StringBuilder();
         int count = 0;
         for (CreditLine line : s.creditLines.getOpenLines()) {
-            if (!"Loan Shark".equals(line.getLenderName())) continue;
             sb.append("- ").append(line.getLenderName())
                     .append(" | bal ").append(fmt2(line.getBalance()))
                     .append(" / ").append(fmt2(line.getLimit()))
                     .append(" | weekly ").append(fmt2(line.getWeeklyPayment()))
+                    .append(" | APR ").append(String.format("%.1f", line.getInterestAPR() * 100)).append("%")
+                    .append(" | missed ").append(line.getMissedPaymentCount())
                     .append("\n");
             count++;
         }
@@ -2120,7 +2028,7 @@ public class Simulation {
         s.opCostOccupancyThisWeek = 0.0;
 
         s.reportStartCash = s.cash;
-        s.reportStartDebt = s.debt;
+        s.reportStartDebt = s.totalCreditBalance();
 
         log.header(" NEW REPORT #" + s.reportIndex);
         log.info("Report window: 4 weeks. Stay profitable, stay vaguely legal.");
@@ -2420,7 +2328,7 @@ public class Simulation {
     private void markReportStartIfMissing() {
         if (s.reportStartCash == 0 && s.reportStartDebt == 0) {
             s.reportStartCash = s.cash;
-            s.reportStartDebt = s.debt;
+            s.reportStartDebt = s.totalCreditBalance();
         }
     }
 
@@ -2704,6 +2612,10 @@ public class Simulation {
 
     private String buildLoanSummaryText() {
         StringBuilder sb = new StringBuilder();
+        sb.append("Total debt: GBP ").append(fmt2(s.totalCreditBalance()))
+                .append(" / Limit ").append(fmt2(s.totalCreditLimit()))
+                .append(" | Weekly due ").append(fmt2(s.totalCreditWeeklyPaymentDue()))
+                .append("\n\n");
         sb.append("Credit Lines:\n");
         if (s.creditLines.getOpenLines().isEmpty()) {
             sb.append("  None\n");
@@ -2725,16 +2637,6 @@ public class Simulation {
                 .append(" | Trigger: ").append(s.sharkThreatTrigger)
                 .append(" | Misses: ").append(s.sharkConsecutiveMisses).append("\n");
         sb.append("  Reduce by clean weeks or paying shark debt in full.\n");
-
-        if (s.loanShark.hasActiveLoan()) {
-            sb.append("\nLegacy Loan Shark Debt:\n");
-            sb.append(s.loanShark.buildLoanText(
-                    s.absWeekIndex(),
-                    s.reportIndex,
-                    s.weeksIntoReport,
-                    s.reputation
-            ));
-        }
 
         return sb.toString();
     }
@@ -2884,6 +2786,10 @@ public class Simulation {
         else if (s.reputation > 40) repMult += 0.04;
         else if (s.reputation < -60) repMult -= 0.08;
         else if (s.reputation < -20) repMult -= 0.04;
+
+        if (s.businessCollapsed) {
+            repMult *= 0.35;
+        }
 
         boolean weekend = s.isWeekend(); // Fri/Sat/Sun
         double weekendMult = weekend ? 1.20 : 1.0;

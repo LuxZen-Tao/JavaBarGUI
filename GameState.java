@@ -22,8 +22,6 @@ public class GameState {
 
     // economy
     public double cash = 100.0;
-    public double debt = 0.0;
-    public final double maxDebt = 10_000.0;
     public final CreditLineManager creditLines = new CreditLineManager();
     public int creditScore = 540;
     public double creditUtilization = 0.0;
@@ -55,9 +53,6 @@ public class GameState {
     public double opCostStaffThisWeek = 0.0;
     public double opCostSkillThisWeek = 0.0;
     public double opCostOccupancyThisWeek = 0.0;
-
-    //  debt interest (bank-style, not loan shark)
-    public double weeklyDebtInterestRate = 0.045; // 4.5% per week (tune this)
 
     // rep/security
     public int reputation = 10;                 // -100..100
@@ -91,7 +86,6 @@ public class GameState {
 
     // nightly stats
     public double nightStartCash = 0;
-    public double nightStartDebt = 0;
     public double nightRoundCostsTotal = 0;
     public int nightSales = 0;
     public double nightRevenue = 0;
@@ -276,9 +270,6 @@ public class GameState {
     public final List<Wine> supplier;
     public List<Food> foodSupplier = new ArrayList<>();
 
-    // loan shark
-    public final LoanSharkAccount loanShark = new LoanSharkAccount();
-
     public static final String[] DAYS = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
     public final Random random = new Random();
 
@@ -339,6 +330,9 @@ public class GameState {
     public int clampRep(int r) { return Math.max(-100, Math.min(100, r)); }
     public int absDayIndex() { return dayCounter; }
     public int clampCreditScore(int score) { return Math.max(300, Math.min(850, score)); }
+    public double totalCreditBalance() { return creditLines.totalBalance(); }
+    public double totalCreditLimit() { return creditLines.totalLimit(); }
+    public double totalCreditWeeklyPaymentDue() { return creditLines.totalWeeklyPaymentDue(); }
 
     public double supplierPriceMultiplier() {
         double base;

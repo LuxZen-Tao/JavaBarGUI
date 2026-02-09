@@ -103,24 +103,6 @@ public class EconomySystem {
             s.securityUpkeepAccruedThisWeek = 0.0;
         }
         return wagesPaid;
-        return wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Wages", CostTag.WAGES);
-    }
-
-    /** Weekly interest on debt. This is separate from LoanShark (that's its own hell). */
-    public void applyWeeklyDebtInterest() {
-        if (s.debt <= 0) return;
-
-        double rate = s.weeklyDebtInterestRate;
-        double interest = s.debt * rate;
-
-        // Add interest to debt, and count as a "cost" for reporting clarity
-        s.debt += interest;
-        s.reportCosts += interest;
-        s.weekCosts += interest;
-        s.addReportCost(CostTag.INTEREST, interest);
-
-        log.neg(" Debt interest +" + (int)Math.round(rate * 100) + "% = GBP " + fmt(interest)
-                + " | debt now GBP " + fmt(s.debt));
     }
 
     private static String fmt(double d) { return String.format("%.2f", d); }

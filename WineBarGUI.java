@@ -118,7 +118,6 @@ public class WineBarGUI {
     private final JButton staffBtn = new JButton("Staff");
 
     private final JButton securityBtn = new JButton("Security");
-    private final JButton payDebtBtn = new JButton("Pay Debt");
     private final JButton loanSharkBtn = new JButton("Finance");
 
     private final JToggleButton autoBtn = new JToggleButton("Auto: OFF");
@@ -267,7 +266,7 @@ public class WineBarGUI {
         });
 
         JPanel nightControls = createControlGroup("Night", openBtn, nextRoundBtn, closeBtn, happyHourBtn);
-        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, payDebtBtn, loanSharkBtn);
+        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
         JPanel managementControls = createControlGroup("Management", staffBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
         JPanel activityControls = createControlGroup("Activities", activitiesBtn);
@@ -616,7 +615,6 @@ public class WineBarGUI {
             refreshAll();
         });
 
-        payDebtBtn.addActionListener(e -> openPayDebtDialog());
         loanSharkBtn.addActionListener(e -> openLoanDialog());
 
         autoBtn.addActionListener(e -> toggleAuto());
@@ -1514,46 +1512,6 @@ public class WineBarGUI {
     }
 
     // -----------------------
-    // Pay Debt Dialog
-    // -----------------------
-
-    private void openPayDebtDialog() {
-        if (state.debt <= 0) {
-            log.info("No debt to pay.");
-            return;
-        }
-
-        Object[] options = {"25", "50", "100", "250", "500", "Max"};
-        int pick = JOptionPane.showOptionDialog(
-                frame,
-                "Debt: " + String.format("%.2f", state.debt) + "\nCash: " + String.format("%.2f", state.cash) + "\n\nHow much to pay?",
-                "Pay Debt",
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.PLAIN_MESSAGE,
-                null,
-                options,
-                options[1]
-        );
-
-        if (pick < 0) return;
-
-        double amt = switch (pick) {
-            case 0 -> 25;
-            case 1 -> 50;
-            case 2 -> 100;
-            case 3 -> 250;
-            case 4 -> 500;
-            default -> Double.POSITIVE_INFINITY;
-        };
-
-        if (Double.isInfinite(amt)) amt = Math.min(state.cash, state.debt);
-        sim.payDebt(amt);
-
-        refreshAll();
-        refreshAllMenus();
-    }
-
-    // -----------------------
     // Finance Dialog
     // -----------------------
 
@@ -1588,30 +1546,11 @@ public class WineBarGUI {
         loanButtonsPanel.removeAll();
 
         loanButtonsPanel.add(new JLabel("Loan Shark:"));
-        JButton b100 = new JButton("Borrow 100");
-        JButton b250 = new JButton("Borrow 250");
-        JButton b500 = new JButton("Borrow 500");
-        JButton b1000 = new JButton("Borrow 1000");
-        JButton repayFull = new JButton("Repay In Full");
-
-        boolean active = state.loanShark.hasActiveLoan();
-        b100.setEnabled(!active);
-        b250.setEnabled(!active);
-        b500.setEnabled(!active);
-        b1000.setEnabled(!active);
-        repayFull.setEnabled(active);
-
-        b100.addActionListener(e -> { sim.borrowFromLoanShark(100); refreshAll(); refreshAllMenus(); });
-        b250.addActionListener(e -> { sim.borrowFromLoanShark(250); refreshAll(); refreshAllMenus(); });
-        b500.addActionListener(e -> { sim.borrowFromLoanShark(500); refreshAll(); refreshAllMenus(); });
-        b1000.addActionListener(e -> { sim.borrowFromLoanShark(1000); refreshAll(); refreshAllMenus(); });
-        repayFull.addActionListener(e -> { sim.repayLoanSharkInFull(); refreshAll(); refreshAllMenus(); });
-
-        loanButtonsPanel.add(b100);
-        loanButtonsPanel.add(b250);
-        loanButtonsPanel.add(b500);
-        loanButtonsPanel.add(b1000);
-        loanButtonsPanel.add(repayFull);
+        JButton openShark = new JButton(state.creditLines.hasLine("Loan Shark") ? "Loan Shark Line Open" : "Open Loan Shark Line");
+        openShark.setEnabled(!state.creditLines.hasLine("Loan Shark"));
+        openShark.setToolTipText("High APR, aggressive repayments. Opening hurts credit score.");
+        openShark.addActionListener(e -> { sim.openSharkLine(); refreshAll(); refreshAllMenus(); });
+        loanButtonsPanel.add(openShark);
 
         loanButtonsPanel.add(new JLabel("Banks:"));
         for (Bank bank : Bank.values()) {
@@ -1644,6 +1583,9 @@ public class WineBarGUI {
     private String buildFinanceText() {
         StringBuilder sb = new StringBuilder();
         sb.append("Cash: ").append(money2(state.cash)).append("\n");
+        sb.append("Total debt: ").append(money2(state.totalCreditBalance())).append(" / ")
+                .append(money2(state.totalCreditLimit())).append("\n");
+        sb.append("Weekly repayments due: ").append(money2(state.totalCreditWeeklyPaymentDue())).append("\n");
         sb.append("Credit score: ").append(state.creditScore).append("\n\n");
 
         sb.append("Open credit lines:\n");
@@ -1686,15 +1628,6 @@ public class WineBarGUI {
                     .append(" | Trigger: ").append(state.sharkThreatTrigger).append("\n");
         } else {
             sb.append("  Not open\n");
-        }
-        if (state.loanShark.hasActiveLoan()) {
-            sb.append("\nLegacy Loan Shark Debt (repay in full):\n");
-            sb.append(state.loanShark.buildLoanText(
-                    state.absWeekIndex(),
-                    state.reportIndex,
-                    state.weeksIntoReport,
-                    state.reputation
-            ));
         }
 
         return sb.toString();
@@ -1834,10 +1767,11 @@ public class WineBarGUI {
     private void updateHud(MetricsSnapshot snapshot) {
         if (snapshot == null) return;
         boolean cashIncreased = state.cash > lastCash;
-        boolean debtIncreased = state.debt > lastDebt;
+        double currentDebt = state.totalCreditBalance();
+        boolean debtIncreased = currentDebt > lastDebt;
 
         cashLabel.setText("Cash: " + money2(state.cash));
-        debtLabel.setText("Debt: " + money2(state.debt));
+        debtLabel.setText("Debt: " + money2(currentDebt));
         pubNameLabel.setText(" " + state.pubName + " (Lv " + state.pubLevel + ")");
         invoiceDueLabel.setText("Invoice Due: " + money2(sim.invoiceDueNow()));
 
@@ -1888,7 +1822,6 @@ public class WineBarGUI {
         serveCapLabel.setText(quipLine.isEmpty() ? " " : "<html>" + quipLine + "</html>");
 
 
-        payDebtBtn.setEnabled(state.debt > 0 && state.cash > 0);
         boolean emergencySupplierAllowed = state.canEmergencyRestock();
         supplierBtn.setEnabled(!state.nightOpen || emergencySupplierAllowed);
         boolean emergencyFoodAllowed = state.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1;
@@ -1904,7 +1837,7 @@ public class WineBarGUI {
         happyHourBtn.setEnabled(state.nightOpen);
 
         lastCash = state.cash;
-        lastDebt = state.debt;
+        lastDebt = currentDebt;
 
         if (cashIncreased) {
             flashBadge(cashBadge, FLASH_GREEN, CASH_BG, true);

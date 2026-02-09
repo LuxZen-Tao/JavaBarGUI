@@ -48,7 +48,6 @@ public class GameFactory {
 
         // starting config
         s.cash = 100.00;
-        s.debt = 0.0;
         s.reputation = 10;
         s.baseStaffCap = 4;
         s.fohStaffCap = 4;
@@ -60,7 +59,7 @@ public class GameFactory {
 
         // mark report start (simple + robust)
         s.reportStartCash = s.cash;
-        s.reportStartDebt = s.debt;
+        s.reportStartDebt = s.totalCreditBalance();
 
         return s;
     }
