@@ -401,6 +401,15 @@ public class Simulation {
         }
     }
 
+    private void tickSecurityTaskCooldowns() {
+        for (SecurityTask task : SecurityTask.values()) {
+            int cooldown = s.securityTaskCooldownRemaining(task);
+            if (cooldown > 0) {
+                s.securityTaskCooldowns.put(task, cooldown - 1);
+            }
+        }
+    }
+
     private int currentRoundIndex() {
         return s.dayCounter * s.closingRound + s.roundInNight;
     }
@@ -946,6 +955,61 @@ public class Simulation {
         return security.breakdown();
     }
 
+    public int securityTaskTier() {
+        int base = s.baseSecurityLevel;
+        if (base >= 30) return 3;
+        if (base >= 15) return 2;
+        if (base >= 5) return 1;
+        return 0;
+    }
+
+    private int tierRequirement(int tier) {
+        return switch (tier) {
+            case 1 -> 5;
+            case 2 -> 15;
+            case 3 -> 30;
+            default -> 0;
+        };
+    }
+
+    public List<SecurityTask> getAvailableSecurityTasks() {
+        return SecurityTask.tasksUpToTier(securityTaskTier());
+    }
+
+    public SecurityTaskAvailability securityTaskAvailability(SecurityTask task) {
+        if (task == null) return new SecurityTaskAvailability(false, "Unknown task.");
+        if (!s.nightOpen) return new SecurityTaskAvailability(false, "Night must be open.");
+        if (securityTaskTier() < task.getTier()) {
+            return new SecurityTaskAvailability(false, "Locked: Base Security " + tierRequirement(task.getTier()));
+        }
+        if (s.currentRoundIndex() == s.lastSecurityTaskRound) {
+            return new SecurityTaskAvailability(false, "Only 1 task per round.");
+        }
+        int cooldown = s.securityTaskCooldownRemaining(task);
+        if (cooldown > 0) {
+            return new SecurityTaskAvailability(false, "Cooldown: " + cooldown + "r");
+        }
+        return new SecurityTaskAvailability(true, "");
+    }
+
+    public SecurityTaskResolution resolveSecurityTask(SecurityTask task) {
+        SecurityTaskAvailability availability = securityTaskAvailability(task);
+        if (!availability.canUse()) {
+            log.neg("Security task unavailable: " + availability.reason());
+            return SecurityTaskResolution.blocked(task, availability.reason());
+        }
+
+        s.activeSecurityTask = task;
+        s.activeSecurityTaskRound = s.currentRoundIndex() + 1;
+        s.securityTaskCooldowns.put(task, task.getCooldownRounds());
+        s.lastSecurityTaskRound = s.currentRoundIndex();
+
+        String message = task.getLabel() + " queued for next round.";
+        log.info(" Security task: " + message);
+        s.addSecurityLog("Task queued: " + task.getLabel());
+        return SecurityTaskResolution.applied(task, message);
+    }
+
     public double securityPolicyTrafficMultiplier() {
         return s.securityPolicy != null ? s.securityPolicy.getTrafficMultiplier() : 1.0;
     }
@@ -954,11 +1018,20 @@ public class Simulation {
         return s.securityPolicy != null ? s.securityPolicy.getIncidentChanceMultiplier() : 1.0;
     }
 
+    public double securityTaskTrafficMultiplier() {
+        return s.securityTaskTrafficMultiplier();
+    }
+
+    public double securityTaskIncidentChanceMultiplier() {
+        return s.securityTaskIncidentChanceMultiplier();
+    }
+
     public void playRound() {
         if (!s.nightOpen) return;
 
         s.roundInNight++;
         tickLandlordActionCooldowns();
+        tickSecurityTaskCooldowns();
         int repBefore = s.reputation;
         int fightsBefore = s.nightFights;
         int refundsBefore = s.nightRefunds;
@@ -1006,6 +1079,7 @@ public class Simulation {
                         * identityTrafficMultiplier()
                         * rumorTrafficMultiplier()
                         * securityPolicyTrafficMultiplier()
+                        * securityTaskTrafficMultiplier()
                         * (1.0 + s.landlordTrafficBonusPct);
 
         if (rumors != null) {
@@ -1129,6 +1203,11 @@ public class Simulation {
 
         staff.adjustMoraleAfterRound(unserved, eventsThisRound, s.reputation, tipRate, sec, s.chaos);
 
+        if (s.isSecurityTaskActive()) {
+            s.activeSecurityTask = null;
+            s.activeSecurityTaskRound = -999;
+        }
+
         if (s.consecutiveNeg100Rounds >= 3) {
             closeNight("Reputation collapsed. Licence revoked! (-100 for 3 rounds).");
             log.header(" GAME OVER");
@@ -1156,6 +1235,8 @@ public class Simulation {
         }
 
         s.nightOpen = false;
+        s.activeSecurityTask = null;
+        s.activeSecurityTaskRound = -999;
         log.header(" PUB CLOSED");
         log.info(reason);
 
@@ -1819,6 +1900,8 @@ public class Simulation {
 
     public record LandlordActionAvailability(boolean canUse, String reason) {}
 
+    public record SecurityTaskAvailability(boolean canUse, String reason) {}
+
     public record SupplierPaymentResult(boolean success, String message) {}
 
     public SupplierPaymentResult paySupplierInvoice(SupplierAccount accountType, double amount, String sourceId) {
@@ -2167,6 +2250,7 @@ public class Simulation {
         String chaosLabel = chaosMoodLabel();
         double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier()
                 * activities.trafficMultiplier() * securityPolicyTrafficMultiplier()
+                * securityTaskTrafficMultiplier()
                 * (1.0 + s.landlordTrafficBonusPct);
         double creditBalance = s.totalCreditBalance()
                 + (s.loanShark.isOpen() ? s.loanShark.getBalance() : 0.0);
@@ -2259,6 +2343,7 @@ public class Simulation {
                 + "\nIdentity traffic: x" + fmt2(identityTrafficMultiplier())
                 + "\nRumor traffic: x" + fmt2(rumorTrafficMultiplier())
                 + "\nSecurity policy traffic: x" + fmt2(securityPolicyTrafficMultiplier())
+                + "\nSecurity task traffic: x" + fmt2(securityTaskTrafficMultiplier())
                 + "\nActivity traffic: x" + fmt2(activities.trafficMultiplier())
                 + "\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
                 + "\nNatural departures (night): " + s.nightNaturalDepartures
@@ -3207,8 +3292,10 @@ public class Simulation {
         SecuritySystem.SecurityBreakdown breakdown = security.breakdown();
         StringBuilder sb = new StringBuilder();
         sb.append("Security policy: ").append(s.securityPolicy != null ? s.securityPolicy.getLabel() : "Balanced").append("\n");
+        sb.append("Base security level: ").append(s.baseSecurityLevel).append("\n");
         sb.append("Effective security: ").append(sec).append("\n");
         sb.append("Incident chance mult: x").append(fmt2(incidentChanceMultiplier(sec))).append("\n");
+        sb.append("Security task: ").append(securityTaskStatusLine()).append("\n");
         sb.append("Bouncers hired: ").append(s.bouncersHiredTonight).append("/").append(s.bouncerCap).append("\n");
         sb.append("Bouncer quality: ").append(s.bouncerQualitySummary()).append("\n");
         sb.append("Bouncer rep mitigation: x").append(fmt2(s.bouncerRepDamageMultiplier())).append("\n");
@@ -3262,6 +3349,8 @@ public class Simulation {
         sb.append("\nWhat this changes:\n");
         sb.append("- Policy incident chance: x").append(fmt2(securityPolicyIncidentChanceMultiplier())).append("\n");
         sb.append("- Policy traffic: x").append(fmt2(securityPolicyTrafficMultiplier())).append("\n");
+        sb.append("- Task incident chance: x").append(fmt2(securityTaskIncidentChanceMultiplier())).append("\n");
+        sb.append("- Task traffic: x").append(fmt2(securityTaskTrafficMultiplier())).append("\n");
         sb.append("- Rep mitigation (bouncers+CCTV): x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
 
         sb.append("\nRecent security log:\n");
@@ -3277,9 +3366,17 @@ public class Simulation {
         return sb.toString();
     }
 
+    private String securityTaskStatusLine() {
+        SecurityTask task = s.activeSecurityTask;
+        if (task == null) return "None";
+        String status = s.isSecurityTaskActive() ? "Active" : (s.isSecurityTaskQueued() ? "Queued" : "Inactive");
+        int cooldown = s.securityTaskCooldownRemaining(task);
+        return task.getLabel() + " (" + status + ", CD " + cooldown + "r)";
+    }
+
     private double incidentChanceMultiplier(int sec) {
         double base = Math.max(0.20, 1.0 - (sec * 0.08));
-        return base * securityPolicyIncidentChanceMultiplier();
+        return base * securityPolicyIncidentChanceMultiplier() * securityTaskIncidentChanceMultiplier();
     }
 
     private String buildStaffDetailText() {

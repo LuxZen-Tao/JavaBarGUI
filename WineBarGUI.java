@@ -162,6 +162,7 @@ public class WineBarGUI {
     private JRadioButton policyFriendlyBtn;
     private JRadioButton policyBalancedBtn;
     private JRadioButton policyStrictBtn;
+    private JComboBox<SecurityPolicy> securityPolicyBox;
     private JDialog weeklyReportDialog;
     private JTextArea weeklyReportArea;
     private JDialog fourWeekReportDialog;
@@ -192,6 +193,9 @@ public class WineBarGUI {
     private JDialog securityDialog;
     private JButton securityUpgradeBtn;
     private JButton bouncerBtn;
+    private JPanel securityTasksPanel;
+    private JPanel securityTasksListPanel;
+    private boolean updatingSecurityPolicyBox = false;
 
     public WineBarGUI(GameState state) {
         this.state = state;
@@ -599,17 +603,61 @@ public class WineBarGUI {
         return panel;
     }
 
+    private JPanel buildSecurityMenuPolicyPanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        panel.setBorder(BorderFactory.createTitledBorder("Door Policy"));
+        securityPolicyBox = new JComboBox<>(SecurityPolicy.values());
+        securityPolicyBox.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel label = new JLabel(value != null ? value.getLabel() : "");
+            if (isSelected) {
+                label.setOpaque(true);
+                label.setBackground(list.getSelectionBackground());
+                label.setForeground(list.getSelectionForeground());
+            }
+            return label;
+        });
+        securityPolicyBox.addActionListener(e -> {
+            if (updatingSecurityPolicyBox) return;
+            SecurityPolicy selected = (SecurityPolicy) securityPolicyBox.getSelectedItem();
+            if (selected != null) {
+                setSecurityPolicy(selected);
+            }
+        });
+        panel.add(securityPolicyBox);
+        refreshSecurityPolicyButtons();
+        return panel;
+    }
+
+    private JPanel buildSecurityTasksPanel() {
+        securityTasksPanel = new JPanel(new BorderLayout(6, 6));
+        securityTasksPanel.setBorder(BorderFactory.createTitledBorder("Security Tasks"));
+        JLabel hint = new JLabel("Choose 1 task per round. Effects apply for the current round.");
+        hint.setBorder(new EmptyBorder(0, 4, 4, 4));
+        securityTasksPanel.add(hint, BorderLayout.NORTH);
+        securityTasksListPanel = new JPanel();
+        securityTasksListPanel.setLayout(new BoxLayout(securityTasksListPanel, BoxLayout.Y_AXIS));
+        securityTasksPanel.add(securityTasksListPanel, BorderLayout.CENTER);
+        return securityTasksPanel;
+    }
+
     private void setSecurityPolicy(SecurityPolicy policy) {
         sim.setSecurityPolicy(policy);
         refreshAll();
     }
 
     private void refreshSecurityPolicyButtons() {
-        if (policyFriendlyBtn == null) return;
+        if (policyFriendlyBtn == null && securityPolicyBox == null) return;
         SecurityPolicy policy = state.securityPolicy != null ? state.securityPolicy : SecurityPolicy.BALANCED_DOOR;
-        policyFriendlyBtn.setSelected(policy == SecurityPolicy.FRIENDLY_WELCOME);
-        policyBalancedBtn.setSelected(policy == SecurityPolicy.BALANCED_DOOR);
-        policyStrictBtn.setSelected(policy == SecurityPolicy.STRICT_DOOR);
+        if (policyFriendlyBtn != null) {
+            policyFriendlyBtn.setSelected(policy == SecurityPolicy.FRIENDLY_WELCOME);
+            policyBalancedBtn.setSelected(policy == SecurityPolicy.BALANCED_DOOR);
+            policyStrictBtn.setSelected(policy == SecurityPolicy.STRICT_DOOR);
+        }
+        if (securityPolicyBox != null) {
+            updatingSecurityPolicyBox = true;
+            securityPolicyBox.setSelectedItem(policy);
+            updatingSecurityPolicyBox = false;
+        }
     }
 
     private void restoreReportsDialogBounds() {
@@ -1622,7 +1670,15 @@ public class WineBarGUI {
             securityListPanel.add(Box.createVerticalStrut(8));
             securityListPanel.add(bouncerBtn);
 
-            securityDialog.add(securityListPanel, BorderLayout.CENTER);
+            JPanel content = new JPanel();
+            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+            content.add(buildSecurityMenuPolicyPanel());
+            content.add(Box.createVerticalStrut(8));
+            content.add(securityListPanel);
+            content.add(Box.createVerticalStrut(8));
+            content.add(buildSecurityTasksPanel());
+
+            securityDialog.add(new JScrollPane(content), BorderLayout.CENTER);
 
             JButton close = new JButton("Close");
             close.addActionListener(e -> securityDialog.setVisible(false));
@@ -1631,7 +1687,7 @@ public class WineBarGUI {
             bottom.add(close);
             securityDialog.add(bottom, BorderLayout.SOUTH);
 
-            securityDialog.setSize(420, 220);
+            securityDialog.setSize(520, 420);
             securityDialog.setLocationRelativeTo(frame);
         }
 
@@ -1647,6 +1703,62 @@ public class WineBarGUI {
 
         bouncerBtn.setText("Hire Bouncer Tonight " + state.bouncersHiredTonight + "/" + state.bouncerCap);
         bouncerBtn.setEnabled(state.nightOpen && state.bouncersHiredTonight < state.bouncerCap);
+        refreshSecurityPolicyButtons();
+        refreshSecurityTasksPanel();
+    }
+
+    private void refreshSecurityTasksPanel() {
+        if (securityTasksListPanel == null) return;
+        securityTasksListPanel.removeAll();
+
+        int baseSecurity = state.baseSecurityLevel;
+        for (int tier = 1; tier <= 3; tier++) {
+            int required = tier == 1 ? 5 : (tier == 2 ? 15 : 30);
+            boolean unlocked = baseSecurity >= required;
+            JLabel tierLabel = new JLabel("Tier " + tier + " tasks");
+            tierLabel.setFont(tierLabel.getFont().deriveFont(Font.BOLD));
+            securityTasksListPanel.add(tierLabel);
+            if (!unlocked) {
+                securityTasksListPanel.add(new JLabel("Locked: Base Security " + required + "+"));
+                securityTasksListPanel.add(Box.createVerticalStrut(8));
+                continue;
+            }
+
+            for (SecurityTask task : SecurityTask.tasksForTier(tier)) {
+                Simulation.SecurityTaskAvailability availability = sim.securityTaskAvailability(task);
+                JButton use = new JButton("Use");
+                use.setEnabled(availability.canUse());
+                use.addActionListener(e -> {
+                    sim.resolveSecurityTask(task);
+                    refreshAll();
+                    refreshAllMenus();
+                });
+
+                String status = "";
+                if (state.activeSecurityTask == task) {
+                    status = state.isSecurityTaskActive() ? " (Active)" : " (Queued)";
+                }
+                int cooldown = state.securityTaskCooldownRemaining(task);
+                String cooldownText = cooldown > 0 ? " | CD " + cooldown + "r" : "";
+                String label = "<html><b>" + task.getLabel() + "</b> (" + task.getCategory().getLabel()
+                        + ")" + status
+                        + "<br/>" + task.getDescription()
+                        + "<br/>" + task.effectSummary()
+                        + cooldownText
+                        + "</html>";
+                JLabel text = new JLabel(label);
+
+                JPanel row = new JPanel(new BorderLayout(8, 0));
+                row.add(text, BorderLayout.CENTER);
+                row.add(use, BorderLayout.EAST);
+                securityTasksListPanel.add(row);
+                securityTasksListPanel.add(Box.createVerticalStrut(6));
+            }
+            securityTasksListPanel.add(Box.createVerticalStrut(6));
+        }
+
+        securityTasksListPanel.revalidate();
+        securityTasksListPanel.repaint();
     }
 
 
@@ -2180,9 +2292,13 @@ public class WineBarGUI {
         SecuritySystem.SecurityBreakdown breakdown = sim.securityBreakdown();
         int sec = breakdown.total();
         String policyShort = state.securityPolicy != null ? state.securityPolicy.getShortLabel() : "B";
+        String taskShort = state.activeSecurityTask != null ? state.activeSecurityTask.getShortLabel() : "None";
+        if (state.activeSecurityTask != null && state.isSecurityTaskQueued() && !state.isSecurityTaskActive()) {
+            taskShort = taskShort + "*";
+        }
         String bouncerInfo = "Bouncers: " + state.bouncersHiredTonight + "/" + state.bouncerCap;
         String mitigationInfo = "Rep x" + String.format("%.2f", state.securityIncidentRepMultiplier());
-        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, bouncerInfo, mitigationInfo));
+        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo));
 
         staffLabel.setText(buildStaffBadgeText(cap));
         reportLabel.setText("Report: " + state.reports().summaryLine());
@@ -2285,10 +2401,13 @@ public class WineBarGUI {
         return "<html>" + staffLine + "<br>" + staffCounts + "</html>";
     }
 
-    private String buildSecurityBadgeText(int sec, String policyShort, String bouncerInfo, String mitigationInfo) {
-        String chaosLine = "Chaos: " + String.format("%.1f", state.chaos);
-        String policyLine = "Policy: " + policyShort + " | Sec " + sec;
-        return "<html>" + policyLine + "<br>" + bouncerInfo + " | " + mitigationInfo + "<br>" + chaosLine + "</html>";
+    static String buildSecurityBadgeText(int sec,
+                                         String policyShort,
+                                         String taskShort,
+                                         String bouncerInfo,
+                                         String mitigationInfo) {
+        String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec;
+        return "<html>" + policyLine + "<br>" + bouncerInfo + " | " + mitigationInfo + "</html>";
     }
 
     private boolean canUseKitchen() {

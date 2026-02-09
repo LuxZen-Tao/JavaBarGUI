@@ -183,6 +183,10 @@ public class GameState {
     public double landlordTrafficBonusPct = 0.0;
     public int landlordTrafficBonusRounds = 0;
     public SecurityPolicy securityPolicy = SecurityPolicy.BALANCED_DOOR;
+    public SecurityTask activeSecurityTask = null;
+    public int activeSecurityTaskRound = -999;
+    public int lastSecurityTaskRound = -999;
+    public final EnumMap<SecurityTask, Integer> securityTaskCooldowns = new EnumMap<>(SecurityTask.class);
     public final Deque<String> securityEventLog = new ArrayDeque<>();
 
     public double fohMorale = 70.0;
@@ -390,6 +394,31 @@ public class GameState {
         if (ownedUpgrades.contains(PubUpgrade.CCTV_PACKAGE)) return 0.10;
         if (ownedUpgrades.contains(PubUpgrade.CCTV)) return 0.06;
         return 0.0;
+    }
+
+    public int currentRoundIndex() {
+        return dayCounter * closingRound + roundInNight;
+    }
+
+    public boolean isSecurityTaskActive() {
+        return activeSecurityTask != null && activeSecurityTaskRound == currentRoundIndex();
+    }
+
+    public boolean isSecurityTaskQueued() {
+        return activeSecurityTask != null && activeSecurityTaskRound > currentRoundIndex();
+    }
+
+    public double securityTaskIncidentChanceMultiplier() {
+        return isSecurityTaskActive() ? activeSecurityTask.getIncidentChanceMultiplier() : 1.0;
+    }
+
+    public double securityTaskTrafficMultiplier() {
+        return isSecurityTaskActive() ? activeSecurityTask.getTrafficMultiplier() : 1.0;
+    }
+
+    public int securityTaskCooldownRemaining(SecurityTask task) {
+        if (task == null) return 0;
+        return securityTaskCooldowns.getOrDefault(task, 0);
     }
 
     public void addSecurityLog(String entry) {
