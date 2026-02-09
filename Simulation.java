@@ -307,6 +307,36 @@ public class Simulation {
         s.upgradeRiskReductionPct = upgrades.riskReductionPct();
         s.upgradeFoodRackCapBonus = upgrades.foodRackCapBonus();
 
+        int kitchenLevel = kitchenUpgradeLevel();
+        if (!s.kitchenUnlocked) {
+            kitchenLevel = 0;
+        }
+        s.kitchenPrepSpeedBonus = 0;
+        s.kitchenSpoilBonusDays = 0;
+        s.bohMoraleResiliencePct = 0.0;
+        s.foodNightRepBonus = 0;
+        int kitchenQualityBonus = s.kitchenQualityBonus;
+        if (kitchenLevel >= 1) {
+            s.kitchenPrepSpeedBonus += 1;
+            s.kitchenSpoilBonusDays += 1;
+        }
+        if (kitchenLevel >= 2) {
+            s.kitchenPrepSpeedBonus += 1;
+            s.kitchenSpoilBonusDays += 2;
+            s.bohMoraleResiliencePct = 0.12;
+            s.foodNightRepBonus = 1;
+        }
+        if (kitchenLevel >= 3) {
+            s.kitchenPrepSpeedBonus += 1;
+            s.kitchenSpoilBonusDays += 3;
+            kitchenQualityBonus += 2;
+            s.bohMoraleResiliencePct = Math.max(s.bohMoraleResiliencePct, 0.20);
+            s.foodNightRepBonus = Math.max(s.foodNightRepBonus, 2);
+        }
+        s.kitchenQualityBonus = kitchenQualityBonus;
+        s.foodPrepRounds = Math.max(1, s.baseFoodPrepRounds - s.kitchenPrepSpeedBonus);
+        s.foodRack.setSpoilAfterDays(s.baseFoodSpoilDays + s.kitchenSpoilBonusDays);
+
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
     }
@@ -330,6 +360,14 @@ public class Simulation {
     // ---------- GUI actions ----------
     public void setPriceMultiplier(double m) {
         s.priceMultiplier = Math.max(0.50, Math.min(2.50, m));
+    }
+
+    public String upgradeRequirementText(PubUpgrade up) {
+        return milestones.upgradeRequirementText(up);
+    }
+
+    public String activityRequirementText(PubActivity activity) {
+        return milestones.activityRequirementText(activity);
     }
 
     public void toggleHappyHour(boolean on) {
@@ -517,6 +555,10 @@ public class Simulation {
         if (t == Staff.Type.CHEF || t == Staff.Type.HEAD_CHEF || t == Staff.Type.SOUS_CHEF
                 || t == Staff.Type.CHEF_DE_PARTIE || t == Staff.Type.KITCHEN_ASSISTANT
                 || t == Staff.Type.KITCHEN_PORTER) {
+            if (!s.kitchenUnlocked) {
+                log.neg("Kitchen not unlocked.");
+                return;
+            }
             if (t == Staff.Type.HEAD_CHEF && s.staffCountOfType(Staff.Type.HEAD_CHEF) >= 1) {
                 log.neg("Only one Head Chef can be employed at a time.");
                 return;
@@ -953,6 +995,11 @@ public class Simulation {
             eco.applyRep(-1, "Food spoilage");
         }
 
+        if (s.kitchenUnlocked && s.foodNightRepBonus > 0 && s.nightFoodUnserved == 0 && s.nightRefunds == 0) {
+            eco.applyRep(s.foodNightRepBonus, "Strong food service night");
+            log.pos(" Food service smooth: rep +" + s.foodNightRepBonus + ".");
+        }
+
         generateNightRumor();
 
         staff.accrueDailyWages();
@@ -992,7 +1039,10 @@ public class Simulation {
                 s.pendingUpgradeInstalls.remove(i);
                 s.ownedUpgrades.add(up);
                 applyPersistentUpgrades();
-                if (up == PubUpgrade.KITCHEN_SETUP || up == PubUpgrade.KITCHEN) {
+                if (up == PubUpgrade.KITCHEN_SETUP
+                        || up == PubUpgrade.KITCHEN
+                        || up == PubUpgrade.NEW_KITCHEN_PLAN
+                        || up == PubUpgrade.KITCHEN_EQUIPMENT) {
                     s.kitchenUnlocked = true;
                     log.event(" Kitchen unlocked. Food supplier now available.");
                 }
@@ -1488,7 +1538,11 @@ public class Simulation {
                 + "\nChaos: " + String.format("%.1f", s.chaos) + " (" + chaosLabel + ")"
                 + "\nChaos breakdown: " + chaosBreakdownLine()
                 + "\nChaos insights: " + buildChaosInsightsLine()
-                + "\nLast between-night event: " + s.lastBetweenNightEventSummary;
+                + "\nLast between-night event: " + s.lastBetweenNightEventSummary
+                + "\n\nUpgrade dependencies:\n" + buildUpgradeDependencyText()
+                + "\n\nActivity dependencies:\n" + buildActivityDependencyText()
+                + "\n\nActivity info:\n" + buildUnlockedActivityInfoText()
+                + "\n\nMilestone rewards:\n" + buildMilestoneRewardSummaryText();
 
         String staffText = buildStaffTabSummary(serveCap);
 
@@ -1556,6 +1610,92 @@ public class Simulation {
                 loans,
                 logSummary
         );
+    }
+
+    private String buildUpgradeDependencyText() {
+        StringBuilder sb = new StringBuilder();
+        for (PubUpgrade up : PubUpgrade.values()) {
+            boolean owned = s.ownedUpgrades.contains(up);
+            String requirement = milestones.upgradeRequirementText(up);
+            String status;
+            if (owned) {
+                status = "Unlocked";
+            } else if (requirement == null) {
+                status = "Available";
+            } else {
+                status = "Locked (" + requirement + ")";
+            }
+            sb.append("- ").append(up.getLabel()).append(": ").append(status).append("\n");
+        }
+        return trimTrailingNewline(sb);
+    }
+
+    private String buildActivityDependencyText() {
+        StringBuilder sb = new StringBuilder();
+        for (PubActivity activity : PubActivity.values()) {
+            boolean unlocked = milestones.isActivityUnlocked(activity);
+            String requirement = milestones.activityRequirementText(activity);
+            String status;
+            if (unlocked && requirement == null) {
+                status = "Unlocked";
+            } else if (requirement == null) {
+                status = "Available";
+            } else {
+                status = "Locked (" + requirement + ")";
+            }
+            sb.append("- ").append(activity.getLabel()).append(": ").append(status).append("\n");
+        }
+        return trimTrailingNewline(sb);
+    }
+
+    private String buildUnlockedActivityInfoText() {
+        StringBuilder sb = new StringBuilder();
+        for (PubActivity activity : PubActivity.values()) {
+            if (!milestones.isActivityUnlocked(activity)) continue;
+            List<String> requirements = new java.util.ArrayList<>();
+            if (activity.requiresUnlock()) requirements.add("Milestone unlock");
+            if (activity.getRequiredUpgrade() != null) {
+                requirements.add(activity.getRequiredUpgrade().getLabel() + " installed");
+            }
+            if (activity.getRequiredLevel() > 0) {
+                requirements.add("Level " + activity.getRequiredLevel() + "+");
+            }
+            if (activity.getRequiredIdentity() != null) {
+                requirements.add("Identity " + activity.getRequiredIdentity().name());
+            }
+            String requirementMet = requirements.isEmpty()
+                    ? "No requirement"
+                    : String.join(", ", requirements);
+            String effects = "traffic +" + (int)Math.round(activity.getTrafficBonusPct() * 100) + "%"
+                    + ", cap +" + activity.getCapacityBonus()
+                    + ", rep " + (activity.getRepInstantDelta() >= 0 ? "+" : "") + activity.getRepInstantDelta();
+            sb.append("- ").append(activity.getLabel())
+                    .append(" | ").append(requirementMet)
+                    .append(" | ").append(effects)
+                    .append("\n");
+        }
+        if (sb.length() == 0) {
+            sb.append("None unlocked yet.");
+        }
+        return trimTrailingNewline(sb);
+    }
+
+    private String buildMilestoneRewardSummaryText() {
+        if (s.milestoneRewardLog.isEmpty()) {
+            return "No recent milestone rewards.";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String entry : s.milestoneRewardLog) {
+            sb.append("- ").append(entry).append("\n");
+        }
+        return trimTrailingNewline(sb);
+    }
+
+    private String trimTrailingNewline(StringBuilder sb) {
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
+            sb.deleteCharAt(sb.length() - 1);
+        }
+        return sb.toString();
     }
 
     private String buildStaffTabSummary(int serveCap) {
@@ -1706,7 +1846,8 @@ public class Simulation {
 
             double price = s.foodRack.getSellPrice(food, s.kitchenQualityBonus);
             s.foodRack.removeFood(food);
-            s.pendingFoodOrders.add(new FoodOrder(-1, "Walk-in", food, price, s.roundInNight + 3));
+            int prepRounds = Math.max(1, s.foodPrepRounds);
+            s.pendingFoodOrders.add(new FoodOrder(-1, "Walk-in", food, price, s.roundInNight + prepRounds));
 
             eco.addCash(price, "Meal order: " + food.getName());
             s.reportRevenue += price;
@@ -1986,6 +2127,13 @@ public class Simulation {
     private void updateKitchenInventoryCap() {
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
+    }
+
+    private int kitchenUpgradeLevel() {
+        if (s.ownedUpgrades.contains(PubUpgrade.KITCHEN_EQUIPMENT)) return 3;
+        if (s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) return 2;
+        if (s.ownedUpgrades.contains(PubUpgrade.KITCHEN)) return 1;
+        return 0;
     }
 
     private void updateChaosFromRound(int unserved,
@@ -2332,6 +2480,7 @@ public class Simulation {
 
             double refundChance = 0.18 + (order.food().getQualityTier() * 0.05) - (chefAvgSkill * 0.02);
             refundChance *= (1.0 - s.refundRiskReductionPct);
+            refundChance *= (1.0 - Math.min(0.25, s.kitchenQualityBonus * 0.03));
             refundChance *= (1.0 - Math.min(0.25, sec * 0.03));
             refundChance *= (1.0 - Math.min(0.25, headChefs * 0.08));
             refundChance = Math.max(0.04, Math.min(0.45, refundChance));

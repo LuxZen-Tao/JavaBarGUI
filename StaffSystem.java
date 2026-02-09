@@ -138,8 +138,12 @@ public class StaffSystem {
         }
 
         boolean smoothNight = unserved <= 0 && eventsThisRound <= 0 && chaos < 18;
+        int bohDelta = delta;
+        if (bohDelta < 0 && s.bohMoraleResiliencePct > 0.0) {
+            bohDelta = (int)Math.round(bohDelta * (1.0 - s.bohMoraleResiliencePct));
+        }
         for (Staff st : s.fohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
-        for (Staff st : s.bohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
+        for (Staff st : s.bohStaff) st.adjustMorale(bohDelta + smallMoraleDrift(chaos, smoothNight));
         for (Staff st : s.generalManagers) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
 
         updateTeamMorale();

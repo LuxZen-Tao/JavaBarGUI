@@ -110,6 +110,7 @@ public class GameState {
     public double lastChaosDeltaStreak = 0.0;
     public double lastChaosMoraleNegMult = 1.0;
     public double lastChaosMoralePosMult = 1.0;
+    public final Deque<String> milestoneRewardLog = new ArrayDeque<>();
     public int weekActivityNights = 0;
     public EnumMap<PubIdentity, Double> weekIdentitySignals = new EnumMap<>(PubIdentity.class);
     public int roundsSinceLastEvent = 0;
@@ -217,6 +218,13 @@ public class GameState {
     //  base rack capacity (upgrades add on top)
     public int baseRackCapacity = 50;
     public int baseFoodRackCapacity = 30;
+    public int baseFoodPrepRounds = 3;
+    public int baseFoodSpoilDays = 3;
+    public int foodPrepRounds = 3;
+    public int kitchenPrepSpeedBonus = 0;
+    public int kitchenSpoilBonusDays = 0;
+    public double bohMoraleResiliencePct = 0.0;
+    public int foodNightRepBonus = 0;
 
     //  cached upgrade effects (set by Simulation.applyPersistentUpgrades)
     public int upgradeBarCapBonus = 0;
@@ -282,7 +290,8 @@ public class GameState {
         rack.setSpoilAfterDays(spoilDays);
 
         foodRack.setCapacity(baseFoodRackCapacity);
-        foodRack.setSpoilAfterDays(3);
+        foodRack.setSpoilAfterDays(baseFoodSpoilDays);
+        foodPrepRounds = baseFoodPrepRounds;
 
         // unlock default activities
         for (PubActivity activity : PubActivity.values()) {

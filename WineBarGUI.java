@@ -1239,11 +1239,13 @@ public class WineBarGUI {
             } else if (installing != null) {
                 prefix = " INSTALLING (" + installing.nightsRemaining() + " nights)  ";
             } else {
-                prefix = unlocked ? "" : " LOCKED  ";
+                String requirement = sim.upgradeRequirementText(up);
+                prefix = unlocked ? "" : (" LOCKED  " + (requirement != null ? "(" + requirement + ")  " : ""));
             }
             b.setText(prefix + up.toString());
             boolean enabled = !state.nightOpen && !owned && unlocked && installing == null;
             b.setEnabled(enabled);
+            b.setToolTipText(!unlocked && !owned ? sim.upgradeRequirementText(up) : null);
             if (installing != null) {
                 b.setOpaque(true);
                 b.setBackground(INSTALLING_BG);
@@ -1319,12 +1321,16 @@ public class WineBarGUI {
             PubActivity a = (PubActivity) b.getClientProperty("activity");
             if (a == null) continue;
 
+            String requirement = sim.activityRequirementText(a);
             boolean unlocked = state.unlockedActivities.contains(a);
-            boolean enabled = unlocked && !state.nightOpen && state.scheduledActivity == null;
+            boolean enabled = requirement == null && unlocked && !state.nightOpen && state.scheduledActivity == null;
             b.setEnabled(enabled);
 
             String txt = a.toString();
-            if (!unlocked) txt = " LOCKED  " + txt;
+            if (!unlocked || requirement != null) {
+                String reqText = requirement != null ? (" (" + requirement + ")") : "";
+                txt = " LOCKED" + reqText + "  " + txt;
+            }
             if (state.activityTonight == a) txt = " RUNNING  " + txt;
             if (state.scheduledActivity != null) {
                 int daysLeft = Math.max(0, state.scheduledActivity.startAbsDayIndex() - state.absDayIndex());
@@ -1332,6 +1338,7 @@ public class WineBarGUI {
                 b.setEnabled(false);
             }
             b.setText(txt);
+            b.setToolTipText(requirement);
         }
     }
 

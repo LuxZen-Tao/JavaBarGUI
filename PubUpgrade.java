@@ -18,15 +18,15 @@ public enum PubUpgrade {
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     // Kitchen
-    KITCHEN_SETUP("Kitchen Setup", 450, 0.02, 0, 0,
+    KITCHEN_SETUP("Kitchen Base", 450, 0.02, 0, 0,
             0, 0, 10, 0, 0, 0, 0, 0, 1, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    KITCHEN("Kitchen", 600, 0.10, 1, 2,
+    KITCHEN("Kitchen Upgrade I", 600, 0.10, 1, 2,
             2, 0, 10, 0, 1, 0, 0, 0, 0, 1,
             0.00, 0.00, 0.03, 0.00, 0.00, 0.00),
 
-    KITCHEN_EQUIPMENT("Kitchen Equipment", 360, 0.00, 0, 0,
+    KITCHEN_EQUIPMENT("Kitchen Upgrade III", 360, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
@@ -58,7 +58,7 @@ public enum PubUpgrade {
             0, 0, 0, 20, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    NEW_KITCHEN_PLAN("New Kitchen Plan", 480, 0.00, 0, 0,
+    NEW_KITCHEN_PLAN("Kitchen Upgrade II", 480, 0.00, 0, 0,
             0, 0, 0, 10, 0, 0, 0, 0, 0, 1,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
@@ -307,6 +307,24 @@ public enum PubUpgrade {
     public double getRiskReductionPct() { return riskReductionPct; }
     public String getChainKey() { return chainKey; }
     public int getTier() { return tier; }
+
+    public boolean isKitchenRelated() {
+        return switch (this) {
+            case KITCHEN_SETUP,
+                    KITCHEN,
+                    NEW_KITCHEN_PLAN,
+                    KITCHEN_EQUIPMENT,
+                    HYGIENE_TRAINING,
+                    CHEF_TRAINING,
+                    KITCHEN_STAFFING_I,
+                    KITCHEN_STAFFING_II,
+                    KITCHEN_STAFFING_III,
+                    FRIDGE_EXTENSION_1,
+                    FRIDGE_EXTENSION_2,
+                    FRIDGE_EXTENSION_3 -> true;
+            default -> false;
+        };
+    }
 
     private record TierInfo(String chainKey, int tier) {
         static TierInfo fromName(String name) {

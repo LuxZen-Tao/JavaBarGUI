@@ -549,6 +549,10 @@ public class PunterSystem {
         if (s.random.nextDouble() > chance) return;
 
         if (s.foodRack.count() <= 0) {
+            if (s.kitchenQualityBonus >= 2 && s.random.nextInt(100) < 35) {
+                p.setFoodCooldownRounds(1);
+                return;
+            }
             p.incrementFoodAttempts();
             p.setFoodCooldownRounds(2);
             s.foodDisappointmentThisRound++;
@@ -579,7 +583,8 @@ public class PunterSystem {
         if (p.getWallet() < price) return;
 
         s.foodRack.removeFood(food);
-        s.pendingFoodOrders.add(new FoodOrder(p.getId(), p.getName(), food, price, s.roundInNight + 3));
+        int prepRounds = Math.max(1, s.foodPrepRounds);
+        s.pendingFoodOrders.add(new FoodOrder(p.getId(), p.getName(), food, price, s.roundInNight + prepRounds));
         p.setOrderedFoodThisVisit(true);
         eco.addCash(price, "Meal order: " + food.getName());
         s.reportRevenue += price;
@@ -590,7 +595,7 @@ public class PunterSystem {
         p.spend(price);
         s.recordFoodQuality(food);
         applyFoodOverpricingConsequences(p, food, price);
-        log.info("  - Orders food: " + food.getName() + " (ready in 3 rounds).");
+        log.info("  - Orders food: " + food.getName() + " (ready in " + prepRounds + " rounds).");
     }
 
     private double priceTipMultiplier(double sellPrice, double basePrice, Punter.Tier tier) {
