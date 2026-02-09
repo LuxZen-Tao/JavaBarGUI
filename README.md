@@ -15,7 +15,7 @@ You’re the owner-operator of a small pub. The game simulates nights of service
 ### Economy & costs
 - Cash-first spending with optional credit lines (banks + loan shark).
 - Weekly rent, wages, security upkeep, and credit-line repayments.
-- Credit score impacts pricing, invoice terms, and lender access.
+- Credit score impacts pricing, supplier credit caps, and lender access.
 - Operating costs that scale with staffing and crowd size.
 
 ### Inventory & suppliers
