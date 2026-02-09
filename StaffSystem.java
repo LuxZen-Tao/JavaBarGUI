@@ -75,6 +75,23 @@ public class StaffSystem {
         for (Staff st : s.generalManagers) st.cashOutAccrued();
     }
 
+    public double applyWagePayment(double amount) {
+        double remaining = Math.max(0.0, amount);
+        for (Staff st : s.fohStaff) {
+            if (remaining <= 0) break;
+            remaining -= st.applyWagePayment(remaining);
+        }
+        for (Staff st : s.bohStaff) {
+            if (remaining <= 0) break;
+            remaining -= st.applyWagePayment(remaining);
+        }
+        for (Staff st : s.generalManagers) {
+            if (remaining <= 0) break;
+            remaining -= st.applyWagePayment(remaining);
+        }
+        return amount - remaining;
+    }
+
     public int repDeltaThisRound(Random r) {
         int delta = 0;
         for (Staff st : s.fohStaff) delta += st.repRollThisRound(r);
@@ -130,6 +147,10 @@ public class StaffSystem {
             delta = (int)Math.round(delta * (1.0 - damp));
         }
 
+        if (delta != 0) {
+            delta = (int)Math.round(delta * 1.15);
+        }
+
         double negMult = chaosMoraleNegMultiplier(chaos);
         double posMult = chaosMoralePosMultiplier(chaos);
         s.lastChaosMoraleNegMult = negMult;
@@ -157,17 +178,17 @@ public class StaffSystem {
     private int smallMoraleDrift(double chaos, boolean smoothNight) {
         int roll = s.random.nextInt(100);
         if (chaos >= 55) {
-            if (roll < 50) return -1;
-            if (roll < 85) return 0;
+            if (roll < 55) return -1;
+            if (roll < 80) return 0;
             return 1;
         }
         if (smoothNight) {
-            if (roll < 20) return -1;
-            if (roll < 60) return 0;
+            if (roll < 25) return -1;
+            if (roll < 55) return 0;
             return 1;
         }
-        if (roll < 34) return -1;
-        if (roll < 67) return 0;
+        if (roll < 38) return -1;
+        if (roll < 62) return 0;
         return 1;
     }
 

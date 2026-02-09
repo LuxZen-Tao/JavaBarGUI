@@ -55,21 +55,49 @@ public class EconomySystem {
         }
 
         double remaining = amount - s.cash;
-        if (s.creditLines.hasAvailableCredit(remaining) && s.creditLines.applyCredit(remaining)) {
-            s.reportCosts += amount;
-            s.weekCosts += amount;
-            s.addReportCost(tag, amount);
-            s.cash = 0;
-            CreditLine line = s.creditLines.consumeLastAppliedLine();
-            if (line != null && "Loan Shark".equals(line.getLenderName())) {
-                s.creditScore = s.clampCreditScore(s.creditScore - 10);
+        if (s.creditLines.hasAvailableCredit(remaining)) {
+            CreditLine selectedLine = selectCreditLineForShortfall(remaining, description);
+            if (selectedLine == null) {
+                log.neg("Payment cancelled: select a credit line to cover GBP " + fmt(remaining) + ".");
+                return false;
             }
-            log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
-            return true;
+            if (selectedLine.isEnabled() && selectedLine.availableCredit() >= remaining) {
+                s.creditLines.addBalanceToLine(selectedLine, remaining);
+                s.reportCosts += amount;
+                s.weekCosts += amount;
+                s.addReportCost(tag, amount);
+                s.cash = 0;
+                if ("Loan Shark".equals(selectedLine.getLenderName())) {
+                    s.creditScore = s.clampCreditScore(s.creditScore - 10);
+                }
+                log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
+                return true;
+            }
         }
 
         log.neg("Insufficient funds: cannot pay GBP " + fmt(amount) + " for " + description + ".");
         return false;
+    }
+
+    private CreditLine selectCreditLineForShortfall(double shortfall, String description) {
+        java.util.List<CreditLine> options = new java.util.ArrayList<>();
+        for (CreditLine line : s.creditLines.getOpenLines()) {
+            if (!line.isEnabled()) continue;
+            if (line.availableCredit() >= shortfall) {
+                options.add(line);
+            }
+        }
+        if (options.isEmpty()) return null;
+        if (options.size() == 1) return options.get(0);
+        if (s.creditLineSelector != null) {
+            CreditLine selected = s.creditLineSelector.select(options, shortfall, description);
+            if (selected != null) return selected;
+        }
+        CreditLine best = options.get(0);
+        for (CreditLine line : options) {
+            if (line.availableCredit() > best.availableCredit()) best = line;
+        }
+        return best;
     }
 
     public void addCash(double amount, String reason) {
@@ -89,20 +117,12 @@ public class EconomySystem {
         s.securityUpkeepAccruedThisWeek += baseSecurityLevel * dailyRate;
     }
 
-    public boolean endOfWeekPayBills(double wagesDue) {
-        double invoiceMult = s.supplierInvoiceMultiplier();
-        double rentDue = s.rentAccruedThisWeek * invoiceMult;
-        double securityDue = s.securityUpkeepAccruedThisWeek * invoiceMult;
-        double wagesDueAdjusted = wagesDue;
-
-        boolean wagesPaid = wagesDueAdjusted <= 0 || tryPay(wagesDueAdjusted, TransactionType.WAGES, "Staff wages", CostTag.WAGES);
-        if (tryPay(rentDue, TransactionType.OTHER, "Rent (accrued daily)", CostTag.RENT)) {
-            s.rentAccruedThisWeek = 0.0;
-        }
-        if (tryPay(securityDue, TransactionType.OTHER, "Security upkeep (accrued daily)", CostTag.SECURITY)) {
-            s.securityUpkeepAccruedThisWeek = 0.0;
-        }
-        return wagesPaid;
+    public void recordCostOnly(double amount, CostTag tag, String description) {
+        if (amount <= 0) return;
+        s.reportCosts += amount;
+        s.weekCosts += amount;
+        s.addReportCost(tag, amount);
+        log.info("Recorded GBP " + fmt(amount) + " - " + description);
     }
 
     private static String fmt(double d) { return String.format("%.2f", d); }
