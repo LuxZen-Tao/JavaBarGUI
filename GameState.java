@@ -29,6 +29,7 @@ public class GameState {
     public double creditUtilization = 0.0;
     public int creditLinesOpenedThisWeek = 0;
     public int noDebtUsageWeeks = 0;
+    public double supplierTrustPenalty = 0.0;
     public String supplierTrustStatus = "Neutral";
 
     public final double weeklyRent = 60.0;
@@ -56,6 +57,8 @@ public class GameState {
 
     // supplier
     public SupplierDeal supplierDeal = SupplierDeal.none();
+    public final java.util.List<SupplierInvoice> supplierInvoices = new java.util.ArrayList<>();
+    public double invoiceLateFeesThisWeek = 0.0;
 
     // reports
     public int reportIndex = 1;
@@ -322,17 +325,21 @@ public class GameState {
     public int clampCreditScore(int score) { return Math.max(300, Math.min(850, score)); }
 
     public double supplierPriceMultiplier() {
-        if (creditScore >= 700) return 0.97;
-        if (creditScore >= 550) return 1.0;
-        if (creditScore >= 450) return 1.04;
-        return 1.10;
+        double base;
+        if (creditScore >= 700) base = 0.97;
+        else if (creditScore >= 550) base = 1.0;
+        else if (creditScore >= 450) base = 1.04;
+        else base = 1.10;
+        return base * (1.0 + supplierTrustPenalty);
     }
 
     public double supplierInvoiceMultiplier() {
-        if (creditScore >= 700) return 0.98;
-        if (creditScore >= 550) return 1.0;
-        if (creditScore >= 450) return 1.03;
-        return 1.08;
+        double base;
+        if (creditScore >= 700) base = 0.98;
+        else if (creditScore >= 550) base = 1.0;
+        else if (creditScore >= 450) base = 1.03;
+        else base = 1.08;
+        return base * (1.0 + supplierTrustPenalty);
     }
 
     public String supplierTrustLabel() {

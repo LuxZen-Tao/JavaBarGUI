@@ -69,6 +69,12 @@ public class CreditLineManager {
         return null;
     }
 
+    public void addBalanceToLine(CreditLine line, double amount) {
+        if (line == null || amount <= 0.0) return;
+        line.addBalance(amount);
+        updateWeeklyPayment(line);
+    }
+
     public void processWeekly(GameState s, UILogger log) {
         double totalLimit = 0.0;
         double totalBalance = 0.0;

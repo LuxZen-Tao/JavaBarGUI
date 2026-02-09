@@ -435,8 +435,7 @@ public class Simulation {
             int roundsDelay = 3;
             double baseCost = w.getBaseCost() * qty * s.supplierPriceMultiplier();
             double markedCost = baseCost * markup;
-            if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER)) return;
-
+            createSupplierInvoice("Wine Supplier", markedCost);
             s.pendingSupplierDeliveries.add(new PendingSupplierDelivery(w, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency supplier", qty + "x " + w.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
             return;
@@ -449,6 +448,7 @@ public class Simulation {
         int added = s.rack.addBottles(w, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Inventory full."); return; }
 
+        createSupplierInvoice("Wine Supplier", cost);
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
         log.pos(" Bought " + added + "x " + w.getName()
                 + " for GBP " + String.format("%.2f", cost)
@@ -485,6 +485,7 @@ public class Simulation {
             double markup = weekend ? 1.7 : 1.4;
             int roundsDelay = weekend ? 4 : 3;
             double markedCost = cost * markup;
+            createSupplierInvoice("Food Supplier", markedCost);
             if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
                 return;
             }
@@ -501,6 +502,7 @@ public class Simulation {
         int added = s.foodRack.addMeals(food, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Kitchen inventory full."); return; }
 
+        createSupplierInvoice("Food Supplier", cost);
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
         log.pos(" Bought " + added + "x " + food.getName()
                 + " for GBP " + String.format("%.2f", cost) + bulkTag);
@@ -696,6 +698,38 @@ public class Simulation {
         CreditLine line = s.creditLines.getLineById(lineId);
         if (line == null) { log.neg("Credit line not found."); return; }
         s.creditLines.repayInFull(s, line, log);
+    }
+
+    public boolean paySupplierInvoice(SupplierInvoice invoice, CreditLine selectedLine) {
+        if (invoice == null || invoice.isPaid()) return false;
+        double amountDue = invoice.getAmountDue();
+        if (amountDue <= 0.0) {
+            invoice.markPaid();
+            return true;
+        }
+
+        double cashPaid = Math.min(s.cash, amountDue);
+        double remaining = amountDue - cashPaid;
+
+        CreditLine lineUsed = null;
+        double creditPaid = 0.0;
+        if (remaining > 0.0) {
+            if (selectedLine == null) return false;
+            if (!selectedLine.isEnabled() || selectedLine.availableCredit() < remaining) return false;
+            s.creditLines.addBalanceToLine(selectedLine, remaining);
+            lineUsed = selectedLine;
+            creditPaid = remaining;
+        }
+
+        s.cash -= cashPaid;
+        invoice.markPaid();
+
+        String lender = lineUsed != null ? (" via " + lineUsed.getLenderName()) : "";
+        log.pos("Invoice paid: " + invoice.getSupplierName()
+                + " GBP " + String.format("%.2f", amountDue)
+                + " (cash " + String.format("%.2f", cashPaid)
+                + ", credit " + String.format("%.2f", creditPaid) + lender + ")");
+        return true;
     }
 
     public void borrowFromLoanShark(double amt) {
@@ -1102,6 +1136,7 @@ public class Simulation {
         eco.applyWeeklyDebtInterest();
 
         s.creditLines.processWeekly(s, log);
+        processSupplierInvoicesWeekly();
 
         double raw = staff.wagesDueRaw();
         double eff = upgrades.wageEfficiencyPct();
@@ -1584,6 +1619,12 @@ public class Simulation {
                 + "\nSupplier price mult: x" + fmt2(s.supplierPriceMultiplier())
                 + "\nInvoice terms mult: x" + fmt2(s.supplierInvoiceMultiplier())
                 + "\nInvoice Due: GBP " + fmt2(invoiceDueNow())
+                + "\nOutstanding invoices: GBP " + fmt2(totalOutstandingInvoices())
+                + "\nDue now: GBP " + fmt2(totalDueInvoices())
+                + "\nOverdue: GBP " + fmt2(totalOverdueInvoices())
+                + "\nNext due window: " + nextInvoiceDueWindow()
+                + "\nLate fees this week: GBP " + fmt2(s.invoiceLateFeesThisWeek)
+                + "\n\nInvoices:\n" + buildInvoiceListSummary()
                 + "\nPrice multiplier avg: " + fmt2(avgPriceMultiplier())
                 + "\nPrice volatility: " + fmt2(s.weekPriceMultiplierAbsDelta);
 
@@ -1816,6 +1857,72 @@ public class Simulation {
             }
         }
 
+        return sb.toString();
+    }
+
+    private double totalOutstandingInvoices() {
+        double total = 0.0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            total += invoice.getAmountDue();
+        }
+        return total;
+    }
+
+    private double totalDueInvoices() {
+        double total = 0.0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() == SupplierInvoice.Status.DUE
+                    || invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                total += invoice.getAmountDue();
+            }
+        }
+        return total;
+    }
+
+    private double totalOverdueInvoices() {
+        double total = 0.0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                total += invoice.getAmountDue();
+            }
+        }
+        return total;
+    }
+
+    private String nextInvoiceDueWindow() {
+        int min = Integer.MAX_VALUE;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() == SupplierInvoice.Status.OPEN && invoice.getDueInWeeks() >= 0) {
+                min = Math.min(min, invoice.getDueInWeeks());
+            }
+        }
+        if (min == Integer.MAX_VALUE) return "None";
+        if (min == 0) return "Due now";
+        return "In " + min + " week(s)";
+    }
+
+    private String buildInvoiceListSummary() {
+        if (s.supplierInvoices.isEmpty()) return "None";
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            sb.append("- ").append(invoice.getSupplierName())
+                    .append(" | GBP ").append(fmt2(invoice.getAmountDue()))
+                    .append(" | ").append(invoice.getStatus())
+                    .append(" | overdue ").append(invoice.getWeeksOverdue())
+                    .append("\n");
+            count++;
+            if (count >= 4) break;
+        }
+        if (count == 0) return "None";
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
+            sb.deleteCharAt(sb.length() - 1);
+        }
         return sb.toString();
     }
 
@@ -2179,6 +2286,58 @@ public class Simulation {
         if (s.reportStartCash == 0 && s.reportStartDebt == 0) {
             s.reportStartCash = s.cash;
             s.reportStartDebt = s.debt;
+        }
+    }
+
+    private void createSupplierInvoice(String supplierName, double amount) {
+        if (amount <= 0.0) return;
+        int dueWeeks;
+        if (s.creditScore >= 700) dueWeeks = 3;
+        else if (s.creditScore >= 550) dueWeeks = 2;
+        else dueWeeks = 1;
+
+        SupplierInvoice invoice = new SupplierInvoice(supplierName, amount, dueWeeks, s.weekCount);
+        s.supplierInvoices.add(invoice);
+        log.event("Invoice created: " + supplierName + " GBP " + String.format("%.2f", amount)
+                + " due in " + dueWeeks + " week(s).");
+    }
+
+    private void processSupplierInvoicesWeekly() {
+        if (s.supplierInvoices.isEmpty()) return;
+
+        s.invoiceLateFeesThisWeek = 0.0;
+        boolean anyOverdue = false;
+        double lateFees = 0.0;
+        int overdueCount = 0;
+
+        for (SupplierInvoice invoice : s.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            SupplierInvoice.Status before = invoice.getStatus();
+            invoice.advanceWeek();
+            if (before == SupplierInvoice.Status.OPEN && invoice.getStatus() == SupplierInvoice.Status.DUE) {
+                log.event("Invoice due: " + invoice.getSupplierName()
+                        + " GBP " + String.format("%.2f", invoice.getAmountDue()));
+            }
+            if (invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                anyOverdue = true;
+                overdueCount++;
+                double fee = Math.max(2.0, invoice.getAmountDue() * 0.02);
+                invoice.applyLateFee(fee);
+                lateFees += fee;
+                log.neg("Invoice overdue: " + invoice.getSupplierName()
+                        + " late fee applied GBP " + String.format("%.2f", fee));
+            } else if (invoice.getStatus() == SupplierInvoice.Status.DUE) {
+                // still due, no late fee yet
+            }
+        }
+
+        s.invoiceLateFeesThisWeek = lateFees;
+
+        if (anyOverdue) {
+            s.supplierTrustPenalty = Math.min(0.05, s.supplierTrustPenalty + 0.01);
+            s.creditScore = s.clampCreditScore(s.creditScore - Math.min(6, 2 + overdueCount));
+        } else {
+            s.supplierTrustPenalty = Math.max(0.0, s.supplierTrustPenalty - 0.005);
         }
     }
 

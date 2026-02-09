@@ -44,6 +44,9 @@ public class WineBarGUI {
     private JDialog supplierDialog;
     private JPanel supplierListPanel;
     private JLabel supplierDealLabel;
+    private JDialog invoiceDialog;
+    private JPanel invoiceListPanel;
+    private JLabel invoiceSummaryLabel;
     private JDialog kitchenSupplierDialog;
     private JPanel kitchenSupplierListPanel;
     private JLabel kitchenSupplierNoticeLabel;
@@ -712,8 +715,11 @@ public class WineBarGUI {
 
             JButton close = new JButton("Close");
             close.addActionListener(e -> supplierDialog.setVisible(false));
+            JButton invoices = new JButton("Invoices");
+            invoices.addActionListener(e -> openInvoiceDialog());
 
             JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(invoices);
             bottom.add(close);
             supplierDialog.add(bottom, BorderLayout.SOUTH);
 
@@ -769,6 +775,171 @@ public class WineBarGUI {
                 boolean okSlots = freeSlots >= q;
                 b.setEnabled(canBuy && okSlots);
             }
+        }
+    }
+
+    // -----------------------
+    // Invoice Window
+    // -----------------------
+
+    private void openInvoiceDialog() {
+        if (invoiceDialog == null) {
+            invoiceDialog = new JDialog(frame, "Supplier Invoices", false);
+            invoiceDialog.setLayout(new BorderLayout(10, 10));
+
+            invoiceSummaryLabel = new JLabel(" ");
+            invoiceSummaryLabel.setBorder(new EmptyBorder(8, 10, 0, 10));
+            invoiceDialog.add(invoiceSummaryLabel, BorderLayout.NORTH);
+
+            invoiceListPanel = new JPanel();
+            invoiceListPanel.setLayout(new BoxLayout(invoiceListPanel, BoxLayout.Y_AXIS));
+            invoiceDialog.add(new JScrollPane(invoiceListPanel), BorderLayout.CENTER);
+
+            JButton payAll = new JButton("Pay All Due");
+            payAll.addActionListener(e -> {
+                payAllDueInvoices();
+                refreshAll();
+                refreshAllMenus();
+            });
+
+            JButton close = new JButton("Close");
+            close.addActionListener(e -> invoiceDialog.setVisible(false));
+
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(payAll);
+            bottom.add(close);
+            invoiceDialog.add(bottom, BorderLayout.SOUTH);
+
+            invoiceDialog.setSize(760, 420);
+            invoiceDialog.setLocationRelativeTo(frame);
+        }
+
+        refreshInvoiceDialog();
+        invoiceDialog.setVisible(true);
+    }
+
+    private void refreshInvoiceDialog() {
+        if (invoiceDialog == null || invoiceListPanel == null || invoiceSummaryLabel == null) return;
+
+        invoiceListPanel.removeAll();
+        double totalOutstanding = 0.0;
+        double totalDue = 0.0;
+        double totalOverdue = 0.0;
+        int openCount = 0;
+
+        for (SupplierInvoice invoice : state.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            openCount++;
+            totalOutstanding += invoice.getAmountDue();
+            if (invoice.getStatus() == SupplierInvoice.Status.DUE
+                    || invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                totalDue += invoice.getAmountDue();
+            }
+            if (invoice.getStatus() == SupplierInvoice.Status.OVERDUE) {
+                totalOverdue += invoice.getAmountDue();
+            }
+
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            String info = invoice.getSupplierName()
+                    + " | GBP " + money2(invoice.getAmountDue())
+                    + " | " + invoice.getStatus()
+                    + " | due in " + invoice.getDueInWeeks() + "w"
+                    + " | overdue " + invoice.getWeeksOverdue() + "w";
+            row.add(new JLabel(info));
+
+            JButton pay = new JButton("Pay Invoice");
+            pay.setEnabled(invoice.getStatus() == SupplierInvoice.Status.DUE
+                    || invoice.getStatus() == SupplierInvoice.Status.OVERDUE);
+            pay.addActionListener(e -> {
+                payInvoiceWithSelection(invoice);
+                refreshAll();
+                refreshAllMenus();
+            });
+            row.add(pay);
+            invoiceListPanel.add(row);
+        }
+
+        if (openCount == 0) {
+            invoiceListPanel.add(new JLabel("No outstanding invoices."));
+        }
+
+        invoiceSummaryLabel.setText("Outstanding: " + money2(totalOutstanding)
+                + " | Due: " + money2(totalDue)
+                + " | Overdue: " + money2(totalOverdue)
+                + " | Late fees this week: " + money2(state.invoiceLateFeesThisWeek));
+
+        invoiceListPanel.revalidate();
+        invoiceListPanel.repaint();
+    }
+
+    private void payAllDueInvoices() {
+        for (SupplierInvoice invoice : state.supplierInvoices) {
+            if (invoice.isPaid()) continue;
+            if (invoice.getStatus() != SupplierInvoice.Status.DUE
+                    && invoice.getStatus() != SupplierInvoice.Status.OVERDUE) {
+                continue;
+            }
+            payInvoiceWithSelection(invoice);
+        }
+    }
+
+    private void payInvoiceWithSelection(SupplierInvoice invoice) {
+        if (invoice == null || invoice.isPaid()) return;
+
+        double amountDue = invoice.getAmountDue();
+        double cashAvailable = state.cash;
+        if (cashAvailable >= amountDue) {
+            if (sim.paySupplierInvoice(invoice, null)) return;
+            return;
+        }
+
+        double remaining = amountDue - cashAvailable;
+        java.util.List<CreditLine> eligible = new java.util.ArrayList<>();
+        for (CreditLine line : state.creditLines.getOpenLines()) {
+            if (line.isEnabled() && line.availableCredit() >= remaining) {
+                eligible.add(line);
+            }
+        }
+
+        if (eligible.isEmpty()) {
+            log.neg("Not enough cash or credit to pay invoice. Shortfall GBP " + String.format("%.2f", remaining));
+            return;
+        }
+
+        CreditLine selected = null;
+        if (eligible.size() == 1) {
+            selected = eligible.get(0);
+        } else {
+            Object[] options = new Object[eligible.size()];
+            for (int i = 0; i < eligible.size(); i++) {
+                CreditLine line = eligible.get(i);
+                options[i] = line.getLenderName()
+                        + " | avail " + money2(line.availableCredit())
+                        + " | APR " + String.format("%.2f", line.getInterestAPR() * 100) + "%"
+                        + " | bal " + money2(line.getBalance()) + "/" + money2(line.getLimit());
+            }
+            Object pick = JOptionPane.showInputDialog(
+                    frame,
+                    "Select credit line for remaining GBP " + String.format("%.2f", remaining),
+                    "Select Credit Line",
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+            if (pick == null) return;
+            String choice = pick.toString();
+            for (CreditLine line : eligible) {
+                if (choice.startsWith(line.getLenderName())) {
+                    selected = line;
+                    break;
+                }
+            }
+        }
+
+        if (selected == null) return;
+        if (!sim.paySupplierInvoice(invoice, selected)) {
+            log.neg("Invoice payment failed.");
         }
     }
 
