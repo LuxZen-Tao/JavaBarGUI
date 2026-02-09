@@ -395,8 +395,7 @@ public class Simulation {
         }
         if (s.activityTonight != null) { log.info("Activity already running tonight."); return; }
 
-        eco.payOrDebt(a.getCost(), "Activity: " + a.getLabel(), CostTag.ACTIVITY);
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(a.getCost(), TransactionType.ACTIVITY, "Activity: " + a.getLabel(), CostTag.ACTIVITY)) return;
 
         int delay = 1 + s.random.nextInt(3);
         int startIndex = s.absDayIndex() + delay;
@@ -436,16 +435,16 @@ public class Simulation {
             int roundsDelay = 3;
             double baseCost = w.getBaseCost() * qty;
             double markedCost = baseCost * markup;
-            eco.payOrDebt(markedCost, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER);
-            if (s.debt > s.maxDebt) return;
+            if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency restock " + qty + "x " + w.getName(), CostTag.SUPPLIER)) return;
 
             s.pendingSupplierDeliveries.add(new PendingSupplierDelivery(w, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency supplier", qty + "x " + w.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
             return;
         }
 
-        eco.payOrDebt(cost, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER);
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(cost, TransactionType.RESTOCK, "Restock " + qty + "x " + w.getName() + " (rep x" + String.format("%.2f", repMult) + ")", CostTag.SUPPLIER)) {
+            return;
+        }
 
         int added = s.rack.addBottles(w, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Inventory full."); return; }
@@ -486,16 +485,18 @@ public class Simulation {
             double markup = weekend ? 1.7 : 1.4;
             int roundsDelay = weekend ? 4 : 3;
             double markedCost = cost * markup;
-            eco.payOrDebt(markedCost, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD);
-            if (s.debt > s.maxDebt) return;
+            if (!eco.tryPay(markedCost, TransactionType.RESTOCK, "Emergency food restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
+                return;
+            }
 
             s.pendingFoodDeliveries.add(new PendingFoodDelivery(food, qty, s.roundInNight + roundsDelay, markedCost));
             log.popup(" Emergency food supplier", qty + "x " + food.getName() + " ordered.", "Delivery in " + roundsDelay + " rounds | Markup x" + String.format("%.1f", markup));
             return;
         }
 
-        eco.payOrDebt(cost, "Restock " + qty + "x " + food.getName(), CostTag.FOOD);
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(cost, TransactionType.RESTOCK, "Restock " + qty + "x " + food.getName(), CostTag.FOOD)) {
+            return;
+        }
 
         int added = s.foodRack.addMeals(food, qty, s.absDayIndex());
         if (added <= 0) { log.neg("Kitchen inventory full."); return; }
@@ -518,8 +519,7 @@ public class Simulation {
         if (isUpgradeInstalling(up)) { log.info("Upgrade already installing."); return; }
         if (!milestones.canBuyUpgrade(up)) { log.neg("Upgrade locked. Hit a milestone first."); return; }
 
-        eco.payOrDebt(up.getCost(), "Upgrade: " + up.getLabel(), CostTag.UPGRADE);
-        if (s.debt > s.maxDebt) return;
+        if (!eco.tryPay(up.getCost(), TransactionType.UPGRADE, "Upgrade: " + up.getLabel(), CostTag.UPGRADE)) return;
 
         int nights = 1 + s.random.nextInt(4);
         s.pendingUpgradeInstalls.add(new PendingUpgradeInstall(up, nights, nights));
@@ -597,7 +597,9 @@ public class Simulation {
 
         Staff st = s.fohStaff.get(index);
         double due = st.getAccruedThisWeek();
-        if (due > 0) eco.payOrDebt(due, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES);
+        if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES)) {
+            return;
+        }
         st.cashOutAccrued();
         s.fohStaff.remove(index);
         staff.updateTeamMorale();
@@ -613,7 +615,9 @@ public class Simulation {
 
         Staff st = s.bohStaff.get(index);
         double due = st.getAccruedThisWeek();
-        if (due > 0) eco.payOrDebt(due, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES);
+        if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (firing " + st.getType() + ")", CostTag.WAGES)) {
+            return;
+        }
         st.cashOutAccrued();
         s.bohStaff.remove(index);
         staff.updateTeamMorale();
@@ -629,7 +633,9 @@ public class Simulation {
 
         Staff mgr = s.generalManagers.get(index);
         double due = mgr.getAccruedThisWeek();
-        if (due > 0) eco.payOrDebt(due, "Wages payout (firing manager)", CostTag.WAGES);
+        if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (firing manager)", CostTag.WAGES)) {
+            return;
+        }
         mgr.cashOutAccrued();
         s.generalManagers.remove(index);
         staff.updateTeamMorale();
@@ -809,7 +815,7 @@ public class Simulation {
 
         // 1b) Operating costs per round (tiny now, matters later)
         double opCost = staff.roundOperatingCost(s.nightPunters.size());
-        eco.payOrDebt(opCost, "Operating costs (this round)", CostTag.OPERATING);
+        if (!eco.tryPay(opCost, TransactionType.OTHER, "Operating costs (this round)", CostTag.OPERATING)) return;
         s.nightRoundCostsTotal += opCost;
 
         // 2) Reputation drift
@@ -1076,10 +1082,12 @@ public class Simulation {
                     + ", " + (int)Math.round(eff * 100) + "%)");
         }
 
-        eco.endOfWeekPayBills(wagesDue);
+        boolean wagesPaid = eco.endOfWeekPayBills(wagesDue);
         payOutTips();
-        staff.resetAccrual();
-        s.wagesAccruedThisWeek = 0.0;
+        if (wagesPaid) {
+            staff.resetAccrual();
+            s.wagesAccruedThisWeek = 0.0;
+        }
 
         staff.weeklyMoraleCheck(s.fightsThisWeek, s.random, log);
         staff.handleWeeklyLevelUps(s.random, log, s.chaos);
@@ -1896,23 +1904,23 @@ public class Simulation {
         switch (type) {
             case FREE_DRINKS -> {
                 double loss = 8 + s.random.nextInt(14);
-                applyMisconductLoss(loss, CostTag.OTHER);
+                double paidLoss = applyMisconductLoss(loss, CostTag.OTHER);
                 String detail = pickPhrase(FOH_FREE_DRINKS_LINES);
                 log.popup(new EventCard("Staff misconduct",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -loss, 0, "THEFT"));
+                        0, -paidLoss, 0, "THEFT"));
                 addRumorHeat(Rumor.STAFF_STEALING, 10, RumorSource.STAFF);
-                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") comped drinks. Cash -" + money0(loss);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") comped drinks. Cash -" + money0(paidLoss);
             }
             case TILL_SHORT -> {
                 double loss = 12 + s.random.nextInt(18);
-                applyMisconductLoss(loss, CostTag.OTHER);
+                double paidLoss = applyMisconductLoss(loss, CostTag.OTHER);
                 String detail = pickPhrase(FOH_TILL_SHORT_LINES);
                 log.popup(new EventCard("Staff misconduct",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -loss, 0, "THEFT"));
+                        0, -paidLoss, 0, "THEFT"));
                 addRumorHeat(Rumor.STAFF_STEALING, 12, RumorSource.STAFF);
-                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") left the till short. Cash -" + money0(loss);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") left the till short. Cash -" + money0(paidLoss);
             }
             case MANAGEMENT_INSULT -> {
                 eco.applyRep(-2, "Management insult");
@@ -1952,46 +1960,46 @@ public class Simulation {
                 boolean kitchenActive = s.kitchenUnlocked;
                 int removed = drainKitchenStock(2 + s.random.nextInt(3));
                 double cost = removed > 0 ? 0.0 : (10 + s.random.nextInt(12));
-                if (removed <= 0) applyMisconductLoss(cost, CostTag.FOOD);
+                double paidLoss = removed <= 0 ? applyMisconductLoss(cost, CostTag.FOOD) : 0.0;
                 String detail = pickPhrase(BOH_INGREDIENTS_LINES);
                 log.popup(new EventCard("Kitchen incident",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -cost, 0, "STOCK"));
+                        0, -paidLoss, 0, "STOCK"));
                 if (removed > 0) {
                     s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") miscounted prep. Stock -" + removed;
                 } else {
                     String note = kitchenActive ? "Stock 0" : "Stock impact N/A";
-                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") lost ingredients. " + note + ", cost -" + money0(cost);
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") lost ingredients. " + note + ", cost -" + money0(paidLoss);
                 }
                 addRumorHeat(Rumor.FOOD_POISONING_SCARE, 6, RumorSource.STAFF);
             }
             case HYGIENE_SLIP -> {
                 double cost = 8 + s.random.nextInt(12);
-                applyMisconductLoss(cost, CostTag.FOOD);
+                double paidLoss = applyMisconductLoss(cost, CostTag.FOOD);
                 eco.applyRep(-2, "Hygiene slip");
                 s.nightFoodUnserved++;
                 String detail = pickPhrase(BOH_HYGIENE_LINES);
                 log.popup(new EventCard("Kitchen incident",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        -2, -cost, 0, "HYGIENE"));
+                        -2, -paidLoss, 0, "HYGIENE"));
                 addRumorHeat(Rumor.FOOD_POISONING_SCARE, 10, RumorSource.PUNTER);
-                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") hygiene slip. Rep -2, cost -" + money0(cost);
+                s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") hygiene slip. Rep -2, cost -" + money0(paidLoss);
             }
             case WASTED_BATCH -> {
                 boolean kitchenActive = s.kitchenUnlocked;
                 int removed = drainKitchenStock(2 + s.random.nextInt(4));
                 double cost = removed > 0 ? 0.0 : (12 + s.random.nextInt(16));
-                if (removed <= 0) applyMisconductLoss(cost, CostTag.FOOD);
+                double paidLoss = removed <= 0 ? applyMisconductLoss(cost, CostTag.FOOD) : 0.0;
                 s.nightFoodUnserved += 1;
                 String detail = pickPhrase(BOH_WASTED_BATCH_LINES);
                 log.popup(new EventCard("Kitchen incident",
                         "<b>" + offender.getName() + "</b> " + detail,
-                        0, -cost, 0, "WASTE"));
+                        0, -paidLoss, 0, "WASTE"));
                 if (removed > 0) {
                     s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. Stock -" + removed;
                 } else {
                     String note = kitchenActive ? "Stock 0" : "Stock impact N/A";
-                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. " + note + ", cost -" + money0(cost);
+                    s.lastStaffIncidentSummary = offender.getName() + " (" + dept + ") wasted a batch. " + note + ", cost -" + money0(paidLoss);
                 }
                 addRumorHeat(Rumor.SLOW_SERVICE, 6, RumorSource.PUNTER);
             }
@@ -2089,11 +2097,11 @@ public class Simulation {
         return removed;
     }
 
-    private void applyMisconductLoss(double loss, CostTag tag) {
-        s.cash = Math.max(0.0, s.cash - loss);
-        s.reportCosts += loss;
-        s.weekCosts += loss;
-        s.addReportCost(tag, loss);
+    private double applyMisconductLoss(double loss, CostTag tag) {
+        if (!eco.tryPay(loss, TransactionType.OTHER, "Staff misconduct losses", tag)) {
+            return 0.0;
+        }
+        return loss;
     }
 
     private String buildMisconductDriverLine(int security, int minMorale, double chance) {
@@ -2496,14 +2504,12 @@ public class Simulation {
             if (s.random.nextInt(10000) < (int)Math.round(refundChance * 10000)) {
                 double refundPct = 0.25 + (s.random.nextDouble() * 0.75);
                 double refund = order.price() * refundPct;
-                s.cash = Math.max(0.0, s.cash - refund);
-                s.reportCosts += refund;
-                s.weekCosts += refund;
-                s.addReportCost(CostTag.FOOD, refund);
-                s.recordRefund(refund);
-                s.nightRefunds++;
-                eco.applyRep(-1, "Food refund");
-                log.popup("Food refund", "<b>" + order.food().getName() + "</b> was sent back.", "Cash -" + String.format("%.2f", refund));
+                if (eco.tryPay(refund, TransactionType.OTHER, "Food refund", CostTag.FOOD)) {
+                    s.recordRefund(refund);
+                    s.nightRefunds++;
+                    eco.applyRep(-1, "Food refund");
+                    log.popup("Food refund", "<b>" + order.food().getName() + "</b> was sent back.", "Cash -" + String.format("%.2f", refund));
+                }
             }
             s.pendingFoodOrders.remove(i);
         }
@@ -2653,7 +2659,7 @@ public class Simulation {
         double payout = s.tipsThisWeek * 0.50;
         if (payout <= 0) return;
 
-        eco.payOrDebt(payout, "Tips payout (50%)", CostTag.WAGES);
+        if (!eco.tryPay(payout, TransactionType.WAGES, "Tips payout (50%)", CostTag.WAGES)) return;
 
         int moraleDelta = 0;
         if (s.tipsThisWeek >= 60) moraleDelta += 3;
