@@ -170,31 +170,31 @@ public class Staff {
     public static String rangeLabel(Type t) {
         return switch (t) {
             case TRAINEE ->
-                    "Trainee Bartender | serves 1-2 | wage 30-45/wk | rep/round -1..+3";
+                    "Trainee Bartender | serves 1-2 | wage " + wageRange(30, 45) + " | rep/round -1..+3";
             case EXPERIENCED ->
-                    "Experienced Bartender | serves 2-4 | wage 55-85/wk | rep/round -2..+4";
+                    "Experienced Bartender | serves 2-4 | wage " + wageRange(55, 85) + " | rep/round -2..+4";
             case SPEED ->
-                    "Speed Demon Bartender | serves 5-8 | wage 110-180/wk | rep/round -6..+2 (risky!)";
+                    "Speed Demon Bartender | serves 5-8 | wage " + wageRange(110, 180) + " | rep/round -6..+2 (risky!)";
             case CHARISMA ->
-                    "Charisma Bartender | serves 2-3 | tips +2% | wage 70-105/wk | rep/round +1..+5";
+                    "Charisma Bartender | serves 2-3 | tips +2% | wage " + wageRange(70, 105) + " | rep/round +1..+5";
             case SECURITY ->
-                    "Security Bartender | serves 1-2 | sec +1 | wage 75-110/wk | rep/round -2..+2";
+                    "Security Bartender | serves 1-2 | sec +1 | wage " + wageRange(75, 110) + " | rep/round -2..+2";
             case CHEF ->
-                    "Chef | serves food only | wage 80-140/wk | rep/round -1..+3";
+                    "Chef | serves food only | wage " + wageRange(80, 140) + " | rep/round -1..+3";
             case HEAD_CHEF ->
-                    "Head Chef | kitchen lead | refunds - | wage 140-210/wk | rep/round +1..+4";
+                    "Head Chef | kitchen lead | refunds - | wage " + wageRange(140, 210) + " | rep/round +1..+4";
             case SOUS_CHEF ->
-                    "Sous Chef | kitchen support | wage 110-170/wk | rep/round 0..+3";
+                    "Sous Chef | kitchen support | wage " + wageRange(110, 170) + " | rep/round 0..+3";
             case CHEF_DE_PARTIE ->
-                    "Chef de Partie | line cook | wage 95-150/wk | rep/round -1..+2";
+                    "Chef de Partie | line cook | wage " + wageRange(95, 150) + " | rep/round -1..+2";
             case KITCHEN_ASSISTANT ->
-                    "Kitchen Assistant | prep helper | wage 70-110/wk | rep/round -1..+1";
+                    "Kitchen Assistant | prep helper | wage " + wageRange(70, 110) + " | rep/round -1..+1";
             case KITCHEN_PORTER ->
-                    "Kitchen Porter | dish & prep | wage 55-85/wk | rep/round -2..+1";
+                    "Kitchen Porter | dish & prep | wage " + wageRange(55, 85) + " | rep/round -2..+1";
             case ASSISTANT_MANAGER ->
-                    "Assistant Manager | x1.05x1.15 capacity | tips +1% | wage 65-115/wk | rep/round -2..+4";
+                    "Assistant Manager | x1.05x1.15 capacity | tips +1% | wage " + wageRange(65, 115) + " | rep/round -2..+4";
             case MANAGER ->
-                    "Manager | x1.10x1.35 capacity | 2%7% tips | wage 90-160/wk | rep/round -3..+5";
+                    "Manager | x1.10x1.35 capacity | 2%7% tips | wage " + wageRange(90, 160) + " | rep/round -3..+5";
         };
     }
 
@@ -243,5 +243,12 @@ public class Staff {
 
     private static int clamp(int v) {
         return Math.max(0, Math.min(100, v));
+    }
+
+    private static String wageRange(int min, int max) {
+        double mult = StaffFactory.wageMultiplier();
+        int scaledMin = (int) Math.round(min * mult);
+        int scaledMax = (int) Math.round(max * mult);
+        return scaledMin + "-" + scaledMax + "/wk";
     }
 }

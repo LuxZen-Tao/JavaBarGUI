@@ -19,12 +19,37 @@ public class SecuritySystem {
         //  upgrades
         eff += s.upgradeSecurityBonus;
 
+        // policy
+        if (s.securityPolicy != null) {
+            eff += s.securityPolicy.getSecurityBonus();
+        }
+
         // bouncer + general manager
         if (s.bouncersHiredTonight > 0) eff += (s.bouncersHiredTonight * 2);
         if (s.hasSkilledManager()) eff += 1;
         eff += s.staffSecurityBonus();
 
         return Math.max(0, eff);
+    }
+
+    public SecurityBreakdown breakdown() {
+        int base = s.baseSecurityLevel;
+        int upgrades = s.upgradeSecurityBonus;
+        int policy = s.securityPolicy != null ? s.securityPolicy.getSecurityBonus() : 0;
+        int bouncers = s.bouncersHiredTonight > 0 ? (s.bouncersHiredTonight * 2) : 0;
+        int manager = s.hasSkilledManager() ? 1 : 0;
+        int staff = s.staffSecurityBonus();
+        int total = Math.max(0, base + upgrades + policy + bouncers + manager + staff);
+        return new SecurityBreakdown(base, upgrades, policy, bouncers, manager, staff, total);
+    }
+
+    public record SecurityBreakdown(int base,
+                                    int upgrades,
+                                    int policy,
+                                    int bouncers,
+                                    int manager,
+                                    int staff,
+                                    int total) {
     }
 
     public void upgradeBaseSecurity() {

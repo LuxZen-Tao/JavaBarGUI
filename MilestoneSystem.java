@@ -243,7 +243,7 @@ public class MilestoneSystem {
         if (upgrade == PubUpgrade.DOOR_TEAM_II || upgrade == PubUpgrade.DOOR_TEAM_III) {
             return "Requires milestone: Reputation star";
         }
-        if (upgrade == PubUpgrade.CCTV) {
+        if (upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE) {
             return "Requires milestone: Cash flow";
         }
         if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) {
