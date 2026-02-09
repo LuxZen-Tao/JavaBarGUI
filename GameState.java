@@ -24,6 +24,29 @@ public class GameState {
     public double cash = 100.0;
     public double debt = 0.0;
     public final double maxDebt = 10_000.0;
+    public final CreditLineManager creditLines = new CreditLineManager();
+    public int creditScore = 540;
+    public double creditUtilization = 0.0;
+    public int creditLinesOpenedThisWeek = 0;
+    public int noDebtUsageWeeks = 0;
+    public double supplierTrustPenalty = 0.0;
+    public String supplierTrustStatus = "Neutral";
+    public int sharkThreatTier = 0;
+    public int sharkConsecutiveMisses = 0;
+    public int sharkCleanWeeks = 0;
+    public boolean sharkMissedPaymentThisWeek = false;
+    public boolean sharkPaidOnTimeThisWeek = false;
+    public boolean sharkHasBalanceThisWeek = false;
+    public String sharkThreatTrigger = "None";
+    public int consecutiveMissedWagePayments = 0;
+    public boolean wagesPaidLastWeek = true;
+    public int wagesPaidOnTimeWeeks = 0;
+    public double wageTrafficPenaltyMultiplier = 1.0;
+    public int wageTrafficPenaltyRounds = 0;
+    public double wageServePenaltyPct = 0.0;
+    public int wageServePenaltyWeeks = 0;
+    public boolean banksLocked = false;
+    public boolean businessCollapsed = false;
 
     public final double weeklyRent = 60.0;
     public double rentAccruedThisWeek = 0.0;
@@ -50,6 +73,8 @@ public class GameState {
 
     // supplier
     public SupplierDeal supplierDeal = SupplierDeal.none();
+    public final java.util.List<SupplierInvoice> supplierInvoices = new java.util.ArrayList<>();
+    public double invoiceLateFeesThisWeek = 0.0;
 
     // reports
     public int reportIndex = 1;
@@ -313,6 +338,32 @@ public class GameState {
     public int absWeekIndex() { return weekCount - 1; }
     public int clampRep(int r) { return Math.max(-100, Math.min(100, r)); }
     public int absDayIndex() { return dayCounter; }
+    public int clampCreditScore(int score) { return Math.max(300, Math.min(850, score)); }
+
+    public double supplierPriceMultiplier() {
+        double base;
+        if (creditScore >= 700) base = 0.97;
+        else if (creditScore >= 550) base = 1.0;
+        else if (creditScore >= 450) base = 1.04;
+        else base = 1.10;
+        return base * (1.0 + supplierTrustPenalty);
+    }
+
+    public double supplierInvoiceMultiplier() {
+        double base;
+        if (creditScore >= 700) base = 0.98;
+        else if (creditScore >= 550) base = 1.0;
+        else if (creditScore >= 450) base = 1.03;
+        else base = 1.08;
+        return base * (1.0 + supplierTrustPenalty);
+    }
+
+    public String supplierTrustLabel() {
+        if (creditScore >= 700) return "Good";
+        if (creditScore >= 550) return "Neutral";
+        if (creditScore >= 450) return "Poor";
+        return "Very Poor";
+    }
 
     public void addReportCost(CostTag tag, double amount) {
         if (amount <= 0) return;
@@ -334,7 +385,8 @@ public class GameState {
 
     public double invoiceDueNow(double wagesDue) {
         double tipsDue = tipsThisWeek * 0.50;
-        return wagesDue + rentAccruedThisWeek + securityUpkeepAccruedThisWeek + tipsDue;
+        double base = wagesDue + rentAccruedThisWeek + securityUpkeepAccruedThisWeek + tipsDue;
+        return base * supplierInvoiceMultiplier();
     }
 
     public void recordWeeklyPriceMultiplier(double multiplier) {

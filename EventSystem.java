@@ -342,8 +342,7 @@ public class EventSystem {
     private double applyCost(double min, double max, double dmgMult, String tag) {
         double raw = min + (s.random.nextDouble() * (max - min));
         double cost = Math.max(1.0, raw * dmgMult);
-        eco.payOrDebt(cost, tag, CostTag.EVENT);
-        return cost;
+        return eco.tryPay(cost, TransactionType.REPAIR, tag, CostTag.EVENT) ? cost : 0.0;
     }
 
     private int applyRep(int baseRep, double dmgMult, String reason) {
@@ -494,7 +493,7 @@ public class EventSystem {
             double repair = Math.max(4, 8 * (1.0 - reduction));
             popupEvent("Night event", "Table collapses.", -repHit, -repair, 0, "DAMAGE");
             eco.applyRep(-repHit, "Embarrassment");
-            eco.payOrDebt(repair, "Repairs", CostTag.EVENT);
+            eco.tryPay(repair, TransactionType.REPAIR, "Repairs", CostTag.EVENT);
         } else if (roll < 42) {
             log.popup("Night event", "Bad review thread pops off.", "Rep -");
             int repHit = Math.max(4, (int) Math.round(8 * (1.0 - reduction)));
@@ -506,15 +505,16 @@ public class EventSystem {
             eco.applyRep(-repHit, "Food poisoning scare");
             double loss = 12 + s.random.nextInt(18);
             popupEvent("Night event", "Food poisoning scare.", -repHit, -loss, 0, "REFUND");
-            s.recordRefund(loss);
-            eco.payOrDebt(loss, "Refunds (food scare)", CostTag.FOOD);
+            if (eco.tryPay(loss, TransactionType.OTHER, "Refunds (food scare)", CostTag.FOOD)) {
+                s.recordRefund(loss);
+            }
         } else if (roll < 62) {
             log.popup("Night event", "Glassware shortage slows service.", "Rep - | Costs");
             int repHit = Math.max(2, (int) Math.round(5 * (1.0 - reduction)));
             double cost = Math.max(5, 12 * (1.0 - reduction));
             popupEvent("Night event", "Glassware shortage slows service.", -repHit, -cost, 0, "DAMAGE");
             eco.applyRep(-repHit, "Glassware shortage");
-            eco.payOrDebt(cost, "Emergency glassware", CostTag.EVENT);
+            eco.tryPay(cost, TransactionType.REPAIR, "Emergency glassware", CostTag.EVENT);
         } else if (roll < 72) {
             log.popup("Night event", "Rowdy stag do swamps the bar.", "Fight risk");
             triggerFight("Stag do chaos", reduction);
@@ -643,7 +643,7 @@ public class EventSystem {
 
         popupEvent("Fight", "Fight breaks out: " + reason + ".", -repHit, -dmg, 0, "FIGHT");
         eco.applyRep(-repHit, "Fight fallout (" + reason + ")");
-        eco.payOrDebt(dmg, "Damages (fight)", CostTag.EVENT);
+        eco.tryPay(dmg, TransactionType.REPAIR, "Damages (fight)", CostTag.EVENT);
 
         // weekly morale mechanics
         s.fightsThisWeek++;

@@ -34,6 +34,9 @@ public class StaffSystem {
         cap += s.upgradeServeCapBonus;
         cap += s.pubLevelServeCapBonus;
         cap += s.tempServeBonusTonight;
+        if (s.wageServePenaltyWeeks > 0 && s.wageServePenaltyPct > 0.0) {
+            cap = Math.max(1, (int)Math.floor(cap * (1.0 - s.wageServePenaltyPct)));
+        }
         return cap;
     }
 
@@ -214,7 +217,9 @@ public class StaffSystem {
                 Staff st = s.fohStaff.get(i);
 
                 double due = st.getAccruedThisWeek();
-                if (due > 0) eco.payOrDebt(due, "Wages payout (staff quit)", CostTag.WAGES);
+                if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (staff quit)", CostTag.WAGES)) {
+                    continue;
+                }
                 st.cashOutAccrued();
 
                 s.fohStaff.remove(i);
@@ -228,7 +233,9 @@ public class StaffSystem {
             Staff st = s.bohStaff.get(i);
             if (st.getMorale() < 35 && r.nextInt(100) < Math.max(12, quitChance)) {
                 double due = st.getAccruedThisWeek();
-                if (due > 0) eco.payOrDebt(due, "Wages payout (chef quits)", CostTag.WAGES);
+                if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (chef quits)", CostTag.WAGES)) {
+                    continue;
+                }
                 st.cashOutAccrued();
                 s.bohStaff.remove(i);
                 log.popup(" Chef quits", "Kitchen staff quit after a rough week.", "Morale low");
@@ -242,7 +249,9 @@ public class StaffSystem {
             if (fightsThisWeek >= 2 && r.nextInt(100) < managerQuit) {
                 Staff manager = s.generalManagers.get(i);
                 double due = manager.getAccruedThisWeek();
-                if (due > 0) eco.payOrDebt(due, "Wages payout (manager quits)", CostTag.WAGES);
+                if (due > 0 && !eco.tryPay(due, TransactionType.WAGES, "Wages payout (manager quits)", CostTag.WAGES)) {
+                    continue;
+                }
                 manager.cashOutAccrued();
                 s.generalManagers.remove(i);
                 log.neg(" Manager resigns. \"This place is chaos.\"");
