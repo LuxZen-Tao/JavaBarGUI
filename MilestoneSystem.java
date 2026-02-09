@@ -148,13 +148,13 @@ public class MilestoneSystem {
             }
             if (!hasPrev) return false;
         }
-        if (upgrade == PubUpgrade.DOOR_TEAM_II) {
+        if (upgrade == PubUpgrade.DOOR_TEAM_II || upgrade == PubUpgrade.DOOR_TEAM_III) {
             return s.achievedMilestones.contains(Milestone.REP_STAR);
         }
         if (upgrade == PubUpgrade.CCTV) {
             return s.achievedMilestones.contains(Milestone.CASH_STACK);
         }
-        if (upgrade == PubUpgrade.STAFF_ROOM_II) {
+        if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) {
             return s.achievedMilestones.contains(Milestone.FIVE_NIGHTS);
         }
         if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT) {
@@ -163,7 +163,7 @@ public class MilestoneSystem {
         if (upgrade == PubUpgrade.HYGIENE_TRAINING) {
             return s.achievedMilestones.contains(Milestone.KITCHEN_LAUNCH);
         }
-        if (upgrade == PubUpgrade.KITCHEN_STAFFING_II) {
+        if (upgrade == PubUpgrade.KITCHEN_STAFFING_II || upgrade == PubUpgrade.KITCHEN_STAFFING_III) {
             return s.achievedMilestones.contains(Milestone.PROFIT_STREAK_2);
         }
         return true;
