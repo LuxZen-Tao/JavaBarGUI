@@ -55,7 +55,7 @@ public class ReportSystem {
                 .append(" ( ").append(fmt2(debtDelta)).append(")\n\n");
 
         sb.append("Rent accrued: ").append(fmt2(s.rentAccruedThisWeek))
-                .append(" / ").append(fmt2(s.weeklyRent)).append("\n");
+                .append(" / ").append(fmt2(s.weeklyRentTotal())).append("\n");
         sb.append("Security level: ").append(s.baseSecurityLevel).append("\n");
         double dailySecurity = s.baseSecurityLevel * SecuritySystem.SECURITY_UPKEEP_PER_LEVEL;
         sb.append("Security upkeep (daily): ").append(fmt2(dailySecurity)).append("\n");
@@ -86,6 +86,17 @@ public class ReportSystem {
         sb.append("Bar:      ").append(s.nightPunters.size()).append("/").append(s.maxBarOccupancy).append("\n");
         if (s.kitchenUnlocked) {
             sb.append("Food spoiled (last night): ").append(s.foodSpoiledLastNight).append("\n");
+        }
+        if (s.innUnlocked) {
+            sb.append("Inn: ").append(s.lastNightRoomsBooked).append("/").append(s.roomsTotal).append(" rooms booked\n");
+            sb.append("Inn revenue tonight: ").append(fmt2(s.lastNightRoomRevenue)).append("\n");
+            if (s.lastNightRoomsBooked > 0) {
+                sb.append("Inn avg rate: ")
+                        .append(fmt2(s.lastNightRoomRevenue / Math.max(1, s.lastNightRoomsBooked))).append("\n");
+            }
+            sb.append("Inn events: ").append(s.lastInnEventsCount).append("\n");
+        } else {
+            sb.append("Inn: Locked\n");
         }
 
         // Tiny tycoon sauce: simple health hint
@@ -119,6 +130,22 @@ public class ReportSystem {
             sb.append("  - ").append(line).append("\n");
         }
         sb.append("\n");
+        sb.append("INN SUMMARY\n");
+        if (!s.innUnlocked) {
+            sb.append("Inn locked.\n\n");
+        } else {
+            double innWages = s.innStaffWeeklyWages();
+            double innNet = s.weekInnRevenue - s.innMaintenanceAccruedWeekly - innWages - s.weekInnEventRefunds;
+            sb.append("Room nights sold: ").append(s.weekInnRoomsSold).append("\n");
+            sb.append("Inn revenue: ").append(fmt2(s.weekInnRevenue)).append("\n");
+            sb.append("Inn maintenance accrued: ").append(fmt2(s.innMaintenanceAccruedWeekly)).append("\n");
+            sb.append("Inn staff wages: ").append(fmt2(innWages)).append("\n");
+            sb.append("Inn events: ").append(s.weekInnEventsCount)
+                    .append(" (complaints ").append(s.weekInnComplaintCount)
+                    .append(", damage ").append(fmt2(s.weekInnEventMaintenance))
+                    .append(", refunds ").append(fmt2(s.weekInnEventRefunds)).append(")\n");
+            sb.append("Net inn profit: ").append(fmt2(innNet)).append("\n\n");
+        }
         sb.append(buildReportText(s));
         return sb.toString();
     }

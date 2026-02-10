@@ -145,6 +145,22 @@ public class ObservationEngine {
             "Bouncers kept the room calm without fuss.",
             "Security presence smoothed out rough edges."
     );
+    private static final List<String> WEATHER_LINES = List.of(
+            "Weather outside set the tone for the street crowd.",
+            "The weather had folks talking at the bar.",
+            "A shift in the weather nudged the vibe inside.",
+            "Tonight’s weather shaped the flow at the door.",
+            "The forecast matched the mood coming in.",
+            "Weather chatter drifted through the room.",
+            "The outside conditions colored the night’s pace.",
+            "The weather gave the night a different feel."
+    );
+    private static final List<String> MARSHALL_LINES = List.of(
+            "Marshalls kept the inn side steady tonight.",
+            "Inn marshalls smoothed out the rough edges.",
+            "The marshalls stayed visible around the rooms.",
+            "Inn security felt tighter with marshalls on."
+    );
 
     public record ObservationContext(
             int roundIndex,
@@ -203,6 +219,10 @@ public class ObservationEngine {
         addIf(candidates, Category.STAFF_CHANGE, ctx.staffChangeRecent);
         addIf(candidates, Category.REP_HIGH, s.reputation >= 60);
         addIf(candidates, Category.REP_LOW, s.reputation <= -20);
+        addIf(candidates, Category.MARSHALLS, s.marshallCount() > 0 && !majorEvent
+                && s.dayCounter != s.lastMarshallObservationDay && s.random.nextInt(100) < 12);
+        addIf(candidates, Category.WEATHER, s.currentWeather != null && !majorEvent
+                && s.dayCounter != s.lastWeatherObservationDay && s.random.nextInt(100) < 14);
         boolean recentSecurityEvent = (ctx.roundIndex - s.lastSecurityEventRound) <= 1;
         if (recentSecurityEvent) {
             if (s.activeSecurityTask != null) addIf(candidates, Category.TASK, true);
@@ -246,6 +266,14 @@ public class ObservationEngine {
             case LIGHTING -> pick(LIGHTING_LINES, s);
             case DOOR_UPGRADE -> pick(DOOR_UPGRADE_LINES, s);
             case BOUNCER_PRESENCE -> pick(BOUNCER_PRESENCE_LINES, s);
+            case WEATHER -> {
+                s.lastWeatherObservationDay = s.dayCounter;
+                yield pick(WEATHER_LINES, s);
+            }
+            case MARSHALLS -> {
+                s.lastMarshallObservationDay = s.dayCounter;
+                yield pick(MARSHALL_LINES, s);
+            }
             case VIBE -> pick(VIBE_LINES, s);
         };
         return formatWithName(pickObservationName(s), line);
@@ -302,6 +330,8 @@ public class ObservationEngine {
         LIGHTING,
         DOOR_UPGRADE,
         BOUNCER_PRESENCE,
+        WEATHER,
+        MARSHALLS,
         VIBE
     }
 }
