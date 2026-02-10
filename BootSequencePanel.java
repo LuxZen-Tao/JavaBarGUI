@@ -19,6 +19,7 @@ public class BootSequencePanel extends JPanel {
     private static final double MAX_WRITE_SECONDS = 5.0;
     private static final double CHARACTERS_PER_SECOND = 14.0;
 
+    private static final double GAME_BOOT_HOLD_SECONDS = 2.5;
     private static final double LOGO_FADE_IN_SECONDS = 0.9;
     private static final double LOGO_HOLD_SECONDS = 2.5;
     private static final double LOGO_FADE_OUT_SECONDS = 0.9;
@@ -27,9 +28,10 @@ public class BootSequencePanel extends JPanel {
     private static final double COVER_FADE_OUT_SECONDS = 1.0;
     private static final double RANDOM_FADE_OUT_SECONDS = 1.0;
 
-    private static final String COVER_PHRASE = "Brava!! Summer of '93 XOXO";
+    private static final String COVER_PHRASE = "Where it all started... Barva, Jan '89 XOXO";
 
     private enum Stage {
+        GAME_BOOT_HOLD,
         LOGO_FADE_IN, LOGO_HOLD, LOGO_FADE_OUT,
         COVER_WRITE, COVER_HOLD, COVER_FADE_OUT,
         RANDOM_WRITE, RANDOM_HOLD, RANDOM_FADE_OUT,
@@ -81,6 +83,7 @@ public class BootSequencePanel extends JPanel {
     private final List<String> phrases = new ArrayList<>();
     private final List<BootPhoto> randomPhotos = new ArrayList<>();
 
+    private BufferedImage gameBootImage;
     private BufferedImage logoImage;
     private BufferedImage coverImage;
     private BootPhoto coverPhoto;
@@ -101,6 +104,7 @@ public class BootSequencePanel extends JPanel {
 
     private void loadAssets() {
         Path root = Paths.get("Art", "BootSequence");
+        gameBootImage = loadGameBootImage(root.resolve("Photos"));
         logoImage = readImage(root.resolve(Paths.get("Logos", "StudioLogo.png")));
         coverImage = readImage(root.resolve(Paths.get("Photos", "GameCoverv1.png")));
 
@@ -127,7 +131,9 @@ public class BootSequencePanel extends JPanel {
     }
 
     private void chooseFlowStart() {
-        if (logoImage != null) {
+        if (gameBootImage != null) {
+            setStage(Stage.GAME_BOOT_HOLD);
+        } else if (logoImage != null) {
             setStage(Stage.LOGO_FADE_IN);
         } else if (coverPhoto != null) {
             setStage(Stage.COVER_WRITE);
@@ -199,7 +205,7 @@ public class BootSequencePanel extends JPanel {
         }
 
         Collections.shuffle(candidates, random);
-        int count = Math.min(3, candidates.size());
+        int count = Math.min(2, candidates.size());
         for (int i = 0; i < count; i++) {
             BufferedImage image = readImage(candidates.get(i));
             if (image == null) {
@@ -214,6 +220,23 @@ public class BootSequencePanel extends JPanel {
                     0.62 + (0.28 * random.nextDouble())
             ));
         }
+    }
+
+
+    private BufferedImage loadGameBootImage(Path photosDir) {
+        if (!Files.isDirectory(photosDir)) {
+            return null;
+        }
+
+        BufferedImage image = readImage(photosDir.resolve("GameBootScreen"));
+        if (image != null) return image;
+
+        String[] names = {"GameBootScreen.png", "GameBootScreen.jpg", "GameBootScreen.jpeg"};
+        for (String name : names) {
+            image = readImage(photosDir.resolve(name));
+            if (image != null) return image;
+        }
+        return null;
     }
 
     private BufferedImage readImage(Path path) {
@@ -244,6 +267,19 @@ public class BootSequencePanel extends JPanel {
 
         double elapsedSeconds = elapsedSeconds();
         switch (stage) {
+            case GAME_BOOT_HOLD -> {
+                if (elapsedSeconds >= GAME_BOOT_HOLD_SECONDS) {
+                    if (logoImage != null) {
+                        setStage(Stage.LOGO_FADE_IN);
+                    } else if (coverPhoto != null) {
+                        setStage(Stage.COVER_WRITE);
+                    } else if (!randomPhotos.isEmpty()) {
+                        setStage(Stage.RANDOM_WRITE);
+                    } else {
+                        setStage(Stage.DONE);
+                    }
+                }
+            }
             case LOGO_FADE_IN -> {
                 if (elapsedSeconds >= LOGO_FADE_IN_SECONDS) setStage(Stage.LOGO_HOLD);
             }
@@ -343,7 +379,9 @@ public class BootSequencePanel extends JPanel {
         g2.setColor(Color.BLACK);
         g2.fillRect(0, 0, getWidth(), getHeight());
 
-        if (stage == Stage.LOGO_FADE_IN || stage == Stage.LOGO_HOLD || stage == Stage.LOGO_FADE_OUT) {
+        if (stage == Stage.GAME_BOOT_HOLD) {
+            drawImageWithFade(g2, gameBootImage, null, 0.0);
+        } else if (stage == Stage.LOGO_FADE_IN || stage == Stage.LOGO_HOLD || stage == Stage.LOGO_FADE_OUT) {
             drawImageWithFade(g2, logoImage, null, logoFadeAlpha());
         } else if (stage == Stage.COVER_WRITE || stage == Stage.COVER_HOLD || stage == Stage.COVER_FADE_OUT) {
             drawCover(g2, elapsedSeconds());

@@ -445,7 +445,7 @@ public class Simulation {
         if (!s.nightOpen) {
             return new LandlordActionAvailability(false, "Night must be open.");
         }
-        if (s.pubLevel < def.getTier()) {
+        if (landlordActionTier() < def.getTier()) {
             return new LandlordActionAvailability(false, "Locked: Pub Level " + def.getTier());
         }
         if (currentRoundIndex() == s.lastLandlordActionRound) {
