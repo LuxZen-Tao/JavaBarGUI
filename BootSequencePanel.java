@@ -193,7 +193,7 @@ public class BootSequencePanel extends JPanel {
         try (Stream<Path> stream = Files.list(photosDir)) {
             stream.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".png"))
-                    .filter(p -> !p.getFileName().toString().equalsIgnoreCase("GameCoverv1.png"))
+                    .filter(p -> !isReservedBootPhotoName(p.getFileName().toString()))
                     .forEach(candidates::add);
         } catch (IOException ex) {
             System.err.println("[BootSequence] Failed listing photos: " + ex.getMessage());
@@ -222,6 +222,13 @@ public class BootSequencePanel extends JPanel {
         }
     }
 
+
+
+    private boolean isReservedBootPhotoName(String fileName) {
+        if (fileName == null || fileName.isBlank()) return false;
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        return lower.startsWith("gamecoverv1") || lower.startsWith("gamebootscreen");
+    }
 
     private BufferedImage loadGameBootImage(Path photosDir) {
         if (!Files.isDirectory(photosDir)) {
