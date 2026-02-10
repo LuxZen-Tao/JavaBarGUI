@@ -101,10 +101,15 @@ public class Simulation {
     private static final int GOOD_UNSERVED_MAX = 1;
     private static final int BAD_UNSERVED_MIN = 4;
     private static final int BAD_FOOD_MISSES_MIN = 2;
-    private static final double CHAOS_BASE_RISE = 3.0;
-    private static final double CHAOS_BASE_FALL = 4.0;
-    private static final double CHAOS_NEG_RAMP = 0.55;
-    private static final double CHAOS_POS_RAMP = 0.65;
+    private static final double CHAOS_BAD_DELTA_1 = 4.0;
+    private static final double CHAOS_BAD_DELTA_2 = 6.0;
+    private static final double CHAOS_BAD_DELTA_3 = 8.0;
+    private static final double CHAOS_GOOD_DELTA_1 = -3.0;
+    private static final double CHAOS_GOOD_DELTA_2 = -5.0;
+    private static final double CHAOS_GOOD_DELTA_3 = -7.0;
+    private static final int CHAOS_STREAK_CAP = 3;
+    private static final double CHAOS_MIN = 0.0;
+    private static final double CHAOS_MAX = 100.0;
     private static final double ACTION_IDENTITY_RANGE = 10.0;
     private static final double ACTION_ALIGN_CHANCE_BOOST = 0.08;
     private static final double ACTION_BALANCED_OUTCOME_BONUS = 0.20;
@@ -1216,6 +1221,18 @@ public class Simulation {
         return BouncerQuality.HIGH;
     }
 
+    int earlyClosePenaltyForRemaining(int roundsRemaining) {
+        return -2 * Math.max(0, roundsRemaining);
+    }
+
+    void applyChaosClassificationForTest(boolean badRound) {
+        if (badRound) {
+            updateChaosFromRound(BAD_UNSERVED_MIN, 1, 0, 0, 0);
+        } else {
+            updateChaosFromRound(0, 0, 0, 0, 0);
+        }
+    }
+
     public SecuritySystem.SecurityBreakdown securityBreakdown() {
         return security.breakdown();
     }
@@ -1491,9 +1508,14 @@ public class Simulation {
 
         if (early && !isNormalClose && !isGameOver) {
             int remaining = s.closingRound - s.roundInNight;
-            int repHit = Math.max(1, (int)Math.ceil(remaining / 3.0));
-            eco.applyRep(-repHit, "Closed early (" + remaining + " rounds left)");
-            log.action(" Closed early - locals notice. Rep -" + repHit);
+            int repPenalty = earlyClosePenaltyForRemaining(remaining);
+            s.lastEarlyCloseRoundsRemaining = Math.max(0, remaining);
+            s.lastEarlyCloseRepPenalty = repPenalty;
+            eco.applyRep(repPenalty, "Closed early (" + remaining + " rounds left)");
+            String eventLine = "Closed early: -" + Math.abs(repPenalty) + " rep (" + remaining + " rounds remaining)";
+            log.action(" " + eventLine);
+            s.earlyClosePenaltyLog.addFirst(eventLine);
+            while (s.earlyClosePenaltyLog.size() > 8) s.earlyClosePenaltyLog.removeLast();
         }
 
         s.nightOpen = false;
@@ -3951,6 +3973,19 @@ public class Simulation {
         sb.append("Bouncer reductions: theft ").append(pct(s.bouncerTheftReduction))
                 .append(" | negative ").append(pct(s.bouncerNegReduction))
                 .append(" | fights ").append(pct(s.bouncerFightReduction)).append("\n");
+        sb.append("Chaos total: ").append(fmt1(s.chaos)).append("\n");
+        sb.append("Chaos delta (round): ").append(fmt1(s.lastChaosDelta)).append("\n");
+        sb.append("Chaos avg (week): ")
+                .append(fmt1(s.weekChaosRounds > 0 ? (s.weekChaosTotal / s.weekChaosRounds) : s.chaos)).append("\n");
+        sb.append("Chaos streaks: good ").append(s.posStreak).append(" | bad ").append(s.negStreak).append("\n");
+        sb.append("Chaos constants: bad ").append(fmt1(CHAOS_BAD_DELTA_1)).append("/")
+                .append(fmt1(CHAOS_BAD_DELTA_2)).append("/").append(fmt1(CHAOS_BAD_DELTA_3))
+                .append(" | good ").append(fmt1(CHAOS_GOOD_DELTA_1)).append("/")
+                .append(fmt1(CHAOS_GOOD_DELTA_2)).append("/").append(fmt1(CHAOS_GOOD_DELTA_3))
+                .append(" | cap ").append(CHAOS_STREAK_CAP).append("\n");
+        sb.append("Early close formula: repPenalty = -2 * roundsRemaining\n");
+        sb.append("Last early close: ").append(s.lastEarlyCloseRepPenalty)
+                .append(" rep (R=").append(s.lastEarlyCloseRoundsRemaining).append(")\n");
 
         sb.append("\nSecurity breakdown:\n");
         sb.append("- Base security: ").append(breakdown.base()).append("\n");
@@ -4017,6 +4052,17 @@ public class Simulation {
         sb.append("- Upgrade loss severity: x").append(fmt2(s.upgradeLossSeverityMultiplier)).append("\n");
         sb.append("- Upgrade morale stability: ").append((int)Math.round(s.upgradeMoraleStabilityPct * 100)).append("%\n");
         sb.append("- Rep mitigation (bouncers+CCTV+upgrades): x").append(fmt2(s.securityIncidentRepMultiplier())).append("\n");
+
+        sb.append("\nRecent early-close penalties:\n");
+        if (s.earlyClosePenaltyLog.isEmpty()) {
+            sb.append("None\n");
+        } else {
+            int earlyCount = 0;
+            for (String entry : s.earlyClosePenaltyLog) {
+                sb.append("- ").append(entry).append("\n");
+                if (++earlyCount >= 4) break;
+            }
+        }
 
         sb.append("\nRecent security log:\n");
         if (s.securityEventLog.isEmpty()) {
@@ -4225,25 +4271,52 @@ public class Simulation {
         if (classification == RoundClassification.STRONGLY_NEGATIVE) {
             s.negStreak += 1;
             s.posStreak = 0;
-            base = CHAOS_BASE_RISE;
-            streakDelta = CHAOS_BASE_RISE * (s.negStreak * CHAOS_NEG_RAMP);
+            int streak = Math.min(CHAOS_STREAK_CAP, s.negStreak);
+            base = switch (streak) {
+                case 1 -> CHAOS_BAD_DELTA_1;
+                case 2 -> CHAOS_BAD_DELTA_2;
+                default -> CHAOS_BAD_DELTA_3;
+            };
+            streakDelta = base - CHAOS_BAD_DELTA_1;
         } else if (classification == RoundClassification.MOSTLY_POSITIVE) {
             s.posStreak += 1;
             s.negStreak = 0;
-            base = -CHAOS_BASE_FALL;
-            streakDelta = -CHAOS_BASE_FALL * (s.posStreak * CHAOS_POS_RAMP);
+            int streak = Math.min(CHAOS_STREAK_CAP, s.posStreak);
+            base = switch (streak) {
+                case 1 -> CHAOS_GOOD_DELTA_1;
+                case 2 -> CHAOS_GOOD_DELTA_2;
+                default -> CHAOS_GOOD_DELTA_3;
+            };
+            streakDelta = base - CHAOS_GOOD_DELTA_1;
         } else {
             s.posStreak = 0;
             s.negStreak = 0;
         }
 
-        double delta = base + streakDelta;
-        s.chaos = Math.max(0.0, Math.min(100.0, s.chaos + delta));
+        double delta = base;
+        s.chaos = Math.max(CHAOS_MIN, Math.min(CHAOS_MAX, s.chaos + delta));
 
         s.lastRoundClassification = formatClassification(classification);
         s.lastChaosDelta = delta;
         s.lastChaosDeltaBase = base;
         s.lastChaosDeltaStreak = streakDelta;
+        addChaosDeltaLog(delta, classification);
+        if (Math.abs(delta) >= 5.0) {
+            if (delta > 0) {
+                log.info("Chaos +" + (int)Math.round(delta) + " (bad streak x" + Math.max(1, Math.min(CHAOS_STREAK_CAP, s.negStreak)) + ")");
+            } else {
+                log.info("Order returning: chaos " + (int)Math.round(delta) + " (good streak x" + Math.max(1, Math.min(CHAOS_STREAK_CAP, s.posStreak)) + ")");
+            }
+        }
+    }
+
+
+    private void addChaosDeltaLog(double delta, RoundClassification classification) {
+        if (Math.abs(delta) < 0.01) return;
+        String line = String.format("%s | chaos %+,.1f | pos %d neg %d",
+                formatClassification(classification), delta, s.posStreak, s.negStreak);
+        s.chaosDeltaLog.addFirst(line);
+        while (s.chaosDeltaLog.size() > 10) s.chaosDeltaLog.removeLast();
     }
 
     private RoundClassification classifyRound(int unserved,
@@ -4429,14 +4502,33 @@ public class Simulation {
     }
 
     private String buildChaosInsightsLine() {
-        return s.lastRoundClassification
-                + " | pos " + s.posStreak
-                + " | neg " + s.negStreak
-                + "\nChaos delta: " + fmt1(s.lastChaosDelta)
-                + " (base " + fmt1(s.lastChaosDeltaBase)
-                + ", streak " + fmt1(s.lastChaosDeltaStreak) + ")"
-                + "\nMorale mult: neg x" + fmt2(s.lastChaosMoraleNegMult)
-                + ", pos x" + fmt2(s.lastChaosMoralePosMult);
+        StringBuilder sb = new StringBuilder();
+        sb.append(s.lastRoundClassification)
+                .append(" | pos ").append(s.posStreak)
+                .append(" | neg ").append(s.negStreak)
+                .append("\nChaos delta: ").append(fmt1(s.lastChaosDelta))
+                .append(" (base ").append(fmt1(s.lastChaosDeltaBase))
+                .append(", streak ").append(fmt1(s.lastChaosDeltaStreak)).append(")")
+                .append("\nConstants: bad ")
+                .append(fmt1(CHAOS_BAD_DELTA_1)).append("/")
+                .append(fmt1(CHAOS_BAD_DELTA_2)).append("/")
+                .append(fmt1(CHAOS_BAD_DELTA_3))
+                .append(" | good ")
+                .append(fmt1(CHAOS_GOOD_DELTA_1)).append("/")
+                .append(fmt1(CHAOS_GOOD_DELTA_2)).append("/")
+                .append(fmt1(CHAOS_GOOD_DELTA_3))
+                .append(" | streak cap ").append(CHAOS_STREAK_CAP)
+                .append("\nMorale mult: neg x").append(fmt2(s.lastChaosMoraleNegMult))
+                .append(", pos x").append(fmt2(s.lastChaosMoralePosMult));
+        if (!s.chaosDeltaLog.isEmpty()) {
+            sb.append("\nRecent chaos deltas:");
+            int count = 0;
+            for (String line : s.chaosDeltaLog) {
+                sb.append("\n- ").append(line);
+                if (++count >= 5) break;
+            }
+        }
+        return sb.toString();
     }
 
     private int riskRumorCount() {

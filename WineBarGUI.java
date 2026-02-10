@@ -2591,10 +2591,13 @@ public class WineBarGUI {
 
         int cap = sim.peekServeCapacity();
 
+        String closedSuffix = state.lastEarlyCloseRepPenalty < 0
+                ? (" | Last early close " + state.lastEarlyCloseRepPenalty + " rep")
+                : "";
         roundLabel.setText(state.nightOpen
                 ? ("Night OPEN  Round " + state.roundInNight + "/" + state.closingRound
                 + " | Bar " + state.nightPunters.size() + "/" + state.maxBarOccupancy)
-                : ("Night CLOSED  Ready"));
+                : ("Night CLOSED  Ready" + closedSuffix));
 
         SecuritySystem.SecurityBreakdown breakdown = sim.securityBreakdown();
         int sec = breakdown.total();
@@ -2605,7 +2608,7 @@ public class WineBarGUI {
         }
         String bouncerInfo = "Bouncers: " + state.bouncersHiredTonight + "/" + state.bouncerCap;
         String mitigationInfo = "Rep x" + String.format("%.2f", state.securityIncidentRepMultiplier());
-        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo));
+        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, state.chaos));
 
         staffLabel.setText(buildStaffBadgeText(cap));
         reportLabel.setText("Report: " + state.reports().summaryLine());
@@ -2715,7 +2718,16 @@ public class WineBarGUI {
                                          String taskShort,
                                          String bouncerInfo,
                                          String mitigationInfo) {
-        String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec;
+        return buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, 0.0);
+    }
+
+    static String buildSecurityBadgeText(int sec,
+                                         String policyShort,
+                                         String taskShort,
+                                         String bouncerInfo,
+                                         String mitigationInfo,
+                                         double chaos) {
+        String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec + " | Chaos " + String.format("%.1f", chaos);
         return "<html>" + policyLine + "<br>" + bouncerInfo + " | " + mitigationInfo + "</html>";
     }
 

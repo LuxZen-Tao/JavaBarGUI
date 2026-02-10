@@ -223,6 +223,10 @@ public class GameState {
     public int lastWeatherObservationDay = -999;
     public int lastMarshallObservationDay = -999;
     public String currentWeather = "Clear";
+    public int lastEarlyCloseRoundsRemaining = 0;
+    public int lastEarlyCloseRepPenalty = 0;
+    public final Deque<String> earlyClosePenaltyLog = new ArrayDeque<>();
+    public final Deque<String> chaosDeltaLog = new ArrayDeque<>();
 
     private static final LocalDate START_DATE = LocalDate.of(1989, 1, 16);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
