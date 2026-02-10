@@ -55,6 +55,11 @@ public class LoanSharkAccount {
         consecutiveFullPays = 0;
     }
 
+
+    public void setApr(double apr) {
+        this.apr = Math.max(0.0, apr);
+    }
+
     public void setPenaltyAddOnApr(double penaltyAddOnApr) {
         this.penaltyAddOnApr = Math.max(0.0, penaltyAddOnApr);
     }

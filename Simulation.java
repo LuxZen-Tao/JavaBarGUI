@@ -116,6 +116,18 @@ public class Simulation {
     private static final double ACTION_BALANCED_OUTCOME_BONUS = 0.20;
     private static final double ACTION_ALIGNED_OUTCOME_BONUS = 0.12;
     private static final double ACTION_MISALIGNED_PENALTY = 0.06;
+    private static final int BAILIFF_THRESHOLD_WEEKS = 3;
+    private static final int BAILIFF_UPGRADES_REMOVED_PER_VISIT = 2;
+    private static final double BAILIFF_CASH_SEIZE_FLAT = 120.0;
+    private static final double BAILIFF_CASH_SEIZE_PCT = 0.10;
+    private static final int BAILIFF_REP_SCAR = -12;
+    private static final double BANKRUPTCY_SUPPLIER_CREDIT_CAP = 400.0;
+    private static final int BANKRUPTCY_LONG_LOAN_LOCK_WEEKS = 24;
+    private static final double BANKRUPTCY_SHARK_APR_BONUS = 0.38;
+    private static final double BANKRUPTCY_SHARK_PENALTY_BONUS = 0.10;
+    private static final double BANKRUPTCY_NEG_REP_MULT = 1.45;
+    private static final double BANKRUPTCY_POS_REP_MULT = 0.55;
+
 
     private enum RumorTone { NEGATIVE, MIXED, POSITIVE }
     private enum RoundClassification { STRONGLY_NEGATIVE, MOSTLY_POSITIVE, NEUTRAL }
@@ -179,6 +191,7 @@ public class Simulation {
 
         // Apply persistent upgrade effects at boot
         applyPersistentUpgrades();
+        applyDebtSpiralPenalties();
         staff.updateTeamMorale();
 
         if (s.pubName == null || s.pubName.isBlank()) {
@@ -883,6 +896,12 @@ public class Simulation {
 
     public void hireStaff(Staff.Type t) {
         if (s.nightOpen) { log.neg("Hire staff between nights."); return; }
+        Staff.Type requestedType = t;
+        t = applyDebtSpiralHiringShift(t);
+        if (t != requestedType) {
+            log.neg("Debt spiral limits the hiring pool this week. " + requestedType.name().replace("_", " ")
+                    + " downgraded to " + t.name().replace("_", " ") + ".");
+        }
 
         if (t == Staff.Type.MANAGER) {
             if (s.managerPoolCount() >= s.managerCap) {
@@ -969,6 +988,28 @@ public class Simulation {
         log.pos(" Hired: " + hire);
     }
 
+    private Staff.Type applyDebtSpiralHiringShift(Staff.Type requested) {
+        if (requested == null) return Staff.Type.TRAINEE;
+        int tier = s.debtSpiralTier;
+        if (tier <= 0) return requested;
+        double roll = s.random.nextDouble();
+        double degradeChance = tier == 1 ? 0.12 : tier == 2 ? 0.24 : tier == 3 ? 0.38 : 0.55;
+        if (s.bankruptcyDeclared) degradeChance = Math.max(degradeChance, 0.70);
+        if (roll >= degradeChance) return requested;
+        return switch (requested) {
+            case MANAGER -> Staff.Type.ASSISTANT_MANAGER;
+            case ASSISTANT_MANAGER, DUTY_MANAGER -> Staff.Type.EXPERIENCED;
+            case HEAD_CHEF -> Staff.Type.SOUS_CHEF;
+            case SOUS_CHEF, CHEF_DE_PARTIE -> Staff.Type.KITCHEN_ASSISTANT;
+            case SENIOR_RECEPTIONIST, HEAD_HOUSEKEEPER -> Staff.Type.RECEPTIONIST;
+            case RECEPTIONIST, HOUSEKEEPER -> Staff.Type.RECEPTION_TRAINEE;
+            case SPEED, CHARISMA, SECURITY, EXPERIENCED -> Staff.Type.TRAINEE;
+            case CHEF -> Staff.Type.KITCHEN_PORTER;
+            default -> requested;
+        };
+    }
+
+
     public void fireStaffAt(int index) {
         if (s.nightOpen) { log.neg("Fire staff between nights."); return; }
         if (index < 0 || index >= s.fohStaff.size()) return;
@@ -1035,6 +1076,10 @@ public class Simulation {
     // --------------------
     public void openCreditLine(Bank bank) {
         if (bank == null) return;
+        if (s.bankruptcyLockWeeksRemaining > 0) {
+            log.neg("Bankruptcy lock active: banks refuse credit for " + s.bankruptcyLockWeeksRemaining + " more week(s).");
+            return;
+        }
         if (s.banksLocked) {
             log.neg("Banks refuse new credit lines while your business is unstable.");
             return;
@@ -1069,7 +1114,14 @@ public class Simulation {
         }
         double amount = 2000 + s.random.nextInt(4001);
         double apr = 0.18 + (s.random.nextDouble() * 0.17);
+        if (s.bankruptcyDeclared) {
+            apr += BANKRUPTCY_SHARK_APR_BONUS;
+        }
         s.loanShark.openLoan(amount, apr);
+        if (s.bankruptcyDeclared) {
+            s.loanShark.setPenaltyAddOnApr(s.loanShark.getPenaltyAddOnApr() + BANKRUPTCY_SHARK_PENALTY_BONUS);
+            log.neg("Bankruptcy stigma: shark terms are harsher and misses are punished harder.");
+        }
         s.cash += amount;
         s.creditScore = s.clampCreditScore(s.creditScore - 50);
         log.neg("Loan shark money taken. Credit score takes a hit.");
@@ -2020,12 +2072,15 @@ public class Simulation {
 
         staff.weeklyMoraleCheck(s.fightsThisWeek, s.random, log);
         staff.handleWeeklyLevelUps(s.random, log, s.chaos);
+        applyDebtSpiralMoraleDecay();
         identitySystem.updateWeeklyIdentity();
         rumors.updateWeeklyRumors();
         endOfWeekReport();
         preparePaydayBills(wagesDue, tipsDue);
         milestones.onWeekEnd();
+        if (s.bankruptcyLockWeeksRemaining > 0) s.bankruptcyLockWeeksRemaining--;
         applyPersistentUpgrades();
+        applyDebtSpiralPenalties();
         if (s.wageServePenaltyWeeks > 0) {
             s.wageServePenaltyWeeks = Math.max(0, s.wageServePenaltyWeeks - 1);
             if (s.wageServePenaltyWeeks == 0) s.wageServePenaltyPct = 0.0;
@@ -2547,7 +2602,7 @@ public class Simulation {
     private void applySupplierWeeklyInterest(SupplierTradeCredit account, String label) {
         if (account == null || account.getBalance() <= 0.0) return;
         double baseApr = 0.10;
-        double interest = account.getBalance() * ((baseApr + account.getPenaltyAddOnApr()) / 52.0);
+        double interest = account.getBalance() * ((baseApr + account.getPenaltyAddOnApr()) / 52.0) * s.debtSpiralInterestMultiplier;
         if (interest <= 0.0) return;
         account.addBalance(interest);
         log.info(label + " credit interest +GBP " + String.format("%.2f", interest));
@@ -2555,7 +2610,7 @@ public class Simulation {
 
     private void applyLoanSharkWeeklyInterest() {
         if (!s.loanShark.isOpen() || s.loanShark.getBalance() <= 0.0) return;
-        double interest = s.loanShark.weeklyInterestDue();
+        double interest = s.loanShark.weeklyInterestDue() * s.debtSpiralInterestMultiplier;
         if (interest <= 0.0) return;
         s.loanShark.applyInterest(interest);
         log.info("Loan shark interest +GBP " + String.format("%.2f", interest));
@@ -2664,9 +2719,14 @@ public class Simulation {
         boolean sharkMissed = false;
         boolean sharkPaidOnTime = false;
         boolean sharkHasBalance = s.loanShark.isOpen() && s.loanShark.getBalance() > 0.0;
+        double weeklyTotalDue = 0.0;
+        double weeklyTotalMinDue = 0.0;
+        boolean metMinThisWeek = true;
 
         for (PaydayBill bill : bills) {
             double targetAmount = Math.max(0.0, Math.min(bill.getFullDue(), bill.getSelectedAmount()));
+            weeklyTotalDue += bill.getFullDue();
+            weeklyTotalMinDue += bill.getMinDue();
             if (targetAmount <= 0.0 && bill.getFullDue() > 0.0) {
                 allFull = false;
             }
@@ -2690,6 +2750,9 @@ public class Simulation {
             }
 
             boolean paidFull = bill.isFullPayment(paidAmount);
+            if (paidAmount + 0.01 < bill.getMinDue()) {
+                metMinThisWeek = false;
+            }
             if (!paidFull && bill.getFullDue() > 0.0) {
                 allFull = false;
             }
@@ -2782,12 +2845,183 @@ public class Simulation {
             s.creditScore = s.clampCreditScore(s.creditScore + 8);
         }
 
+        resolveWeeklyMinimums(weeklyTotalDue, weeklyTotalMinDue, metMinThisWeek);
+
         updateNoDebtUsageAfterPayday();
         double totalLimit = s.totalCreditLimit();
         s.creditUtilization = totalLimit > 0.0 ? (s.creditLines.totalBalance() / totalLimit) : 0.0;
         bills.clear();
         s.paydayReady = false;
     }
+
+    private void resolveWeeklyMinimums(double weeklyTotalDue, double weeklyTotalMinDue, boolean metMinThisWeek) {
+        s.weeklyTotalDueLastResolution = weeklyTotalDue;
+        s.weeklyTotalMinDueLastResolution = weeklyTotalMinDue;
+        s.metMinimumsLastWeek = metMinThisWeek;
+        if (metMinThisWeek) {
+            s.consecutiveWeeksUnpaidMin = 0;
+        } else {
+            s.consecutiveWeeksUnpaidMin++;
+        }
+        s.debtSpiralTier = s.debtSpiralTierFromStreak();
+        applyDebtSpiralPenalties();
+
+        log.info("Weekly minimum resolution: min " + (metMinThisWeek ? "MET" : "MISSED")
+                + " | due GBP " + fmt2(weeklyTotalDue)
+                + " | min due GBP " + fmt2(weeklyTotalMinDue)
+                + " | consecutive missed-min weeks " + s.consecutiveWeeksUnpaidMin
+                + " | debt spiral tier " + s.debtSpiralTier + ".");
+
+        triggerBailiffsIfNeeded();
+    }
+
+    private void applyDebtSpiralPenalties() {
+        s.debtSpiralTier = s.debtSpiralTierFromStreak();
+        int tier = s.debtSpiralTier;
+        s.debtSpiralInterestMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 1.12;
+            case 2 -> 1.22;
+            case 3 -> 1.35;
+            default -> 1.50;
+        };
+        s.debtSpiralLateFeeMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 1.10;
+            case 2 -> 1.25;
+            case 3 -> 1.45;
+            default -> 1.65;
+        };
+        s.debtSpiralSupplierTrustMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 1.05;
+            case 2 -> 1.12;
+            case 3 -> 1.22;
+            default -> 1.35;
+        };
+        s.debtSpiralMoraleDecayMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 1.12;
+            case 2 -> 1.25;
+            case 3 -> 1.40;
+            default -> 1.60;
+        };
+        s.debtSpiralMisconductChanceMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 1.12;
+            case 2 -> 1.26;
+            case 3 -> 1.45;
+            default -> 1.70;
+        };
+        s.debtSpiralNegativeRepMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 1.10;
+            case 2 -> 1.22;
+            case 3 -> 1.35;
+            default -> 1.52;
+        };
+        s.debtSpiralPositiveRepMultiplier = switch (tier) {
+            case 0 -> 1.0;
+            case 1 -> 0.95;
+            case 2 -> 0.86;
+            case 3 -> 0.76;
+            default -> 0.65;
+        };
+
+        if (s.bankruptcyDeclared) {
+            s.debtSpiralNegativeRepMultiplier = Math.max(s.debtSpiralNegativeRepMultiplier, BANKRUPTCY_NEG_REP_MULT);
+            s.debtSpiralPositiveRepMultiplier = Math.min(s.debtSpiralPositiveRepMultiplier, BANKRUPTCY_POS_REP_MULT);
+            s.debtSpiralSupplierTrustMultiplier = Math.max(s.debtSpiralSupplierTrustMultiplier, 1.40);
+            s.debtSpiralMisconductChanceMultiplier = Math.max(s.debtSpiralMisconductChanceMultiplier, 1.80);
+        }
+    }
+
+    private void applyDebtSpiralMoraleDecay() {
+        if (s.debtSpiralTier <= 0) return;
+        int moraleHit = Math.max(1, (int)Math.round(s.debtSpiralTier * s.debtSpiralMoraleDecayMultiplier));
+        adjustAllStaffMorale(-moraleHit);
+        log.neg("Debt spiral pressure: staff morale -" + moraleHit + " this week.");
+    }
+
+    private void triggerBailiffsIfNeeded() {
+        if (s.consecutiveWeeksUnpaidMin <= BAILIFF_THRESHOLD_WEEKS) {
+            return;
+        }
+
+        java.util.List<PubUpgrade> removable = new java.util.ArrayList<>(s.ownedUpgrades);
+        removable.sort(java.util.Comparator
+                .comparingDouble(PubUpgrade::getCost)
+                .thenComparing(PubUpgrade::name));
+
+        int removeCount = Math.min(BAILIFF_UPGRADES_REMOVED_PER_VISIT, removable.size());
+        java.util.List<String> removedLabels = new java.util.ArrayList<>();
+        for (int i = 0; i < removeCount; i++) {
+            PubUpgrade removed = removable.get(i);
+            s.ownedUpgrades.remove(removed);
+            removedLabels.add(removed.getLabel());
+        }
+        applyPersistentUpgrades();
+
+        double seize = Math.min(s.cash, Math.max(BAILIFF_CASH_SEIZE_FLAT, s.cash * BAILIFF_CASH_SEIZE_PCT));
+        if (seize > 0.0) {
+            s.cash -= seize;
+        }
+
+        eco.applyRep(BAILIFF_REP_SCAR, "Bailiff enforcement");
+        s.bailiffStigma = true;
+
+        String removedText = removedLabels.isEmpty() ? "none" : String.join(", ", removedLabels);
+        log.neg("Bailiffs arrived (4th consecutive missed-min week): upgrades removed [" + removedText
+                + "], cash seized GBP " + fmt2(seize)
+                + ", permanent rep scar " + BAILIFF_REP_SCAR + ".");
+    }
+
+    public void declareBankruptcy() {
+        java.util.List<String> removedUpgrades = new java.util.ArrayList<>();
+        for (PubUpgrade up : s.ownedUpgrades) {
+            removedUpgrades.add(up.getLabel());
+        }
+        s.ownedUpgrades.clear();
+        applyPersistentUpgrades();
+
+        s.pubLevel = 0;
+        s.pubLevelServeCapBonus = 0;
+        s.pubLevelBarCapBonus = 0;
+        s.pubLevelTrafficBonusPct = 0.0;
+        s.pubLevelRepMultiplier = 1.0;
+        s.pubLevelStaffCapBonus = 0;
+        s.pubLevelBouncerCapBonus = 0;
+        s.pubLevelManagerCapBonus = 0;
+        s.pubLevelChefCapBonus = 0;
+        s.starCount = 0;
+        s.prestigeMilestones.clear();
+        s.creditScore = 0;
+        s.banksLocked = true;
+        s.bankruptcyDeclared = true;
+        s.bankruptcySupplierStigma = true;
+        s.bankruptcyLockWeeksRemaining = BANKRUPTCY_LONG_LOAN_LOCK_WEEKS;
+        s.supplierTrustPenalty = Math.max(s.supplierTrustPenalty, 0.20);
+        s.supplierCreditCapOverride = BANKRUPTCY_SUPPLIER_CREDIT_CAP;
+        s.consecutiveWeeksUnpaidMin = 0;
+        s.debtSpiralTier = 0;
+        s.metMinimumsLastWeek = true;
+
+        s.loanShark.setApr(s.loanShark.getApr() + BANKRUPTCY_SHARK_APR_BONUS);
+        s.loanShark.setPenaltyAddOnApr(s.loanShark.getPenaltyAddOnApr() + BANKRUPTCY_SHARK_PENALTY_BONUS);
+
+        applyDebtSpiralPenalties();
+        adjustAllStaffMorale(-18);
+        eco.applyRep(-30, "Bankruptcy declared");
+
+        log.header(" BANKRUPTCY DECLARED");
+        log.neg("Bankruptcy filed: all upgrades removed, pub level reset to 0, credit score reset to 0,"
+                + " supplier trust crushed, supplier invoice credit cap now GBP 400,"
+                + " and loan sharks turned harsher.");
+        if (!removedUpgrades.isEmpty()) {
+            log.neg("Bankruptcy repossession list: " + String.join(", ", removedUpgrades));
+        }
+    }
+
 
     private void applySupplierPayment(double amount, double minDue, boolean paidFull, String referenceId) {
         SupplierTradeCredit account = "SUPPLIER_FOOD".equals(referenceId)
@@ -2796,7 +3030,7 @@ public class Simulation {
         account.applyPayment(amount);
         if (amount + 0.01 < minDue) {
             double shortfall = Math.max(0.0, minDue - amount);
-            double lateFee = Math.max(6.0, shortfall * 0.08);
+            double lateFee = Math.max(6.0, shortfall * 0.08) * s.debtSpiralLateFeeMultiplier;
             account.addLateFee(lateFee);
             account.setPenaltyAddOnApr(Math.min(0.20, account.getPenaltyAddOnApr() + 0.02));
             account.setConsecutiveFullPays(0);
@@ -2840,14 +3074,14 @@ public class Simulation {
 
     private void applyCreditLinePenalty(CreditLine line, double shortfall) {
         if (line == null) return;
-        double lateFee = Math.max(5.0, shortfall * 0.10);
+        double lateFee = Math.max(5.0, shortfall * 0.10) * s.debtSpiralLateFeeMultiplier;
         line.addBalance(lateFee);
         line.setPenaltyAddOnApr(Math.min(0.25, line.getPenaltyAddOnApr() + 0.015));
         log.neg("Late fee on " + line.getLenderName() + ": GBP " + String.format("%.2f", lateFee));
     }
 
     private void applyLoanSharkPenalty(double shortfall) {
-        double lateFee = Math.max(8.0, shortfall * 0.12);
+        double lateFee = Math.max(8.0, shortfall * 0.12) * s.debtSpiralLateFeeMultiplier;
         s.loanShark.applyInterest(lateFee);
         s.loanShark.setPenaltyAddOnApr(Math.min(0.35, s.loanShark.getPenaltyAddOnApr() + 0.03));
         s.loanShark.markMissedPayment();
@@ -3629,6 +3863,7 @@ public class Simulation {
         double securityReduction = Math.min(0.45, security * 0.04);
         chance *= (1.0 - securityReduction);
         chance *= (1.0 - s.staffMisconductReductionPct);
+        chance *= s.debtSpiralMisconductChanceMultiplier;
         return Math.max(0.01, Math.min(0.30, chance));
     }
 
@@ -3733,8 +3968,10 @@ public class Simulation {
             int totalStaff = totalStaffCount();
             if (totalStaff > 0 && s.wagesPaidOnTimeWeeks >= 3) {
                 s.businessCollapsed = false;
-                s.banksLocked = false;
-                log.pos("Business stability improving. Banks are willing to talk again.");
+                if (s.bankruptcyLockWeeksRemaining <= 0) {
+                    s.banksLocked = false;
+                    log.pos("Business stability improving. Banks are willing to talk again.");
+                }
             }
         }
     }
@@ -3983,6 +4220,18 @@ public class Simulation {
         return sb.toString();
     }
 
+    public String bankruptcyConsequencesText() {
+        return "Declare Bankruptcy consequences:\n"
+                + "- Remove ALL installed upgrades.\n"
+                + "- Reset pub level to 0 and prestige progression to zero-state.\n"
+                + "- Credit score reset to 0, banks locked for a long period.\n"
+                + "- Supplier trust set to minimum with bankruptcy stigma.\n"
+                + "- Supplier invoice credit cap set to GBP 400 (not cash).\n"
+                + "- Reputation becomes harder to improve and easier to lose.\n"
+                + "- Hiring pool worsens; instability rises.\n"
+                + "- Loan sharks stay available but on harsher terms.";
+    }
+
     private String buildFinanceBankingText(double creditBalance, double creditWeeklyDue) {
         StringBuilder sb = new StringBuilder();
         sb.append("Cash: GBP ").append(fmt2(s.cash)).append("\n");
@@ -3991,14 +4240,32 @@ public class Simulation {
         sb.append("Total bank debt: GBP ").append(fmt2(creditBalance)).append(" / ")
                 .append(fmt2(s.totalCreditLimit())).append("\n");
         sb.append("Weekly bank repayments due: GBP ").append(fmt2(creditWeeklyDue)).append("\n");
+        sb.append("Consecutive missed-min weeks: ").append(s.consecutiveWeeksUnpaidMin)
+                .append(" | Debt spiral tier: ").append(s.debtSpiralTier).append("\n");
+        sb.append("Debt spiral modifiers: Interest x").append(fmt2(s.debtSpiralInterestMultiplier))
+                .append(" | Late fees x").append(fmt2(s.debtSpiralLateFeeMultiplier))
+                .append(" | Supplier trust x").append(fmt2(s.debtSpiralSupplierTrustMultiplier)).append("\n");
+        sb.append("Rep bias: negative x").append(fmt2(s.debtSpiralNegativeRepMultiplier))
+                .append(" | positive x").append(fmt2(s.debtSpiralPositiveRepMultiplier))
+                .append(" | Staff risk x").append(fmt2(s.debtSpiralMisconductChanceMultiplier)).append("\n");
+        sb.append("Bailiff rule: Bailiffs on 4th consecutive missed-min week.");
+        if (s.consecutiveWeeksUnpaidMin == BAILIFF_THRESHOLD_WEEKS) {
+            sb.append(" WARNING: miss minimums again and bailiffs arrive this week.");
+        }
+        sb.append("\n");
         if (s.loanShark.isOpen()) {
             sb.append("Loan shark balance: GBP ").append(fmt2(s.loanShark.getBalance()))
                     .append(" | Weekly due ").append(fmt2(s.loanShark.minPaymentDue()))
                     .append(" | APR ").append(String.format("%.2f", s.loanShark.getApr() * 100)).append("%\n");
         } else {
-            sb.append("Loan shark: None\n");
+            sb.append("Loan shark: None (still available; harsher if bankrupt)\n");
         }
-        sb.append("\nCredit lines:\n");
+        if (s.bankruptcyLockWeeksRemaining > 0) {
+            sb.append("Bankruptcy bank lock: ").append(s.bankruptcyLockWeeksRemaining).append(" week(s) remaining.\n");
+        }
+        sb.append("Supplier invoice credit cap: GBP ").append(fmt2(s.supplierCreditCap()));
+        if (s.bankruptcyDeclared) sb.append(" (bankruptcy cap enforced)");
+        sb.append("\n\nCredit lines:\n");
         for (CreditLine line : s.creditLines.getOpenLines()) {
             sb.append("  ").append(line.getLenderName())
                     .append(" | Balance ").append(fmt2(line.getBalance()))
@@ -4021,6 +4288,11 @@ public class Simulation {
         }
         sb.append("Weekly minimum due: GBP ").append(fmt2(minTotal)).append("\n");
         sb.append("Weekly full due:    GBP ").append(fmt2(fullTotal)).append("\n");
+        sb.append("Last resolution: min ").append(s.metMinimumsLastWeek ? "MET" : "MISSED")
+                .append(" | streak ").append(s.consecutiveWeeksUnpaidMin)
+                .append(" | tier ").append(s.debtSpiralTier)
+                .append(" | min due GBP ").append(fmt2(s.weeklyTotalMinDueLastResolution))
+                .append(" | total due GBP ").append(fmt2(s.weeklyTotalDueLastResolution)).append("\n");
         sb.append("Bills due:\n");
         if (s.paydayBills.isEmpty()) {
             sb.append("  None\n");
@@ -4038,6 +4310,7 @@ public class Simulation {
     private String buildSuppliersDetailText() {
         StringBuilder sb = new StringBuilder();
         sb.append("Supplier trust: ").append(s.supplierTrustLabel()).append("\n");
+        sb.append("Supplier trust pressure mult: x").append(fmt2(s.debtSpiralSupplierTrustMultiplier)).append("\n");
         sb.append("Supplier credit cap: GBP ").append(fmt2(s.supplierCreditCap())).append("\n");
         sb.append("Price multiplier: x").append(fmt2(s.supplierPriceMultiplier())).append("\n");
         sb.append("Wine supplier balance: GBP ").append(fmt2(s.supplierWineCredit.getBalance()))

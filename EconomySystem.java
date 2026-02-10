@@ -15,7 +15,8 @@ public class EconomySystem {
 
     public void applyRep(int delta, String reason) {
         if (delta == 0) return;
-        double mult = s.pubLevelRepMultiplier;
+        double repBias = delta < 0 ? s.debtSpiralNegativeRepMultiplier : s.debtSpiralPositiveRepMultiplier;
+        double mult = s.pubLevelRepMultiplier * repBias;
         int adjusted = (int)Math.round(delta * mult);
         if (adjusted == 0) adjusted = delta > 0 ? 1 : -1;
         s.reputation = s.clampRep(s.reputation + adjusted);

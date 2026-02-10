@@ -17,16 +17,18 @@ public class SupplierSystem {
         }
 
         Random r = s.random;
+        int tier = Math.max(0, s.debtSpiralTier);
 
-        // 35% chance: no deal (keeps it from being constant chaos)
-        if (r.nextInt(100) < 35) {
+        int noDealChance = 35 + (tier * 6) + (s.bankruptcySupplierStigma ? 12 : 0);
+        if (r.nextInt(100) < Math.min(85, noDealChance)) {
             s.supplierDeal = SupplierDeal.none();
             return;
         }
 
         Wine target = s.supplier.get(r.nextInt(s.supplier.size()));
 
-        boolean discount = r.nextBoolean();
+        int discountChance = 50 - (tier * 10) - (s.bankruptcySupplierStigma ? 20 : 0);
+        boolean discount = r.nextInt(100) < Math.max(5, discountChance);
 
         if (discount) {
             // 20%..60% off
