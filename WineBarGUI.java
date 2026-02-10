@@ -2033,7 +2033,7 @@ public class WineBarGUI {
             innPriceSlider.setPaintTicks(true);
             innPriceSlider.addChangeListener(e -> {
                 if (!state.innUnlocked) return;
-                state.roomPrice = innPriceSlider.getValue();
+                sim.setRoomPrice(innPriceSlider.getValue());
                 innPriceLabel.setText("Room price: " + money0(state.roomPrice));
                 refreshAll();
             });

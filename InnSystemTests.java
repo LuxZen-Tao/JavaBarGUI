@@ -10,6 +10,9 @@ public class InnSystemTests {
         testHousekeepingEffect();
         testDutyManagerEffects();
         testMaintenanceAccrualAndPayday();
+        testRateLockedBookings();
+        testInnVolatilityPenalty();
+        testInnReportStrings();
         testInnMenuSmoke();
         System.out.println("All InnSystemTests passed.");
         System.exit(0);
@@ -183,6 +186,82 @@ public class InnSystemTests {
         assert state.innMaintenanceAccruedWeekly > 0.0 : "Inn maintenance should accrue.";
         boolean found = state.paydayBills.stream().anyMatch(b -> b.getType() == PaydayBill.Type.INN_MAINTENANCE);
         assert found : "Payday bills should include inn maintenance.";
+    }
+
+    private static void testRateLockedBookings() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_2);
+        state.roomsTotal = 10;
+        state.roomPrice = 40.0;
+        state.innRep = 85.0;
+        state.cleanliness = 85.0;
+        state.reputation = 40;
+        state.fohStaff.add(StaffFactory.createStaff(state.nextStaffId++, "Rec", Staff.Type.SENIOR_RECEPTIONIST, new Random(10)));
+        state.fohStaff.add(StaffFactory.createStaff(state.nextStaffId++, "HK", Staff.Type.HEAD_HOUSEKEEPER, new Random(11)));
+        sim.openNight();
+        state.roundInNight = 10;
+        sim.setRoomPrice(60.0);
+        state.random.setSeed(12);
+        sim.runInnNightly();
+        assert state.lastNightRoomsBooked > 0 : "Bookings should occur for rate-lock test.";
+        boolean hasBaseRate = false;
+        boolean hasNewRate = false;
+        double revenue = 0.0;
+        int rooms = 0;
+        for (GameState.InnBookingRecord record : state.lastNightInnBookings) {
+            revenue += record.rooms() * record.rateApplied();
+            rooms += record.rooms();
+            if (Math.abs(record.rateApplied() - 40.0) < 0.01) hasBaseRate = true;
+            if (Math.abs(record.rateApplied() - 60.0) < 0.01) hasNewRate = true;
+        }
+        assert rooms == state.lastNightRoomsBooked : "Booking records should sum to total rooms.";
+        assert Math.abs(revenue - state.lastNightRoomRevenue) < 0.01 : "Revenue should match booking records.";
+        assert hasBaseRate && hasNewRate : "Bookings should lock rates before and after price changes.";
+    }
+
+    private static void testInnVolatilityPenalty() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_1);
+        state.innRep = 60.0;
+        state.chaos = 0.0;
+        sim.openNight();
+        sim.setRoomPrice(46.0);
+        sim.setRoomPrice(47.0);
+        sim.setRoomPrice(48.0);
+        assert state.innPriceChangesThisNight >= 3 : "Price changes should be tracked.";
+        assert state.chaos > 0.0 : "Volatility penalty should increase chaos.";
+        assert state.innRep < 60.0 : "Volatility penalty should reduce inn rep.";
+    }
+
+    private static void testInnReportStrings() {
+        GameState state = GameFactory.newGame();
+        state.innUnlocked = true;
+        state.roomsTotal = 5;
+        state.lastNightRoomsBooked = 2;
+        state.lastNightRoomRevenue = 80.0;
+        state.lastInnEventsCount = 1;
+        state.weekInnRoomsSold = 10;
+        state.weekInnRevenue = 400.0;
+        state.innMaintenanceAccruedWeekly = 25.0;
+        state.weekInnEventsCount = 2;
+        state.weekInnComplaintCount = 1;
+        state.weekInnEventMaintenance = 12.0;
+        state.weekInnEventRefunds = 0.0;
+        state.fohStaff.add(StaffFactory.createStaff(state.nextStaffId++, "Rec", Staff.Type.RECEPTIONIST, new Random(13)));
+        String report = ReportSystem.buildReportText(state);
+        assert report.contains("Inn: 2/5 rooms booked") : "Night report should include inn rooms.";
+        assert report.contains("Inn revenue tonight") : "Night report should include inn revenue.";
+        assert report.contains("Inn events: 1") : "Night report should include inn events.";
+        String weeklyReport = ReportSystem.buildWeeklyReportText(state);
+        assert weeklyReport.contains("INN SUMMARY") : "Weekly report should include inn summary.";
+        assert weeklyReport.contains("Room nights sold: 10") : "Weekly report should include room nights sold.";
+        assert weeklyReport.contains("Inn revenue:") : "Weekly report should include inn revenue.";
+        assert weeklyReport.contains("Inn maintenance accrued:") : "Weekly report should include inn maintenance.";
+        assert weeklyReport.contains("Inn staff wages:") : "Weekly report should include inn staff wages.";
+        assert weeklyReport.contains("Inn events: 2") : "Weekly report should include inn events.";
+        assert weeklyReport.contains("Net inn profit:") : "Weekly report should include net inn profit.";
     }
 
     private static void testInnMenuSmoke() {

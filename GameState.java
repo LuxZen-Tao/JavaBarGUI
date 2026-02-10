@@ -185,6 +185,7 @@ public class GameState {
     public double innRep = 0.0;
     public double cleanliness = 0.0;
     public double innMaintenanceAccruedWeekly = 0.0;
+    public int weekInnRoomsSold = 0;
     public int lastNightRoomsBooked = 0;
     public double lastNightRoomRevenue = 0.0;
     public String lastNightInnSummaryLine = "Inn locked.";
@@ -202,7 +203,19 @@ public class GameState {
     public int lastInnHousekeepingNeeded = 0;
     public int lastInnEventsCount = 0;
     public double weekInnRevenue = 0.0;
+    public int weekInnEventsCount = 0;
+    public int weekInnComplaintCount = 0;
+    public double weekInnEventMaintenance = 0.0;
+    public double weekInnEventRefunds = 0.0;
     public final Deque<String> innEventLog = new ArrayDeque<>();
+    public final List<InnBookingRecord> currentNightInnBookings = new ArrayList<>();
+    public final List<InnBookingRecord> lastNightInnBookings = new ArrayList<>();
+    public final List<InnPriceSegment> innPriceSegments = new ArrayList<>();
+    public int innPriceChangesThisNight = 0;
+
+    public record InnBookingRecord(int rooms, double rateApplied) {}
+
+    public record InnPriceSegment(int startRound, int endRound, double rateApplied) {}
 
     public int pubLevel = 0;
     public int pubLevelServeCapBonus = 0;
@@ -685,6 +698,22 @@ public class GameState {
             if (st.getType() != Staff.Type.ASSISTANT_MANAGER) count++;
         }
         return count;
+    }
+
+    public double innStaffWeeklyWages() {
+        double total = 0.0;
+        for (Staff st : fohStaff) {
+            if (st.getType() == Staff.Type.RECEPTION_TRAINEE
+                    || st.getType() == Staff.Type.RECEPTIONIST
+                    || st.getType() == Staff.Type.SENIOR_RECEPTIONIST
+                    || st.getType() == Staff.Type.HOUSEKEEPING_TRAINEE
+                    || st.getType() == Staff.Type.HOUSEKEEPER
+                    || st.getType() == Staff.Type.HEAD_HOUSEKEEPER
+                    || st.getType() == Staff.Type.DUTY_MANAGER) {
+                total += st.getWeeklyWage();
+            }
+        }
+        return total;
     }
 
     /**  Only defined once. Count BOH kitchen roles. */
