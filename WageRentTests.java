@@ -78,7 +78,7 @@ public class WageRentTests {
         Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
         assert closeTo(due.rent(), 420.0) : "Weekly rent due should be 420.";
         assert closeTo(due.wages(), wagesDue) : "Weekly wages due should be included in breakdown.";
-        assert due.total() >= due.rent() + due.wages() : "Total due should include rent and wages.";
+        assert due.total() >= due.rent() + due.wages() + due.innMaintenance() : "Total due should include rent, wages, and inn maintenance.";
     }
 
     private static boolean closeTo(double a, double b) {

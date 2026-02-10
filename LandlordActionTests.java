@@ -19,8 +19,8 @@ public class LandlordActionTests {
 
     private static void testActionsPerTier() {
         GameState state = GameFactory.newGame();
-        state.pubLevel = 2;
         Simulation sim = newSimulation(state);
+        state.pubLevel = 2;
         assert sim.getAvailableActionsForCurrentTier().size() == 3 : "Tier should expose exactly 3 actions.";
     }
 
@@ -35,10 +35,10 @@ public class LandlordActionTests {
 
     private static void testOneActionPerRound() {
         GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
         state.pubLevel = 1;
         state.nightOpen = true;
         state.roundInNight = 1;
-        Simulation sim = newSimulation(state);
         LandlordActionDef first = sim.getAvailableActionsForCurrentTier().get(0);
         LandlordActionDef second = sim.getAvailableActionsForCurrentTier().get(1);
 
@@ -50,10 +50,10 @@ public class LandlordActionTests {
 
     private static void testCooldownTicking() {
         GameState state = GameFactory.newGame();
-        state.pubLevel = 1;
-        state.random.setSeed(42);
         Simulation sim = newSimulation(state);
+        state.random.setSeed(42);
         sim.openNight();
+        state.pubLevel = 1;
         LandlordActionDef action = sim.getAvailableActionsForCurrentTier().get(0);
         sim.resolveLandlordAction(action.getId());
         int cooldown = state.landlordActionStates.get(action.getId()).getCooldownRemaining();
@@ -68,8 +68,8 @@ public class LandlordActionTests {
 
     private static void testIdentityChanceBias() {
         GameState state = GameFactory.newGame();
-        state.pubLevel = 1;
         Simulation sim = newSimulation(state);
+        state.pubLevel = 1;
         LandlordActionDef classy = LandlordActionCatalog.byId(LandlordActionId.WORK_THE_ROOM);
         LandlordActionDef shady = LandlordActionCatalog.byId(LandlordActionId.PUSHY_UPSELL);
 
@@ -88,8 +88,8 @@ public class LandlordActionTests {
 
     private static void testBalancedOutcomePolarity() {
         GameState state = GameFactory.newGame();
-        state.pubLevel = 1;
         Simulation sim = newSimulation(state);
+        state.pubLevel = 1;
         LandlordActionDef balanced = LandlordActionCatalog.byId(LandlordActionId.RUN_A_SPECIAL);
 
         double posSuccess = sim.computeOutcomeScale(balanced, true, 5.0);
@@ -103,8 +103,8 @@ public class LandlordActionTests {
 
     private static void testActionsPanelSmoke() {
         GameState state = GameFactory.newGame();
-        state.pubLevel = 1;
         Simulation sim = newSimulation(state);
+        state.pubLevel = 1;
         LandlordActionsPanel panel = new LandlordActionsPanel(sim, state, id -> {});
         assert panel.getActionRowCount() == 3 : "Actions panel should render three options.";
     }

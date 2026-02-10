@@ -258,6 +258,7 @@ public class BankingRefactorTests {
         double expectedTotal = expectedSupplierMin
                 + state.rentAccruedThisWeek
                 + state.securityUpkeepAccruedThisWeek
+                + state.innMaintenanceAccruedWeekly
                 + state.tipsThisWeek * 0.50
                 + state.wagesAccruedThisWeek;
         assert Math.abs(due.supplier() - expectedSupplierMin) < 0.001 : "Supplier minimum due should be included in weekly totals.";

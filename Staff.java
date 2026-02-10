@@ -16,7 +16,14 @@ public class Staff {
         KITCHEN_ASSISTANT,
         KITCHEN_PORTER,
         ASSISTANT_MANAGER,
-        MANAGER
+        MANAGER,
+        RECEPTION_TRAINEE,
+        RECEPTIONIST,
+        SENIOR_RECEPTIONIST,
+        HOUSEKEEPING_TRAINEE,
+        HOUSEKEEPER,
+        HEAD_HOUSEKEEPER,
+        DUTY_MANAGER
     }
 
     private final int id;
@@ -132,7 +139,7 @@ public class Staff {
     }
 
     public boolean isManagerRole() {
-        return type == Type.MANAGER || type == Type.ASSISTANT_MANAGER;
+        return type == Type.MANAGER || type == Type.ASSISTANT_MANAGER || type == Type.DUTY_MANAGER;
     }
 
     public void incrementWeeksEmployed() {
@@ -155,6 +162,10 @@ public class Staff {
             case KITCHEN_PORTER -> type = applyPromotion(Type.KITCHEN_ASSISTANT, random);
             case KITCHEN_ASSISTANT -> type = applyPromotion(Type.CHEF_DE_PARTIE, random);
             case ASSISTANT_MANAGER -> type = applyPromotion(Type.MANAGER, random);
+            case RECEPTION_TRAINEE -> type = applyPromotion(Type.RECEPTIONIST, random);
+            case RECEPTIONIST -> type = applyPromotion(Type.SENIOR_RECEPTIONIST, random);
+            case HOUSEKEEPING_TRAINEE -> type = applyPromotion(Type.HOUSEKEEPER, random);
+            case HOUSEKEEPER -> type = applyPromotion(Type.HEAD_HOUSEKEEPER, random);
             default -> { return false; }
         }
         return true;
@@ -195,6 +206,20 @@ public class Staff {
                     "Assistant Manager | x1.05x1.15 capacity | tips +1% | wage " + wageRange(65, 115) + " | rep/round -2..+4";
             case MANAGER ->
                     "Manager | x1.10x1.35 capacity | 2%7% tips | wage " + wageRange(90, 160) + " | rep/round -3..+5";
+            case RECEPTION_TRAINEE ->
+                    "Reception Trainee | covers 2 bookings | wage " + wageRange(40, 60) + " | inn rep/round 0..+1";
+            case RECEPTIONIST ->
+                    "Receptionist | covers 4 bookings | wage " + wageRange(60, 90) + " | inn rep/round +1..+2";
+            case SENIOR_RECEPTIONIST ->
+                    "Senior Receptionist | covers 6 bookings | wage " + wageRange(85, 130) + " | inn rep/round +1..+3";
+            case HOUSEKEEPING_TRAINEE ->
+                    "Housekeeping Trainee | covers 2 rooms | wage " + wageRange(35, 55) + " | inn rep/round 0..+1";
+            case HOUSEKEEPER ->
+                    "Housekeeper | covers 4 rooms | wage " + wageRange(55, 80) + " | inn rep/round +1..+2";
+            case HEAD_HOUSEKEEPER ->
+                    "Head Housekeeper | covers 6 rooms | wage " + wageRange(75, 110) + " | inn rep/round +1..+3";
+            case DUTY_MANAGER ->
+                    "Duty Manager | inn ops lead | wage " + wageRange(95, 140) + " | inn rep/round +1..+3";
         };
     }
 

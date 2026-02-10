@@ -188,7 +188,7 @@ public class MilestoneSystem {
         if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) {
             return false;
         }
-        if (upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
+        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
             return false;
         }
         if (upgrade.getChainKey() != null && upgrade.getTier() > 1) {
@@ -237,7 +237,7 @@ public class MilestoneSystem {
         if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) {
             return "Requires Kitchen Upgrade II";
         }
-        if (upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
+        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
             return "Requires pub level " + (upgrade.getTier() - 1);
         }
         if (upgrade == PubUpgrade.DOOR_TEAM_II || upgrade == PubUpgrade.DOOR_TEAM_III) {
