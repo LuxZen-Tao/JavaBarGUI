@@ -2,6 +2,15 @@
 
 Java Bar Sim v3 is a **management/tycoon simulation** where you run a neighborhood pub night after night, balancing cash flow, staffing, reputation, risk, and long-term growth. The game runs in Java Swing and combines short tactical decisions (this round, this night) with strategic planning (this week, this quarter).
 
+### What’s new in this build
+
+- Expanded **banking and debt gameplay** with configurable credit lines, invoice timing, trade credit, and loan-shark escalation.
+- Deeper **security gameplay** with policy tuning, phased task resolution, and stronger links to morale/reputation outcomes.
+- A richer **identity + rumor + truth pipeline** where weekly behavior shapes pub identity, perception, and long-run demand.
+- More active **landlord action and activity planning** tools for round-level interventions and scheduled crowd shaping.
+- Added **music profile/ambience management** that lets you tune venue tone and indirectly support identity and customer fit.
+- Improved **reports/observation outputs** for trend-based diagnosis instead of only single-night reaction.
+
 ---
 
 ## 1) What the game is (at a glance)
@@ -96,6 +105,11 @@ Tracks all core money movement:
 - Avoid stacking multiple risk systems at once (high debt + low security + thin staffing).
 - Keep reserve cash for weekly bills before pursuing aggressive expansion.
 
+### How it interacts with other systems
+- Economy is the backbone for every other decision: staffing, supplier orders, upgrades, and activity scheduling all pull from the same cash pool.
+- Reputation, security incidents, and service quality feed demand and therefore revenue, so “non-finance” mistakes quickly become finance problems.
+- Weekly reporting closes the loop by showing whether your tactical choices actually improved cash conversion over time.
+
 ### Player tooltip
 > **Economy Tip:** If your bar is “profitable” nightly but you still crash weekly, your fixed obligations are outrunning growth. Slow expansion and stabilize payroll/rent coverage first.
 
@@ -114,6 +128,11 @@ Provides external funding options with escalating consequences:
 - Draw credit to bridge timing gaps, not to fund permanent losses.
 - Repay quickly to protect score and maintain future option value.
 - Respect threat tiers; repeated misses can convert temporary distress into systemic penalties.
+
+### How it interacts with other systems
+- Supplier invoices and payroll timing are major triggers for credit usage, so inventory/staff planning directly changes borrowing pressure.
+- Credit score health influences your future flexibility, which affects how aggressively you can pursue upgrades or event-heavy growth.
+- Loan-shark pressure compounds when operations are unstable, especially if security failures and poor nights reduce your ability to recover.
 
 ### Player tooltip
 > **Debt Tip:** Credit buys time, not profit. If debt is covering wages every week, your underlying operating model needs correction.
@@ -135,6 +154,11 @@ Controls stock acquisition and availability:
 - Avoid overstock spoilage and understock stockout penalties.
 - Keep enough depth for activity/event nights with demand spikes.
 
+### How it interacts with other systems
+- Pricing and reputation set demand shape, which should drive your stock strategy.
+- Activities/events can spike traffic unexpectedly, so inventory planning must be coordinated with scheduling.
+- Trade credit and invoice handling connect inventory success directly to your banking/debt risk.
+
 ### Player tooltip
 > **Stock Tip:** Empty shelves kill revenue instantly; overstock kills it slowly through waste and tied-up cash. Aim for controlled surplus, not extremes.
 
@@ -152,6 +176,11 @@ Sets your price multiplier, affecting:
 - Raise prices gradually and watch behavior signals.
 - High reputation can support stronger pricing, but only if service quality remains consistent.
 - Combine premium pricing with premium execution (staffing, security, vibe).
+
+### How it interacts with other systems
+- Price sensitivity is filtered through punter mix and pub identity; the same multiplier can perform differently under different crowd profiles.
+- Poor staffing/security execution reduces willingness to pay, weakening high-price strategies.
+- Strong report reading helps you tell apart “good margin” from “temporary margin with hidden demand decay.”
 
 ### Player tooltip
 > **Pricing Tip:** A price increase is only “real profit” if transaction volume and guest sentiment remain stable.
@@ -172,6 +201,11 @@ Manages front-of-house and back-of-house workforce performance:
 - Maintain role coverage before niche optimization.
 - Protect morale during rough periods (security and workload management matter).
 
+### How it interacts with other systems
+- Staffing quality affects service speed and customer satisfaction, which feed reputation, rumors, and future demand.
+- Wage obligations are one of your largest fixed costs, making staff planning central to debt stability.
+- Security policy and incident frequency strongly influence morale/retention, so labor and risk systems must be tuned together.
+
 ### Player tooltip
 > **Staff Tip:** When nights feel random and messy, it is often not randomness—it is hidden staffing mismatch plus morale drag.
 
@@ -190,6 +224,11 @@ Simulates customer volume and behavior using:
 - Match your offer to the customers you are currently attracting.
 - Don’t chase all segments at once; specialize intentionally.
 - Remember reputation amplifies both strengths and weaknesses.
+
+### How it interacts with other systems
+- Pricing, activities, and music/ambience all shape who shows up and how they spend.
+- Security incidents, wait times, and stockouts alter behavior in-night and influence return likelihood.
+- Rumor/sentiment systems echo punter experience into future weeks, creating momentum or drag.
 
 ### Player tooltip
 > **Punter Tip:** Reputation increases opportunity, but also magnifies consequences when service slips.
@@ -210,6 +249,11 @@ Handles risk-control mechanics:
 - Invest before incidents become routine; reactive spending is less efficient.
 - Use stronger security when running high-volume/high-chaos nights.
 
+### How it interacts with other systems
+- Security stabilizes staff morale and customer confidence, protecting both throughput and reputation.
+- Activity/event intensity changes risk load, so your security posture should be adjusted in advance.
+- Financially, reduced theft/fight losses improve net margins and reduce crisis borrowing.
+
 ### Player tooltip
 > **Security Tip:** Security is not just loss prevention—it protects staff morale, service consistency, and reputation compounding.
 
@@ -227,6 +271,11 @@ Lets you run themed activity nights (e.g., quiz/DJ/sports-style programming), wh
 - Schedule activities your current systems can actually support.
 - Prepare stock and staffing ahead of activity nights.
 - Use activities to reinforce your strategic identity, not as random buttons.
+
+### How it interacts with other systems
+- Activities directly pressure inventory, staff throughput, and security, so they should be scheduled as a cross-system plan.
+- Successful programming strengthens identity and can improve pricing power over time.
+- Failed programming (underprepared nights) hurts sentiment and can create cashflow whiplash.
 
 ### Player tooltip
 > **Activity Tip:** A “good” event at the wrong time becomes a bad event. Capacity first, promotion second.
@@ -246,6 +295,11 @@ Adds active tactical actions with cooldowns and tier gating:
 - Avoid low-impact usage just because the action is available.
 - Coordinate with security and staffing state.
 
+### How it interacts with other systems
+- Landlord actions are tactical amplifiers: best used to support a broader plan in economy/security/activity systems.
+- Their impact is larger when used at system stress points (cash-tight rounds, morale dips, incident spikes).
+- Identity context can make certain actions more synergistic with your current pub direction.
+
 ### Player tooltip
 > **Action Tip:** Cooldown tools are strongest when saved for inflection points, not routine rounds.
 
@@ -262,6 +316,11 @@ Injects environmental volatility:
 ### How to use it well
 - Build anti-fragility: liquidity buffer, staffing redundancy, and security readiness.
 - Expect bad variance and plan for survivability instead of perfect nights.
+
+### How it interacts with other systems
+- Events stress-test your weakest subsystem first; imbalance in cash, stock, labor, or security is quickly exposed.
+- Good risk prep turns random shocks into manageable variance rather than cascading failures.
+- Event outcomes feed reports, rumors, and reputation, influencing future demand conditions.
 
 ### Player tooltip
 > **Event Tip:** The best event strategy is not prediction—it is resilience.
@@ -281,6 +340,11 @@ Models narrative momentum around your venue:
 - Sudden quality drops can damage sentiment disproportionately.
 - Treat public perception as a managed resource.
 
+### How it interacts with other systems
+- Service reliability, security outcomes, and activity quality all generate the “raw data” that rumor/sentiment systems interpret.
+- Truth-pressure mechanics gradually reward genuine operational improvement and punish cosmetic short-term fixes.
+- Perception shifts feed punter demand and can alter how effective your pricing strategy remains.
+
 ### Player tooltip
 > **Reputation Tip:** Narrative lag is real—today’s good choices may repair last week’s damage, but not instantly.
 
@@ -294,6 +358,11 @@ Tracks your pub’s evolving character profile (e.g., style/vibe archetypes), sh
 ### How to use it well
 - Commit to a coherent direction; mixed signals dilute system benefits.
 - Align upgrades, activities, pricing, and policy with target identity.
+
+### How it interacts with other systems
+- Identity is the strategic glue across activities, music profile, pricing posture, and upgrade priorities.
+- Cohesion improves downstream systems (demand fit, sentiment resilience, reputation growth).
+- Incoherence creates friction where individually good choices fail to compound.
 
 ### Player tooltip
 > **Identity Tip:** Identity is a multiplier system. Small aligned decisions become large long-term effects.
@@ -312,6 +381,11 @@ Provides long-term capability growth via:
 - Prioritize upgrades that remove your current bottleneck.
 - Sequence upgrades to support your chosen strategy (throughput, safety, premium, etc.).
 - Don’t over-buy future power while current bills are unstable.
+
+### How it interacts with other systems
+- Upgrades can shift economics, risk tolerance, and service ceilings simultaneously.
+- Milestones/pub-level progression reward sustained system balance, not isolated one-night spikes.
+- Prestige trajectory is strongest when identity, operational reliability, and finances are all aligned.
 
 ### Player tooltip
 > **Upgrade Tip:** The best upgrade is the one that fixes the next failure mode—not the flashiest description.
@@ -332,6 +406,11 @@ Expands gameplay into room operations:
 - Keep cleanliness/reputation in healthy bands to avoid compounding penalties.
 - Ensure staff support exists before adding large room inventory.
 
+### How it interacts with other systems
+- Inn operations share budget and labor with pub operations, so overexpansion can starve core service.
+- Reputation and cleanliness feedback loops connect inn performance to overall venue perception.
+- Room revenue can improve debt resilience when staffing and maintenance are kept stable.
+
 ### Player tooltip
 > **Inn Tip:** Rooms add revenue potential and management burden at the same time—treat inn growth like opening a second business line.
 
@@ -350,8 +429,31 @@ Convert simulation outcomes into readable diagnostics:
 - Use weekly trends for strategic direction changes.
 - Compare intent vs. outcomes (what you planned vs. what actually happened).
 
+### How they interact with other systems
+- Reports are the integration layer: they reveal hidden coupling across pricing, staffing, inventory, security, and sentiment.
+- Observation outputs help identify whether a problem is local (one subsystem) or systemic (cross-subsystem drift).
+- Better diagnostics reduce overreactions and improve long-term consistency.
+
 ### Player tooltip
 > **Report Tip:** If you only react to single-night spikes, you’ll over-correct. Use trend windows for strategic decisions.
+
+---
+
+## 5.16 Music & ambience profiles
+
+### What it does
+Lets you control venue soundtrack/ambience profiles to shape tone and customer fit.
+
+### How to use it well
+- Pick profiles that reinforce your current identity and target crowd.
+- Avoid constant switching; use music direction as part of a stable strategy.
+
+### How it interacts with other systems
+- Music choices support identity coherence and can improve activity night consistency.
+- Better crowd fit can indirectly support sentiment and pricing tolerance.
+
+### Player tooltip
+> **Music Tip:** Treat music as strategic framing—small per-night effects become meaningful over many weeks.
 
 ---
 
