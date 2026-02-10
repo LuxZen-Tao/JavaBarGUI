@@ -109,6 +109,7 @@ public class WineBarGUI {
     private final JLabel invoiceDueLabel = new JLabel();
     private final JLabel calendarLabel = new JLabel();
     private final JLabel roundLabel = new JLabel();
+    private final JLabel timePhaseLabel = new JLabel();
     private final JLabel securityLabel = new JLabel();
     private final JLabel staffLabel = new JLabel();
     private final JLabel reportLabel = new JLabel();
@@ -143,6 +144,7 @@ public class WineBarGUI {
 
     private final JButton securityBtn = new JButton("Security");
     private final JButton loanSharkBtn = new JButton("Finance");
+    private final JComboBox<MusicProfileType> musicProfileBox = new JComboBox<>(MusicProfileType.values());
 
     private final JToggleButton autoBtn = new JToggleButton("Auto: OFF");
     private Timer autoTimer;
@@ -309,7 +311,17 @@ public class WineBarGUI {
         });
 
         JPanel nightControls = createControlGroup("Night", openBtn, nextRoundBtn, closeBtn, happyHourBtn);
-        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
+        musicProfileBox.setToolTipText(sim.currentMusicTooltip());
+        musicProfileBox.addActionListener(e -> {
+            Object selected = musicProfileBox.getSelectedItem();
+            if (selected instanceof MusicProfileType profile) {
+                sim.setMusicProfile(profile);
+                musicProfileBox.setToolTipText(sim.currentMusicTooltip());
+                refreshAll();
+            }
+        });
+
+        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, musicProfileBox, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
         JPanel managementControls = createControlGroup("Management", staffBtn, innBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
         JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
@@ -389,6 +401,8 @@ public class WineBarGUI {
         nightIndicator.setVisible(false);
         wrapper.add(nightIndicator);
         wrapper.add(roundLabel);
+        wrapper.add(new JLabel("  "));
+        wrapper.add(timePhaseLabel);
         return createBadge(NIGHT_BG, wrapper);
     }
 
@@ -2594,6 +2608,7 @@ public class WineBarGUI {
         String closedSuffix = state.lastEarlyCloseRepPenalty < 0
                 ? (" | Last early close " + state.lastEarlyCloseRepPenalty + " rep")
                 : "";
+        timePhaseLabel.setText("Time: " + state.getCurrentTime() + " | Phase: " + state.getCurrentPhase() + " | Music: " + state.currentMusicProfile.getLabel());
         roundLabel.setText(state.nightOpen
                 ? ("Night OPEN  Round " + state.roundInNight + "/" + state.closingRound
                 + " | Bar " + state.nightPunters.size() + "/" + state.maxBarOccupancy)
@@ -2643,6 +2658,8 @@ public class WineBarGUI {
             kitchenSupplierBtn.setToolTipText(null);
         }
         happyHourBtn.setEnabled(state.nightOpen);
+        musicProfileBox.setSelectedItem(state.currentMusicProfile);
+        musicProfileBox.setToolTipText(sim.currentMusicTooltip());
 
         lastCash = state.cash;
         lastDebt = currentDebt;

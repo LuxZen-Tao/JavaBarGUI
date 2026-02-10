@@ -127,7 +127,7 @@ public class StaffSystem {
         return Math.max(0.0, base + perStaff + perSkill + perPunter);
     }
 
-    public void adjustMoraleAfterRound(int unserved, int eventsThisRound, int reputation, double tipRate, int security, double chaos) {
+    public void adjustMoraleAfterRound(int unserved, int eventsThisRound, int reputation, double tipRate, int security, double chaos, double musicMoraleDelta, double fatiguePressure) {
         if (s.fohStaff.isEmpty() && s.bohStaff.isEmpty() && s.generalManagers.isEmpty()) {
             s.teamMorale = 70.0;
             s.fohMorale = 70.0;
@@ -157,6 +157,10 @@ public class StaffSystem {
             delta = (int)Math.round(delta * 1.15);
         }
 
+        if (fatiguePressure > 8.0) {
+            delta -= Math.min(4, (int)Math.round((fatiguePressure - 8.0) / 4.0));
+        }
+
         double negMult = chaosMoraleNegMultiplier(chaos);
         double posMult = chaosMoralePosMultiplier(chaos);
         s.lastChaosMoraleNegMult = negMult;
@@ -172,9 +176,10 @@ public class StaffSystem {
         if (bohDelta < 0 && s.bohMoraleResiliencePct > 0.0) {
             bohDelta = (int)Math.round(bohDelta * (1.0 - s.bohMoraleResiliencePct));
         }
-        for (Staff st : s.fohStaff) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
-        for (Staff st : s.bohStaff) st.adjustMorale(bohDelta + smallMoraleDrift(chaos, smoothNight));
-        for (Staff st : s.generalManagers) st.adjustMorale(delta + smallMoraleDrift(chaos, smoothNight));
+        int musicDelta = (int)Math.round(musicMoraleDelta);
+        for (Staff st : s.fohStaff) st.adjustMorale(delta + musicDelta + smallMoraleDrift(chaos, smoothNight));
+        for (Staff st : s.bohStaff) st.adjustMorale(bohDelta + musicDelta + smallMoraleDrift(chaos, smoothNight));
+        for (Staff st : s.generalManagers) st.adjustMorale(delta + musicDelta + smallMoraleDrift(chaos, smoothNight));
 
         updateTeamMorale();
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus
