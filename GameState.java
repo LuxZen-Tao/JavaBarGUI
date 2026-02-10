@@ -57,6 +57,14 @@ public class GameState {
     public double opCostSkillThisWeek = 0.0;
     public double opCostOccupancyThisWeek = 0.0;
 
+    public double dailyRent() {
+        return 60.0 + (roomsTotal * 20.0);
+    }
+
+    public double weeklyRentTotal() {
+        return dailyRent() * 7.0;
+    }
+
     // rep/security
     public int reputation = 10;                 // -100..100
     public int consecutiveNeg100Rounds = 0;
@@ -648,7 +656,7 @@ public class GameState {
 
     public StaffSummary staff() {
         return new StaffSummary(
-                fohStaff.size(),
+                fohStaffCount(),
                 fohStaffCap,
                 generalManagers.size(),
                 assistantManagerCount(),
@@ -668,6 +676,14 @@ public class GameState {
         for (Staff st : fohStaff) if (st.getType() == type) count++;
         for (Staff st : bohStaff) if (st.getType() == type) count++;
         for (Staff st : generalManagers) if (st.getType() == type) count++;
+        return count;
+    }
+
+    public int fohStaffCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (st.getType() != Staff.Type.ASSISTANT_MANAGER) count++;
+        }
         return count;
     }
 
