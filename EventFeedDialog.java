@@ -15,8 +15,12 @@ public class EventFeedDialog {
         area = new JTextArea(18, 56);
         area.setEditable(false);
         area.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
 
-        dialog.add(new JScrollPane(area), BorderLayout.CENTER);
+        JScrollPane scroll = new JScrollPane(area);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        dialog.add(scroll, BorderLayout.CENTER);
 
         JButton close = new JButton("Close");
         close.addActionListener(e -> dialog.setVisible(false));

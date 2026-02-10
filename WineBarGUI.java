@@ -3,6 +3,8 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
@@ -699,8 +701,10 @@ public class WineBarGUI {
         reportArea = new JTextArea(14, 36);
         reportArea.setEditable(false);
         reportArea.setFont(UIManager.getFont("TextArea.font"));
-        reportArea.setLineWrap(false);
+        reportArea.setLineWrap(true);
+        reportArea.setWrapStyleWord(true);
         JScrollPane reportScroll = new JScrollPane(reportArea);
+        reportScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         reportScroll.setPreferredSize(new Dimension(0, 240));
 
         p.add(header, BorderLayout.NORTH);
@@ -718,6 +722,8 @@ public class WineBarGUI {
             reportsDialogArea = new JTextArea(20, 50);
             reportsDialogArea.setEditable(false);
             reportsDialogArea.setFont(UIManager.getFont("TextArea.font"));
+            reportsDialogArea.setLineWrap(true);
+            reportsDialogArea.setWrapStyleWord(true);
             tabs.add("Live Reports", new JScrollPane(reportsDialogArea));
 
             JList<String> reportsDialogInventoryList = new JList<>(invModel);
@@ -726,6 +732,8 @@ public class WineBarGUI {
             reportsDialogLoansArea = new JTextArea(14, 40);
             reportsDialogLoansArea.setEditable(false);
             reportsDialogLoansArea.setFont(UIManager.getFont("TextArea.font"));
+            reportsDialogLoansArea.setLineWrap(true);
+            reportsDialogLoansArea.setWrapStyleWord(true);
             tabs.add("Loans", new JScrollPane(reportsDialogLoansArea));
 
             reportsDialog.add(tabs, BorderLayout.CENTER);
@@ -788,7 +796,14 @@ public class WineBarGUI {
             financeActions.add(declareBankruptcyButton);
             financeTab.add(financeActions, BorderLayout.SOUTH);
             tabs.add("Finance & Banking", financeTab);
-            tabs.add("Payday", new JScrollPane(missionPaydayArea));
+            JPanel paydayTab = new JPanel(new BorderLayout(6, 6));
+            paydayTab.add(new JScrollPane(missionPaydayArea), BorderLayout.CENTER);
+            JPanel paydayActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            JButton paydayReportButton = new JButton("Payday Report");
+            paydayReportButton.addActionListener(e -> openPaydayDialog());
+            paydayActions.add(paydayReportButton);
+            paydayTab.add(paydayActions, BorderLayout.SOUTH);
+            tabs.add("Payday", paydayTab);
             tabs.add("Suppliers", new JScrollPane(missionSuppliersArea));
             tabs.add("Pub Progression", new JScrollPane(missionProgressionArea));
             JPanel securityTab = new JPanel(new BorderLayout(6, 6));
@@ -1180,6 +1195,18 @@ public class WineBarGUI {
         if (paydayDialog == null) {
             paydayDialog = new JDialog(frame, "Payday Report", false);
             paydayDialog.setLayout(new BorderLayout(10, 10));
+            paydayDialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+            paydayDialog.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    handlePaydayWindowCloseAtWeekEnd();
+                }
+
+                @Override
+                public void windowClosed(WindowEvent e) {
+                    paydayDialog = null;
+                }
+            });
 
             paydaySummaryLabel = new JLabel(" ");
             paydaySummaryLabel.setBorder(new EmptyBorder(8, 10, 0, 10));
@@ -1198,7 +1225,10 @@ public class WineBarGUI {
             });
 
             JButton close = new JButton("Close");
-            close.addActionListener(e -> paydayDialog.setVisible(false));
+            close.addActionListener(e -> {
+                handlePaydayWindowCloseAtWeekEnd();
+                paydayDialog.dispose();
+            });
 
             JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             bottom.add(apply);
@@ -1210,6 +1240,24 @@ public class WineBarGUI {
 
         refreshPaydayDialog();
         paydayDialog.setVisible(true);
+    }
+
+    private void handlePaydayWindowCloseAtWeekEnd() {
+        if (!isWeekEndPaydayClose()) return;
+
+        for (PaydayBill bill : state.paydayBills) {
+            if (bill.getSelectedAmount() + 0.01 < bill.getMinDue()) {
+                bill.setSelectedAmount(0.0);
+            }
+        }
+
+        sim.applyPaydayPayments();
+        refreshAll();
+        refreshAllMenus();
+    }
+
+    private boolean isWeekEndPaydayClose() {
+        return !state.paydayBills.isEmpty() && state.dayIndex == 0;
     }
 
     private void refreshPaydayDialog() {
@@ -2467,8 +2515,12 @@ public class WineBarGUI {
             loanTextArea = new JTextArea(12, 44);
             loanTextArea.setEditable(false);
             loanTextArea.setFont(UIManager.getFont("TextArea.font"));
+            loanTextArea.setLineWrap(true);
+            loanTextArea.setWrapStyleWord(true);
 
-            loanDialog.add(new JScrollPane(loanTextArea), BorderLayout.CENTER);
+            JScrollPane loanScroll = new JScrollPane(loanTextArea);
+            loanScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            loanDialog.add(loanScroll, BorderLayout.CENTER);
 
             loanButtonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
@@ -2722,8 +2774,12 @@ public class WineBarGUI {
             weeklyReportArea = new JTextArea(24, 60);
             weeklyReportArea.setEditable(false);
             weeklyReportArea.setFont(UIManager.getFont("TextArea.font"));
+            weeklyReportArea.setLineWrap(true);
+            weeklyReportArea.setWrapStyleWord(true);
 
-            weeklyReportDialog.add(new JScrollPane(weeklyReportArea), BorderLayout.CENTER);
+            JScrollPane weeklyScroll = new JScrollPane(weeklyReportArea);
+            weeklyScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            weeklyReportDialog.add(weeklyScroll, BorderLayout.CENTER);
 
             JButton close = new JButton("Close");
             close.addActionListener(e -> weeklyReportDialog.setVisible(false));
@@ -2746,8 +2802,12 @@ public class WineBarGUI {
             fourWeekReportArea = new JTextArea(24, 60);
             fourWeekReportArea.setEditable(false);
             fourWeekReportArea.setFont(UIManager.getFont("TextArea.font"));
+            fourWeekReportArea.setLineWrap(true);
+            fourWeekReportArea.setWrapStyleWord(true);
 
-            fourWeekReportDialog.add(new JScrollPane(fourWeekReportArea), BorderLayout.CENTER);
+            JScrollPane fourWeekScroll = new JScrollPane(fourWeekReportArea);
+            fourWeekScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            fourWeekReportDialog.add(fourWeekScroll, BorderLayout.CENTER);
 
             JButton close = new JButton("Close");
             close.addActionListener(e -> fourWeekReportDialog.setVisible(false));
@@ -2818,7 +2878,7 @@ public class WineBarGUI {
 
         repLabel.setText(buildReputationBadgeText(mood));
         calendarLabel.setText("<html>Week " + state.weekCount + "  " + state.dayName()
-                + " | Night " + state.nightCount
+                + " | Service " + state.nightCount
                 + "<br/>Date " + state.dateString()
                 + "<br/>Weather " + state.weatherLabel()
                 + "</html>");
@@ -2830,9 +2890,9 @@ public class WineBarGUI {
                 : "";
         timePhaseLabel.setText("Time: " + state.getCurrentTime() + " | Phase: " + state.getCurrentPhase() + " | Music: " + state.currentMusicProfile.getLabel());
         roundLabel.setText(state.nightOpen
-                ? ("Night OPEN  Round " + state.roundInNight + "/" + state.closingRound
+                ? ("Service OPEN  Round " + state.roundInNight + "/" + state.closingRound
                 + " | Bar " + state.nightPunters.size() + "/" + state.maxBarOccupancy)
-                : ("Night CLOSED  Ready" + closedSuffix));
+                : ("Service CLOSED  Ready" + closedSuffix));
 
         SecuritySystem.SecurityBreakdown breakdown = sim.securityBreakdown();
         int sec = breakdown.total();

@@ -3252,7 +3252,7 @@ public class Simulation {
                 + "\nPrice multiplier avg: " + fmt2(avgPriceMultiplier())
                 + "\nPrice volatility: " + fmt2(s.weekPriceMultiplierAbsDelta);
 
-        String operations = "Night: " + (s.nightOpen ? "OPEN" : "CLOSED")
+        String operations = "Service: " + (s.nightOpen ? "OPEN" : "CLOSED")
                 + "\nRound: " + s.roundInNight + "/" + s.closingRound
                 + "\nServe cap: " + serveCap
                 + "\nBar cap: " + s.maxBarOccupancy
@@ -3312,7 +3312,7 @@ public class Simulation {
         String prestigeDetail = buildPrestigeText();
         String musicDetail = buildMusicDetailText();
 
-        String logSummary = "Night events: " + s.nightEvents
+        String logSummary = "Service events: " + s.nightEvents
                 + "\nBetween-night: " + s.lastBetweenNightEventSummary;
 
         return new MetricsSnapshot(
@@ -3321,11 +3321,11 @@ public class Simulation {
                 "Reputation: " + s.reputation + " (" + mood + ")",
                 " " + s.pubName + " (Lv " + s.pubLevel + ")",
                 "Weekly Costs (Due at Payday): GBP " + fmt2(weeklyMinDueTotal()),
-                "Week " + s.weekCount + "  " + s.dayName() + " | Night " + s.nightCount,
+                "Week " + s.weekCount + "  " + s.dayName() + " | Service " + s.nightCount,
                 s.nightOpen
-                        ? ("Night OPEN  Round " + s.roundInNight + "/" + s.closingRound
+                        ? ("Service OPEN  Round " + s.roundInNight + "/" + s.closingRound
                         + " | Bar " + s.nightPunters.size() + "/" + s.maxBarOccupancy)
-                        : "Night CLOSED  Ready",
+                        : "Service CLOSED  Ready",
                 "Security: " + sec,
                 "Staff: " + s.staff().summaryLine() + " | Serve cap " + serveCap,
                 "Report: " + s.reports().summaryLine(),
