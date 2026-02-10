@@ -182,6 +182,7 @@ public class WineBarGUI {
     private JTextArea missionPrestigeArea;
     private JTextArea missionMusicArea;
     private JButton prestigePreviewButton;
+    private JButton declareBankruptcyButton;
     private JRadioButton policyFriendlyBtn;
     private JRadioButton policyBalancedBtn;
     private JRadioButton policyStrictBtn;
@@ -750,7 +751,14 @@ public class WineBarGUI {
             prestigePreviewButton.addActionListener(e -> showPrestigePreviewDialog());
 
             tabs.add("Overview", new JScrollPane(missionOverviewArea));
-            tabs.add("Finance & Banking", new JScrollPane(missionFinanceArea));
+            JPanel financeTab = new JPanel(new BorderLayout(6, 6));
+            financeTab.add(new JScrollPane(missionFinanceArea), BorderLayout.CENTER);
+            JPanel financeActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            declareBankruptcyButton = new JButton("Declare Bankruptcy");
+            declareBankruptcyButton.addActionListener(e -> confirmDeclareBankruptcy());
+            financeActions.add(declareBankruptcyButton);
+            financeTab.add(financeActions, BorderLayout.SOUTH);
+            tabs.add("Finance & Banking", financeTab);
             tabs.add("Payday", new JScrollPane(missionPaydayArea));
             tabs.add("Suppliers", new JScrollPane(missionSuppliersArea));
             tabs.add("Pub Progression", new JScrollPane(missionProgressionArea));
@@ -2546,6 +2554,21 @@ public class WineBarGUI {
         return sb.toString();
     }
 
+    private void confirmDeclareBankruptcy() {
+        String details = sim.bankruptcyConsequencesText();
+        int result = JOptionPane.showConfirmDialog(
+                frame,
+                details + "\n\nProceed with bankruptcy?",
+                "Declare Bankruptcy",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+        if (result != JOptionPane.YES_OPTION) return;
+        sim.declareBankruptcy();
+        refreshAll();
+        refreshAllMenus();
+    }
+
     private void refreshReportsDialog() {
         if (reportsDialog == null) return;
         if (reportsDialogArea != null) {
@@ -2564,6 +2587,7 @@ public class WineBarGUI {
             missionOverviewArea.setText(String.join("\n", snapshot.overviewLines));
         }
         if (missionFinanceArea != null) missionFinanceArea.setText(snapshot.financeBanking);
+        if (declareBankruptcyButton != null) declareBankruptcyButton.setEnabled(true);
         if (missionPaydayArea != null) missionPaydayArea.setText(snapshot.payday);
         if (missionSuppliersArea != null) missionSuppliersArea.setText(snapshot.suppliers);
         if (missionProgressionArea != null) missionProgressionArea.setText(snapshot.progression);

@@ -54,6 +54,23 @@ public class GameState {
     public int wageServePenaltyWeeks = 0;
     public boolean banksLocked = false;
     public boolean businessCollapsed = false;
+    public int consecutiveWeeksUnpaidMin = 0;
+    public double weeklyTotalDueLastResolution = 0.0;
+    public double weeklyTotalMinDueLastResolution = 0.0;
+    public boolean metMinimumsLastWeek = true;
+    public int debtSpiralTier = 0;
+    public boolean bailiffStigma = false;
+    public boolean bankruptcyDeclared = false;
+    public boolean bankruptcySupplierStigma = false;
+    public int bankruptcyLockWeeksRemaining = 0;
+    public double supplierCreditCapOverride = 0.0;
+    public double debtSpiralInterestMultiplier = 1.0;
+    public double debtSpiralLateFeeMultiplier = 1.0;
+    public double debtSpiralSupplierTrustMultiplier = 1.0;
+    public double debtSpiralMoraleDecayMultiplier = 1.0;
+    public double debtSpiralMisconductChanceMultiplier = 1.0;
+    public double debtSpiralNegativeRepMultiplier = 1.0;
+    public double debtSpiralPositiveRepMultiplier = 1.0;
 
     public final double weeklyRent = 420.0;
     public double rentAccruedThisWeek = 0.0;
@@ -619,7 +636,7 @@ public class GameState {
         else if (creditScore >= 550) base = 1.0;
         else if (creditScore >= 450) base = 1.03;
         else base = 1.08;
-        return base * (1.0 + supplierTrustPenalty);
+        return base * (1.0 + supplierTrustPenalty) * debtSpiralSupplierTrustMultiplier;
     }
 
     public String supplierTrustLabel() {
@@ -630,6 +647,9 @@ public class GameState {
     }
 
     public double supplierCreditCap() {
+        if (supplierCreditCapOverride > 0.0) {
+            return supplierCreditCapOverride;
+        }
         double base;
         if (creditScore >= 700) base = 3200.0;
         else if (creditScore >= 600) base = 2500.0;
@@ -638,6 +658,14 @@ public class GameState {
         double trustMult = Math.max(0.6, 1.0 - (supplierTrustPenalty * 3.0));
         double levelMult = 1.0 + (0.08 * pubLevel);
         return base * trustMult * levelMult + legacy.supplierTradeCreditBonus;
+    }
+
+    public int debtSpiralTierFromStreak() {
+        if (consecutiveWeeksUnpaidMin <= 0) return 0;
+        if (consecutiveWeeksUnpaidMin == 1) return 1;
+        if (consecutiveWeeksUnpaidMin == 2) return 2;
+        if (consecutiveWeeksUnpaidMin == 3) return 3;
+        return 4;
     }
 
     public double supplierMinDue(SupplierTradeCredit account) {
