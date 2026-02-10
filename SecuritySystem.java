@@ -14,7 +14,7 @@ public class SecuritySystem {
     }
 
     public int effectiveSecurity() {
-        int eff = s.baseSecurityLevel;
+        int eff = s.baseSecurityLevel + s.legacy.baseSecurityBonus;
 
         //  upgrades
         eff += s.upgradeSecurityBonus;
@@ -33,7 +33,7 @@ public class SecuritySystem {
     }
 
     public SecurityBreakdown breakdown() {
-        int base = s.baseSecurityLevel;
+        int base = s.baseSecurityLevel + s.legacy.baseSecurityBonus;
         int upgrades = s.upgradeSecurityBonus;
         int policy = s.securityPolicy != null ? s.securityPolicy.getSecurityBonus() : 0;
         int bouncers = s.bouncersHiredTonight > 0 ? (s.bouncersHiredTonight * 2) : 0;

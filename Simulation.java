@@ -139,6 +139,7 @@ public class Simulation {
     private final PubIdentitySystem identitySystem;
     private final RumorSystem rumors;
     private final PubLevelSystem pubLevelSystem;
+    private final PrestigeSystem prestigeSystem;
     private final ObservationEngine observationEngine;
 
     public Simulation(GameState state, UILogger log) {
@@ -160,6 +161,7 @@ public class Simulation {
         this.eco.setMilestones(milestones);
         this.identitySystem = new PubIdentitySystem(s, log);
         this.pubLevelSystem = new PubLevelSystem();
+        this.prestigeSystem = new PrestigeSystem();
         this.observationEngine = new ObservationEngine();
 
         markReportStartIfMissing();
@@ -182,7 +184,7 @@ public class Simulation {
         pubLevelSystem.updatePubLevel(s);
         // Rack cap + spoil tuning
         int baseRack = s.baseRackCapacity;
-        int rackCap = baseRack + upgrades.rackCapBonus();
+        int rackCap = baseRack + upgrades.rackCapBonus() + s.legacy.inventoryCapBonus;
         s.rack.setCapacity(rackCap);
 
         // Spoilage window (optional via upgrades later)
@@ -245,7 +247,53 @@ public class Simulation {
         s.foodRack.setSpoilAfterDays(s.baseFoodSpoilDays + s.kitchenSpoilBonusDays);
 
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
-        s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus + (headChefs * 5));
+        s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus
+                + s.legacy.inventoryCapBonus + (headChefs * 5));
+    }
+
+    private void resetUpgradeStateForPrestige() {
+        s.pubLevel = 0;
+        s.pubLevelServeCapBonus = 0;
+        s.pubLevelBarCapBonus = 0;
+        s.pubLevelTrafficBonusPct = 0.0;
+        s.pubLevelRepMultiplier = 1.0;
+        s.pubLevelStaffCapBonus = 0;
+        s.pubLevelManagerCapBonus = 0;
+        s.pubLevelChefCapBonus = 0;
+        s.pubLevelBouncerCapBonus = 0;
+
+        s.ownedUpgrades.clear();
+        s.pendingUpgradeInstalls.clear();
+        s.upgradeSecurityBonus = 0;
+        s.upgradeBarCapBonus = 0;
+        s.upgradeServeCapBonus = 0;
+        s.upgradeTipBonusPct = 0.0;
+        s.upgradeEventDamageReductionPct = 0.0;
+        s.upgradeRiskReductionPct = 0.0;
+        s.upgradeFoodRackCapBonus = 0;
+        s.upgradeIncidentChanceMultiplier = 1.0;
+        s.upgradeMoraleStabilityPct = 0.0;
+        s.upgradeRepMitigationPct = 0.0;
+        s.upgradeLossSeverityMultiplier = 1.0;
+
+        s.kitchenUnlocked = false;
+        s.kitchenPrepSpeedBonus = 0;
+        s.kitchenSpoilBonusDays = 0;
+        s.bohMoraleResiliencePct = 0.0;
+        s.foodNightRepBonus = 0;
+
+        s.innUnlocked = false;
+        s.innTier = 0;
+        s.roomsTotal = 0;
+        s.roomsBookedLast = 0;
+        s.roomPrice = 0.0;
+        s.innRep = 0.0;
+        s.cleanliness = 0.0;
+        s.lastNightInnSummaryLine = "Inn locked.";
+        s.lastNightRoomsBooked = 0;
+        s.lastNightRoomRevenue = 0.0;
+
+        s.baseSecurityLevel = 0;
     }
 
     private void applyInnUpgradeState() {
@@ -260,7 +308,7 @@ public class Simulation {
                 s.lastNightInnSummaryLine = "Inn unlocked. Ready for bookings.";
             }
             s.innTier = tier;
-            s.roomsTotal = innRoomsForTier(tier);
+            s.roomsTotal = innRoomsForTier(tier) + s.legacy.innRoomBonus;
             if (s.roomsBookedLast > s.roomsTotal) {
                 s.roomsBookedLast = s.roomsTotal;
             }
@@ -296,6 +344,43 @@ public class Simulation {
 
     public String pubLevelBadgeLine() {
         return pubLevelSystem.compactNextLevelBadge(s);
+    }
+
+    public String pubNameBadgeHtml() {
+        String stars = buildStarBadge();
+        String nextLevelLine = pubLevelSystem.compactNextLevelBadge(s);
+        return "<html> " + s.pubName + " (Lv " + s.pubLevel + ")" + stars
+                + "<br/><span style='font-size:10px'>" + nextLevelLine + "</span></html>";
+    }
+
+    public String buildStarBadge() {
+        if (s.starCount <= 0) return "";
+        return " " + "★".repeat(s.starCount);
+    }
+
+    public boolean isPrestigeAvailable() {
+        return prestigeSystem.isPrestigeEligible(s, pubLevelSystem);
+    }
+
+    public boolean isPrestigeMaxed() {
+        return prestigeSystem.isMaxStars(s);
+    }
+
+    public PrestigeSystem.PrestigePreview buildPrestigePreview() {
+        return prestigeSystem.buildPreview(s, upgrades, pubLevelSystem);
+    }
+
+    public boolean confirmPrestige() {
+        if (!isPrestigeAvailable()) return false;
+        LegacyBonuses award = prestigeSystem.computePrestigeAward(s, upgrades);
+        s.legacy.add(award);
+        s.starCount = Math.min(PrestigeSystem.MAX_STARS, s.starCount + 1);
+        s.prestigeWeekStart = s.weekCount;
+        s.prestigeMilestones.clear();
+        s.achievedMilestones.clear();
+        resetUpgradeStateForPrestige();
+        applyPersistentUpgrades();
+        return true;
     }
 
     public List<LandlordActionDef> getAvailableActionsForCurrentTier() {
@@ -2694,6 +2779,7 @@ public class Simulation {
                 + "\nSecurity policy traffic: x" + fmt2(securityPolicyTrafficMultiplier())
                 + "\nSecurity task traffic: x" + fmt2(securityTaskTrafficMultiplier())
                 + "\nActivity traffic: x" + fmt2(activities.trafficMultiplier())
+                + "\nLegacy traffic: x" + fmt2(1.0 + s.legacy.trafficMultiplierBonus)
                 + "\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
                 + "\nNatural departures (night): " + s.nightNaturalDepartures
                 + "\nTier mix: " + punterTierBreakdown();
@@ -2711,6 +2797,7 @@ public class Simulation {
         String securityDetail = buildSecurityDetailText(sec);
         String staffDetail = buildStaffDetailText();
         String innDetail = buildInnDetailText();
+        String prestigeDetail = buildPrestigeText();
 
         String logSummary = "Night events: " + s.nightEvents
                 + "\nBetween-night: " + s.lastBetweenNightEventSummary;
@@ -2747,8 +2834,31 @@ public class Simulation {
                 progression,
                 securityDetail,
                 staffDetail,
-                innDetail
+                innDetail,
+                prestigeDetail
         );
+    }
+
+    private String buildPrestigeText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Stars: ").append(s.starCount).append("/").append(PrestigeSystem.MAX_STARS)
+                .append(" ").append(buildStarBadge()).append("\n");
+        if (prestigeSystem.isMaxStars(s)) {
+            sb.append("Status: Max ★ reached\n");
+        } else if (isPrestigeAvailable()) {
+            sb.append("Status: Prestige available (preview from Mission Control)\n");
+        } else {
+            sb.append("Status: Not ready\n");
+        }
+        sb.append("\nLegacy bonuses:\n");
+        for (String line : s.legacy.detailLines()) {
+            sb.append(" - ").append(line).append("\n");
+        }
+        sb.append("\nDiminishing returns (next star):\n");
+        for (String line : prestigeSystem.diminishingReturnLines()) {
+            sb.append(" - ").append(line).append("\n");
+        }
+        return sb.toString();
     }
 
     private String buildUpgradeDependencyText() {
@@ -3645,7 +3755,8 @@ public class Simulation {
         SecuritySystem.SecurityBreakdown breakdown = security.breakdown();
         StringBuilder sb = new StringBuilder();
         sb.append("Security policy: ").append(s.securityPolicy != null ? s.securityPolicy.getLabel() : "Balanced").append("\n");
-        sb.append("Base security level: ").append(s.baseSecurityLevel).append("\n");
+        sb.append("Base security level: ").append(s.baseSecurityLevel)
+                .append(" (+").append(s.legacy.baseSecurityBonus).append(" legacy)\n");
         sb.append("Effective security: ").append(sec).append("\n");
         sb.append("Incident chance mult: x").append(fmt2(incidentChanceMultiplier(sec))).append("\n");
         sb.append("Security task: ").append(securityTaskStatusLine()).append("\n");
@@ -4039,7 +4150,8 @@ public class Simulation {
 
         double identityMult = s.currentIdentity != null ? s.currentIdentity.getTrafficMultiplier() : 1.0;
         double levelMult = 1.0 + s.pubLevelTrafficBonusPct;
-        return repMult * weekendMult * identityMult * levelMult;
+        double legacyMult = 1.0 + s.legacy.trafficMultiplierBonus;
+        return repMult * weekendMult * identityMult * levelMult * legacyMult;
     }
 
     private double identityTrafficMultiplier() {

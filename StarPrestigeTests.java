@@ -1,0 +1,142 @@
+import javax.swing.JTextPane;
+
+public class StarPrestigeTests {
+    public static void main(String[] args) {
+        testEligibility();
+        testStarCap();
+        testResetCorrectness();
+        testDiminishingReturns();
+        testStacking();
+        testPersistence();
+        testUiSmoke();
+        System.out.println("All StarPrestigeTests passed.");
+        System.exit(0);
+    }
+
+    private static Simulation newSimulation(GameState state) {
+        return new Simulation(state, new UILogger(new JTextPane()));
+    }
+
+    private static void makePrestigeEligible(GameState state) {
+        state.weekCount = 13;
+        state.prestigeWeekStart = 1;
+        state.pubLevel = PrestigeSystem.MAX_LEVEL;
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.KNOWN_VENUE);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.KITCHEN_LAUNCH);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.PROFIT_STREAK_4);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.REP_STAR);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.TEN_NIGHTS);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.REP_PEAK_90);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.ZERO_DEBT_WEEK);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.PERFECT_WEEK);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.LOCAL_FAVOURITE);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.ACTIVITY_UNLOCK);
+    }
+
+    private static void testEligibility() {
+        GameState state = GameFactory.newGame();
+        makePrestigeEligible(state);
+        Simulation sim = newSimulation(state);
+        assert sim.isPrestigeAvailable() : "Prestige should be available at max level with next requirement met.";
+
+        state.pubLevel = PrestigeSystem.MAX_LEVEL - 1;
+        assert !sim.isPrestigeAvailable() : "Prestige should require max level.";
+
+        state.pubLevel = PrestigeSystem.MAX_LEVEL;
+        state.prestigeMilestones.clear();
+        assert !sim.isPrestigeAvailable() : "Prestige should require next-level requirements.";
+    }
+
+    private static void testStarCap() {
+        GameState state = GameFactory.newGame();
+        makePrestigeEligible(state);
+        state.starCount = PrestigeSystem.MAX_STARS;
+        Simulation sim = newSimulation(state);
+        assert !sim.isPrestigeAvailable() : "Prestige should be disabled at max stars.";
+        assert !sim.confirmPrestige() : "Prestige confirm should fail at max stars.";
+        assert state.starCount == PrestigeSystem.MAX_STARS : "Star count should remain capped.";
+    }
+
+    private static void testResetCorrectness() {
+        GameState state = GameFactory.newGame();
+        state.cash = 555.0;
+        state.baseSecurityLevel = 3;
+        state.ownedUpgrades.add(PubUpgrade.WINE_CELLAR);
+        state.ownedUpgrades.add(PubUpgrade.CCTV);
+        state.kitchenUnlocked = true;
+        state.innUnlocked = true;
+        state.innTier = 2;
+        state.roomsTotal = 6;
+        makePrestigeEligible(state);
+
+        Simulation sim = newSimulation(state);
+        boolean applied = sim.confirmPrestige();
+        assert applied : "Prestige should apply when eligible.";
+        assert state.pubLevel == 0 : "Pub level should reset to 0.";
+        assert state.ownedUpgrades.isEmpty() : "Upgrades should reset on prestige.";
+        assert state.baseSecurityLevel == 0 : "Base security level should reset on prestige.";
+        assert !state.kitchenUnlocked : "Kitchen should reset on prestige.";
+        assert !state.innUnlocked : "Inn should reset on prestige.";
+        assert state.starCount == 1 : "Stars should increment by 1.";
+        assert state.cash == 555.0 : "Cash should remain unchanged on prestige.";
+        assert !state.legacy.isEmpty() : "Legacy bonuses should increase on prestige.";
+    }
+
+    private static void testDiminishingReturns() {
+        PrestigeSystem prestige = new PrestigeSystem();
+        assert Math.abs(prestige.starFactor(1) - 1.00) < 0.0001 : "Star 1 factor should be 1.00.";
+        assert Math.abs(prestige.starFactor(2) - 0.70) < 0.0001 : "Star 2 factor should be 0.70.";
+        assert Math.abs(prestige.starFactor(3) - 0.50) < 0.0001 : "Star 3 factor should be 0.50.";
+        assert Math.abs(prestige.starFactor(4) - 0.35) < 0.0001 : "Star 4 factor should be 0.35.";
+        assert Math.abs(prestige.starFactor(5) - 0.25) < 0.0001 : "Star 5 factor should be 0.25.";
+    }
+
+    private static void testStacking() {
+        GameState state = GameFactory.newGame();
+        state.legacy.inventoryCapBonus = 5;
+        state.ownedUpgrades.add(PubUpgrade.WINE_CELLAR);
+        Simulation sim = newSimulation(state);
+        int expected = state.baseRackCapacity + new UpgradeSystem(state).rackCapBonus() + state.legacy.inventoryCapBonus;
+        assert state.rack.getCapacity() == expected : "Legacy inventory bonus should stack with upgrades.";
+    }
+
+    private static void testPersistence() {
+        GameState state = GameFactory.newGame();
+        state.starCount = 2;
+        state.legacy.inventoryCapBonus = 7;
+        state.legacy.innRoomBonus = 2;
+        state.legacy.trafficMultiplierBonus = 0.05;
+        state.legacy.supplierTradeCreditBonus = 120;
+        state.legacy.baseSecurityBonus = 2;
+        state.legacy.staffEfficiencyBonus = 0.03;
+        state.ownedUpgrades.add(PubUpgrade.CCTV);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
+
+        String saved = GameStatePersistence.serializePrestigeState(state);
+        GameState loaded = GameFactory.newGame();
+        GameStatePersistence.applyPrestigeState(loaded, saved);
+
+        assert loaded.starCount == 2 : "Star count should persist.";
+        assert loaded.legacy.inventoryCapBonus == 7 : "Legacy inventory cap should persist.";
+        assert loaded.legacy.innRoomBonus == 2 : "Legacy inn bonus should persist.";
+        assert Math.abs(loaded.legacy.trafficMultiplierBonus - 0.05) < 0.0001 : "Legacy traffic bonus should persist.";
+        assert loaded.legacy.supplierTradeCreditBonus == 120 : "Legacy trade credit should persist.";
+        assert loaded.legacy.baseSecurityBonus == 2 : "Legacy security bonus should persist.";
+        assert Math.abs(loaded.legacy.staffEfficiencyBonus - 0.03) < 0.0001 : "Legacy staff efficiency should persist.";
+        assert loaded.ownedUpgrades.contains(PubUpgrade.CCTV) : "Owned upgrades should persist.";
+        assert loaded.prestigeMilestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS)
+                : "Prestige milestones should persist.";
+    }
+
+    private static void testUiSmoke() {
+        GameState state = GameFactory.newGame();
+        makePrestigeEligible(state);
+        state.starCount = 2;
+        Simulation sim = newSimulation(state);
+        PrestigeSystem.PrestigePreview preview = sim.buildPrestigePreview();
+        assert preview != null : "Prestige preview should build.";
+        String badge = sim.pubNameBadgeHtml();
+        assert badge.contains("★★") : "HUD badge should include star display.";
+    }
+}

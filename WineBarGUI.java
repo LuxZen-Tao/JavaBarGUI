@@ -76,6 +76,9 @@ public class WineBarGUI {
     private JDialog actionsDialog;
     private LandlordActionsPanel actionsPanel;
     private JDialog innDialog;
+    private JDialog prestigeDialog;
+    private JTextArea prestigeDialogArea;
+    private JButton prestigeConfirmButton;
     private JLabel innRoomsLabel;
     private JLabel innBookedLabel;
     private JLabel innPriceLabel;
@@ -150,6 +153,7 @@ public class WineBarGUI {
     private double lastDebt;
     private boolean nightPulseOn;
     private MetricsSnapshot lastSnapshot;
+    private int lastPrestigePreviewStar = -1;
 
     private JDialog reportsDialog;
     private JTextArea reportsDialogArea;
@@ -173,6 +177,8 @@ public class WineBarGUI {
     private JTextArea missionLoansArea;
     private JTextArea missionLogArea;
     private JTextArea missionInnArea;
+    private JTextArea missionPrestigeArea;
+    private JButton prestigePreviewButton;
     private JRadioButton policyFriendlyBtn;
     private JRadioButton policyBalancedBtn;
     private JRadioButton policyStrictBtn;
@@ -549,6 +555,9 @@ public class WineBarGUI {
             missionInventoryArea = createMissionTextArea();
             missionLoansArea = createMissionTextArea();
             missionLogArea = createMissionTextArea();
+            missionPrestigeArea = createMissionTextArea();
+            prestigePreviewButton = new JButton("Preview Prestige");
+            prestigePreviewButton.addActionListener(e -> showPrestigePreviewDialog());
 
             tabs.add("Overview", new JScrollPane(missionOverviewArea));
             tabs.add("Finance & Banking", new JScrollPane(missionFinanceArea));
@@ -570,6 +579,12 @@ public class WineBarGUI {
             tabs.add("Inventory", new JScrollPane(missionInventoryArea));
             tabs.add("Loans", new JScrollPane(missionLoansArea));
             tabs.add("Log / Events", new JScrollPane(missionLogArea));
+            JPanel prestigeTab = new JPanel(new BorderLayout(6, 6));
+            prestigeTab.add(new JScrollPane(missionPrestigeArea), BorderLayout.CENTER);
+            JPanel prestigeActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            prestigeActions.add(prestigePreviewButton);
+            prestigeTab.add(prestigeActions, BorderLayout.SOUTH);
+            tabs.add("Prestige / Stars", prestigeTab);
 
             missionControlDialog.add(tabs, BorderLayout.CENTER);
 
@@ -2314,9 +2329,52 @@ public class WineBarGUI {
         if (missionTrafficArea != null) missionTrafficArea.setText(snapshot.trafficPunters);
         if (missionInventoryArea != null) missionInventoryArea.setText(buildInventoryPanelText());
         if (missionLoansArea != null) missionLoansArea.setText(snapshot.loans);
+        if (missionPrestigeArea != null) missionPrestigeArea.setText(snapshot.prestige);
+        if (prestigePreviewButton != null) {
+            prestigePreviewButton.setEnabled(sim.isPrestigeAvailable());
+        }
         if (missionLogArea != null && (missionLogArea.getText() == null || missionLogArea.getText().isBlank())) {
             missionLogArea.setText(snapshot.logEvents + "\n");
         }
+    }
+
+    private void showPrestigePreviewDialog() {
+        PrestigeSystem.PrestigePreview preview = sim.buildPrestigePreview();
+        if (preview == null) return;
+        if (prestigeDialog == null) {
+            prestigeDialog = new JDialog(frame, "Prestige Preview", true);
+            prestigeDialog.setLayout(new BorderLayout(8, 8));
+            prestigeDialogArea = new JTextArea(20, 60);
+            prestigeDialogArea.setEditable(false);
+            prestigeDialogArea.setLineWrap(true);
+            prestigeDialogArea.setWrapStyleWord(true);
+            prestigeDialogArea.setFont(UIManager.getFont("TextArea.font"));
+            prestigeDialog.add(new JScrollPane(prestigeDialogArea), BorderLayout.CENTER);
+
+            prestigeConfirmButton = new JButton("Confirm Prestige");
+            JButton cancel = new JButton("Cancel");
+            cancel.addActionListener(e -> prestigeDialog.setVisible(false));
+            prestigeConfirmButton.addActionListener(e -> {
+                boolean applied = sim.confirmPrestige();
+                if (applied) {
+                    prestigeDialog.setVisible(false);
+                    refreshAll();
+                } else {
+                    prestigeDialog.setVisible(false);
+                }
+            });
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(prestigeConfirmButton);
+            bottom.add(cancel);
+            prestigeDialog.add(bottom, BorderLayout.SOUTH);
+            prestigeDialog.setSize(760, 520);
+            prestigeDialog.setLocationRelativeTo(frame);
+        }
+
+        prestigeDialog.setTitle(preview.title());
+        prestigeDialogArea.setText(preview.body());
+        prestigeConfirmButton.setEnabled(preview.eligible() && !preview.maxed());
+        prestigeDialog.setVisible(true);
     }
 
     private void openEventFeedDialog() {
@@ -2423,6 +2481,10 @@ public class WineBarGUI {
         updateMoodLighting();
         checkReportPopups();
         refreshActionsDialog();
+        if (sim.isPrestigeAvailable() && lastPrestigePreviewStar != state.starCount) {
+            showPrestigePreviewDialog();
+            lastPrestigePreviewStar = state.starCount;
+        }
     }
 
     private void refreshActionsDialog() {
@@ -2440,9 +2502,7 @@ public class WineBarGUI {
 
         cashLabel.setText("Cash: " + money2(state.cash));
         debtLabel.setText("Debt: " + money2(currentDebt));
-        String nextLevelLine = sim.pubLevelBadgeLine();
-        pubNameLabel.setText("<html> " + state.pubName + " (Lv " + state.pubLevel + ")"
-                + "<br/><span style='font-size:10px'>" + nextLevelLine + "</span></html>");
+        pubNameLabel.setText(sim.pubNameBadgeHtml());
         Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
         invoiceDueLabel.setText("<html>Weekly Costs (Due at Payday): " + money2(due.total())
                 + "<br/>Supplier " + money2(due.supplier())

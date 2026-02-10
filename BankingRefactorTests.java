@@ -385,7 +385,7 @@ public class BankingRefactorTests {
         levels.updatePubLevel(state);
         assert state.pubLevel == 0 : "Pub level should not increase without milestones.";
 
-        state.achievedMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
         levels.updatePubLevel(state);
         assert state.pubLevel >= 1 : "Pub level should increase once time + milestone requirements met.";
     }
