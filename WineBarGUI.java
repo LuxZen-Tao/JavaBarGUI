@@ -303,7 +303,7 @@ public class WineBarGUI {
         // Price multiplier control (0.50x to 2.50x)
         priceLabel = new JLabel("Price x" + String.format("%.2f", state.priceMultiplier));
         priceSlider = new JSlider(50, 250, (int)Math.round(state.priceMultiplier * 100));
-        priceSlider.setPreferredSize(new Dimension(95, 24));
+        priceSlider.setPreferredSize(new Dimension(82, 22));
         priceSlider.addChangeListener(e -> {
             double m = priceSlider.getValue() / 100.0;
             sim.setPriceMultiplier(m);
@@ -351,17 +351,17 @@ public class WineBarGUI {
         JPanel autoControls = createControlGroup("Automation", autoBtn);
 
         controls.add(nightControls);
-        controls.add(Box.createHorizontalStrut(4));
+        controls.add(Box.createHorizontalStrut(2));
         controls.add(economyControls);
-        controls.add(Box.createHorizontalStrut(4));
+        controls.add(Box.createHorizontalStrut(2));
         controls.add(managementControls);
-        controls.add(Box.createHorizontalStrut(4));
+        controls.add(Box.createHorizontalStrut(2));
         controls.add(riskControls);
-        controls.add(Box.createHorizontalStrut(4));
+        controls.add(Box.createHorizontalStrut(2));
         controls.add(activityControls);
-        controls.add(Box.createHorizontalStrut(4));
+        controls.add(Box.createHorizontalStrut(2));
         controls.add(autoControls);
-        controls.setBorder(new EmptyBorder(4, 1, 4, 1));
+        controls.setBorder(new EmptyBorder(2, 0, 2, 0));
 
         applyButtonIcons();
 
@@ -394,7 +394,7 @@ public class WineBarGUI {
         frame.setContentPane(root);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
-        int minBottomWidth = controls.getPreferredSize().width + 20;
+        int minBottomWidth = controls.getPreferredSize().width + 8;
         int minHeight = Math.max(frame.getPreferredSize().height, 740);
         frame.setMinimumSize(new Dimension(minBottomWidth, minHeight));
         frame.setSize(Math.max(1320, minBottomWidth), Math.max(760, minHeight));
@@ -438,18 +438,18 @@ public class WineBarGUI {
     private void compactBottomControl(JComponent component) {
         Font base = component.getFont();
         if (base != null) {
-            component.setFont(base.deriveFont((float) Math.max(11, base.getSize() - 1)));
+            component.setFont(base.deriveFont((float) Math.max(10, base.getSize() - 2)));
         }
         if (component instanceof AbstractButton button) {
-            button.setMargin(new Insets(2, 6, 2, 6));
+            button.setMargin(new Insets(1, 4, 1, 4));
         } else if (component instanceof JComboBox<?> combo) {
             Dimension preferred = combo.getPreferredSize();
-            combo.setPreferredSize(new Dimension(Math.max(96, preferred.width - 12), preferred.height));
+            combo.setPreferredSize(new Dimension(Math.max(86, preferred.width - 20), Math.max(20, preferred.height - 2)));
         }
     }
 
     private JPanel createControlGroup(String title, JComponent... components) {
-        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEADING, 4, 2));
+        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEADING, 2, 1));
         group.setBorder(BorderFactory.createTitledBorder(title));
         group.setOpaque(true);
         group.setBackground(new Color(34, 37, 43));
