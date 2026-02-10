@@ -132,6 +132,7 @@ public class AudioManager {
         currentMusicKey = path.toAbsolutePath().normalize().toString();
         currentMusicFileName = path.getFileName().toString();
         playLoop(musicClip);
+        return true;
     }
 
     private void swapChatter(Path path) {
@@ -141,7 +142,6 @@ public class AudioManager {
         chatterClip = next;
         currentChatterFileName = path.getFileName().toString();
         playLoop(chatterClip);
-        return true;
     }
 
     private Clip loadClip(Path wavPath) {
