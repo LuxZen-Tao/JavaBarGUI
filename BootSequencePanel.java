@@ -432,7 +432,7 @@ public class BootSequencePanel extends JPanel {
                                      boolean coverStyle) {
         if (phrase == null || phrase.isEmpty()) return;
 
-        float size = Math.max(18f, (float) (rect.width * 28.0 / 1080.0));
+        float size = Math.max(27f, (float) (rect.width * 42.0 / 1080.0));
         Font sized = font.deriveFont(Font.PLAIN, size);
         g2.setFont(sized);
         g2.setColor(Color.BLACK);
@@ -507,6 +507,7 @@ public class BootSequencePanel extends JPanel {
             return new DrawRect(0, 0, Math.max(0, dstW), Math.max(0, dstH));
         }
         double scale = Math.min((double) dstW / srcW, (double) dstH / srcH);
+        scale = Math.min(scale, 1.0) * 0.92;
         int w = Math.max(1, (int) Math.round(srcW * scale));
         int h = Math.max(1, (int) Math.round(srcH * scale));
         int x = (dstW - w) / 2;
