@@ -252,7 +252,7 @@ public class WineBarGUI {
         invList.setVisibleRowCount(14);
 
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
-        controls.setLayout(new WrapLayout(FlowLayout.LEADING, 10, 8));
+        controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
 
         hud.setBorder(new EmptyBorder(2, 4, 2, 4));
         hud.setOpaque(false);
@@ -313,8 +313,7 @@ public class WineBarGUI {
 
         JPanel nightControls = createControlGroup(
                 "Night",
-                new JComponent[]{openBtn, nextRoundBtn, closeBtn},
-                new JComponent[]{happyHourBtn}
+                openBtn, nextRoundBtn, closeBtn, happyHourBtn, musicProfileBox
         );
         musicProfileBox.setToolTipText(sim.currentMusicTooltip());
         musicProfileBox.addActionListener(e -> {
@@ -328,28 +327,25 @@ public class WineBarGUI {
 
         JPanel economyControls = createControlGroup(
                 "Economy",
-                new JComponent[]{priceLabel, priceSlider, supplierBtn},
-                new JComponent[]{musicProfileBox, kitchenSupplierBtn, loanSharkBtn}
+                priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn
         );
-        JPanel managementControls = createControlGroup(
-                "Management",
-                new JComponent[]{staffBtn, upgradesBtn},
-                new JComponent[]{innBtn}
-        );
-        JPanel riskControls = createControlGroup("Risk", new JComponent[]{securityBtn}, new JComponent[0]);
-        JPanel activityControls = createControlGroup(
-                "Activities",
-                new JComponent[]{activitiesBtn},
-                new JComponent[]{actionsBtn}
-        );
-        JPanel autoControls = createControlGroup("Automation", new JComponent[]{autoBtn}, new JComponent[0]);
+        JPanel managementControls = createControlGroup("Management", staffBtn, innBtn, upgradesBtn);
+        JPanel riskControls = createControlGroup("Risk", securityBtn);
+        JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
+        JPanel autoControls = createControlGroup("Automation", autoBtn);
 
         controls.add(nightControls);
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(economyControls);
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(managementControls);
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(riskControls);
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(activityControls);
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(autoControls);
+        controls.setBorder(new EmptyBorder(6, 2, 6, 2));
 
         controls.setPreferredSize(new Dimension(0, 220));
 
@@ -383,7 +379,11 @@ public class WineBarGUI {
 
         frame.setContentPane(root);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1320, 760);
+        frame.pack();
+        int minBottomWidth = controls.getPreferredSize().width + 40;
+        int minHeight = Math.max(frame.getPreferredSize().height, 740);
+        frame.setMinimumSize(new Dimension(minBottomWidth, minHeight));
+        frame.setSize(Math.max(1320, minBottomWidth), Math.max(760, minHeight));
         frame.setLocationRelativeTo(null);
         frame.setTitle("Pub Landlord Idle - " + state.pubName);
 
@@ -420,8 +420,15 @@ public class WineBarGUI {
         return createBadge(NIGHT_BG, wrapper);
     }
 
-    private JPanel createControlGroup(String title, JComponent[] primaryComponents, JComponent[] secondaryComponents) {
-        AdaptiveControlGroup group = new AdaptiveControlGroup(title, primaryComponents, secondaryComponents);
+    private JPanel createControlGroup(String title, JComponent... components) {
+        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 4));
+        group.setBorder(BorderFactory.createTitledBorder(title));
+        group.setOpaque(true);
+        group.setBackground(new Color(34, 37, 43));
+        group.putClientProperty("FlatLaf.style", "arc: 14");
+        for (JComponent component : components) {
+            group.add(component);
+        }
         return group;
     }
 
