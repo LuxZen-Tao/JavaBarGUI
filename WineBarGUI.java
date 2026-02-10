@@ -252,7 +252,7 @@ public class WineBarGUI {
         invList.setVisibleRowCount(14);
 
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
-        controls.setLayout(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        controls.setLayout(new WrapLayout(FlowLayout.LEADING, 10, 8));
 
         hud.setBorder(new EmptyBorder(2, 4, 2, 4));
         hud.setOpaque(false);
@@ -303,7 +303,7 @@ public class WineBarGUI {
         // Price multiplier control (0.50x to 2.50x)
         priceLabel = new JLabel("Price x" + String.format("%.2f", state.priceMultiplier));
         priceSlider = new JSlider(50, 250, (int)Math.round(state.priceMultiplier * 100));
-        priceSlider.setPreferredSize(new Dimension(110, 24));
+        priceSlider.setPreferredSize(new Dimension(95, 24));
         priceSlider.addChangeListener(e -> {
             double m = priceSlider.getValue() / 100.0;
             sim.setPriceMultiplier(m);
@@ -311,7 +311,11 @@ public class WineBarGUI {
             refreshAll();
         });
 
-        JPanel nightControls = createControlGroup("Night", openBtn, nextRoundBtn, closeBtn, happyHourBtn);
+        JPanel nightControls = createControlGroup(
+                "Night",
+                new JComponent[]{openBtn, nextRoundBtn, closeBtn},
+                new JComponent[]{happyHourBtn}
+        );
         musicProfileBox.setToolTipText(sim.currentMusicTooltip());
         musicProfileBox.addActionListener(e -> {
             Object selected = musicProfileBox.getSelectedItem();
@@ -322,23 +326,32 @@ public class WineBarGUI {
             }
         });
 
-        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, musicProfileBox, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
-        JPanel managementControls = createControlGroup("Management", staffBtn, innBtn, upgradesBtn);
-        JPanel riskControls = createControlGroup("Risk", securityBtn);
-        JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
-        JPanel autoControls = createControlGroup("Automation", autoBtn);
+        JPanel economyControls = createControlGroup(
+                "Economy",
+                new JComponent[]{priceLabel, priceSlider, supplierBtn},
+                new JComponent[]{musicProfileBox, kitchenSupplierBtn, loanSharkBtn}
+        );
+        JPanel managementControls = createControlGroup(
+                "Management",
+                new JComponent[]{staffBtn, upgradesBtn},
+                new JComponent[]{innBtn}
+        );
+        JPanel riskControls = createControlGroup("Risk", new JComponent[]{securityBtn}, new JComponent[0]);
+        JPanel activityControls = createControlGroup(
+                "Activities",
+                new JComponent[]{activitiesBtn},
+                new JComponent[]{actionsBtn}
+        );
+        JPanel autoControls = createControlGroup("Automation", new JComponent[]{autoBtn}, new JComponent[0]);
 
         controls.add(nightControls);
-        controls.add(Box.createHorizontalStrut(10));
         controls.add(economyControls);
-        controls.add(Box.createHorizontalStrut(10));
         controls.add(managementControls);
-        controls.add(Box.createHorizontalStrut(10));
         controls.add(riskControls);
-        controls.add(Box.createHorizontalStrut(10));
         controls.add(activityControls);
-        controls.add(Box.createHorizontalStrut(10));
         controls.add(autoControls);
+
+        controls.setPreferredSize(new Dimension(0, 220));
 
         applyButtonIcons();
 
@@ -365,11 +378,7 @@ public class WineBarGUI {
 
         root.add(hud, BorderLayout.NORTH);
         root.add(logPanel, BorderLayout.CENTER);
-        JScrollPane controlsScroll = new JScrollPane(controls, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        controlsScroll.setBorder(BorderFactory.createEmptyBorder());
-        controlsScroll.getViewport().setOpaque(false);
-        controlsScroll.setOpaque(false);
-        root.add(controlsScroll, BorderLayout.SOUTH);
+        root.add(controls, BorderLayout.SOUTH);
         root.add(right, BorderLayout.EAST);
 
         frame.setContentPane(root);
@@ -411,16 +420,124 @@ public class WineBarGUI {
         return createBadge(NIGHT_BG, wrapper);
     }
 
-    private JPanel createControlGroup(String title, JComponent... components) {
-        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
-        group.setBorder(BorderFactory.createTitledBorder(title));
-        group.setOpaque(true);
-        group.setBackground(new Color(34, 37, 43));
-        group.putClientProperty("FlatLaf.style", "arc: 14");
-        for (JComponent component : components) {
-            group.add(component);
-        }
+    private JPanel createControlGroup(String title, JComponent[] primaryComponents, JComponent[] secondaryComponents) {
+        AdaptiveControlGroup group = new AdaptiveControlGroup(title, primaryComponents, secondaryComponents);
         return group;
+    }
+
+    private static class AdaptiveControlGroup extends JPanel {
+        private static final int MAX_PRIMARY_ROWS = 2;
+
+        private final JPanel primaryPanel = new JPanel(new WrapLayout(FlowLayout.LEADING, 6, 6));
+        private final JPanel secondaryPanel = new JPanel();
+        private final java.util.List<JComponent> primaryComponents = new java.util.ArrayList<>();
+        private final java.util.List<JComponent> secondaryComponents = new java.util.ArrayList<>();
+        private boolean secondaryDetached = false;
+
+        private AdaptiveControlGroup(String title, JComponent[] primary, JComponent[] secondary) {
+            super(new BorderLayout(6, 6));
+            setBorder(BorderFactory.createTitledBorder(title));
+            setOpaque(true);
+            setBackground(new Color(34, 37, 43));
+            putClientProperty("FlatLaf.style", "arc: 14");
+
+            primaryPanel.setOpaque(false);
+            secondaryPanel.setLayout(new BoxLayout(secondaryPanel, BoxLayout.Y_AXIS));
+            secondaryPanel.setOpaque(false);
+
+            for (JComponent component : primary) {
+                primaryComponents.add(component);
+                primaryPanel.add(component);
+            }
+            for (JComponent component : secondary) {
+                secondaryComponents.add(component);
+                primaryPanel.add(component);
+            }
+
+            add(primaryPanel, BorderLayout.CENTER);
+            add(secondaryPanel, BorderLayout.EAST);
+            secondaryPanel.setVisible(false);
+
+            addComponentListener(new ComponentAdapter() {
+                @Override
+                public void componentResized(ComponentEvent e) {
+                    updateSecondaryLayout();
+                }
+            });
+
+            SwingUtilities.invokeLater(this::updateSecondaryLayout);
+        }
+
+        private void updateSecondaryLayout() {
+            if (secondaryComponents.isEmpty()) {
+                return;
+            }
+
+            int availableWidth = primaryPanel.getWidth();
+            if (availableWidth <= 0) {
+                availableWidth = getWidth() - getInsets().left - getInsets().right - 12;
+            }
+            if (availableWidth <= 0) {
+                return;
+            }
+
+            boolean shouldDetach = estimateRows(availableWidth) > MAX_PRIMARY_ROWS;
+            if (shouldDetach == secondaryDetached) {
+                return;
+            }
+
+            secondaryDetached = shouldDetach;
+            if (secondaryDetached) {
+                for (JComponent component : secondaryComponents) {
+                    primaryPanel.remove(component);
+                    secondaryPanel.add(component);
+                }
+                secondaryPanel.setVisible(true);
+            } else {
+                for (JComponent component : secondaryComponents) {
+                    secondaryPanel.remove(component);
+                    primaryPanel.add(component);
+                }
+                secondaryPanel.setVisible(false);
+            }
+
+            revalidate();
+            repaint();
+        }
+
+        private int estimateRows(int availableWidth) {
+            WrapLayout wrap = (WrapLayout) primaryPanel.getLayout();
+            Insets insets = primaryPanel.getInsets();
+            int rowWidthLimit = Math.max(1, availableWidth - insets.left - insets.right);
+            int rows = 1;
+            int currentRowWidth = 0;
+
+            for (JComponent component : primaryComponents) {
+                currentRowWidth = appendWidth(component.getPreferredSize().width, currentRowWidth, rowWidthLimit, wrap.getHgap());
+                if (currentRowWidth < 0) {
+                    rows++;
+                    currentRowWidth = component.getPreferredSize().width;
+                }
+            }
+
+            for (JComponent component : secondaryComponents) {
+                currentRowWidth = appendWidth(component.getPreferredSize().width, currentRowWidth, rowWidthLimit, wrap.getHgap());
+                if (currentRowWidth < 0) {
+                    rows++;
+                    currentRowWidth = component.getPreferredSize().width;
+                }
+            }
+
+            return rows;
+        }
+
+        private int appendWidth(int componentWidth, int currentRowWidth, int limit, int hgap) {
+            int widthWithGap = currentRowWidth == 0 ? componentWidth : currentRowWidth + hgap + componentWidth;
+            if (widthWithGap > limit && currentRowWidth > 0) {
+                return -1;
+            }
+            return widthWithGap;
+        }
     }
 
     private void applyButtonIcons() {
