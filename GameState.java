@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -21,6 +22,9 @@ public class GameState {
     public boolean nightOpen = false;
     public int roundInNight = 0;
     public final int closingRound = 20;
+    public static final LocalTime OPENING_TIME = LocalTime.of(11, 0);
+    public static final LocalTime NORMAL_CLOSING_TIME = LocalTime.of(23, 0);
+    public static final int MINUTES_PER_ROUND = 36;
 
     // economy
     public double cash = 100.0;
@@ -160,6 +164,7 @@ public class GameState {
     public int lastStaffChangeDay = -999;
     public String lastStaffChangeSummary = "";
     public String topSalesForecastLine = "Top sellers (5r): Wine None | Food None";
+    public double lastNightChaosPeak = 0.0;
 
     // weekly chaos
     public int fightsThisWeek = 0;
@@ -227,6 +232,18 @@ public class GameState {
     public int lastEarlyCloseRepPenalty = 0;
     public final Deque<String> earlyClosePenaltyLog = new ArrayDeque<>();
     public final Deque<String> chaosDeltaLog = new ArrayDeque<>();
+    public MusicProfileType currentMusicProfile = MusicProfileType.ACOUSTIC_CHILL;
+    public TimePhase lastMusicChangePhase = null;
+    public int consecutiveNightsSameMusic = 0;
+    public int weeklyMusicSwitches = 0;
+    public MusicProfileType lastNightMusicProfile = MusicProfileType.ACOUSTIC_CHILL;
+    public boolean sickCallTriggeredTonight = false;
+    public String sickStaffNameTonight = "";
+    public final List<Staff> sickStaffTonight = new ArrayList<>();
+    public double teamFatigue = 0.0;
+    public double rollingFatigueStress = 0.0;
+    public int lastEarlyCloseCheckNight = -1;
+    public int lastMusicProfileChangeRound = -999;
 
     private static final LocalDate START_DATE = LocalDate.of(1989, 1, 16);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -429,6 +446,22 @@ public class GameState {
     public int weeksSincePrestige() { return Math.max(1, weekCount - prestigeWeekStart + 1); }
     public int clampRep(int r) { return Math.max(-100, Math.min(100, r)); }
     public int absDayIndex() { return dayCounter; }
+    public LocalTime getCurrentTime() {
+        int minutes = roundInNight * MINUTES_PER_ROUND;
+        return OPENING_TIME.plusMinutes(minutes);
+    }
+
+    public TimePhase getCurrentPhase() {
+        LocalTime current = getCurrentTime();
+        if (current.isBefore(LocalTime.of(15, 0))) return TimePhase.EARLY_DAY;
+        if (current.isBefore(LocalTime.of(18, 30))) return TimePhase.BUILD_UP;
+        if (current.isBefore(LocalTime.of(21, 30))) return TimePhase.PEAK;
+        return TimePhase.LATE;
+    }
+
+    public boolean isNightClosingTimeReached() {
+        return roundInNight >= closingRound || !getCurrentTime().isBefore(NORMAL_CLOSING_TIME);
+    }
     public LocalDate currentDate() { return START_DATE.plusDays(dayCounter); }
     public String dateString() { return currentDate().format(DATE_FORMAT); }
     public int clampCreditScore(int score) { return Math.max(300, Math.min(850, score)); }

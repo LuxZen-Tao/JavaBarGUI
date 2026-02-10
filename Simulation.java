@@ -1,3 +1,4 @@
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -149,6 +150,7 @@ public class Simulation {
     private final PubLevelSystem pubLevelSystem;
     private final PrestigeSystem prestigeSystem;
     private final ObservationEngine observationEngine;
+    private final MusicSystem musicSystem;
 
     public Simulation(GameState state, UILogger log) {
 
@@ -171,6 +173,7 @@ public class Simulation {
         this.pubLevelSystem = new PubLevelSystem();
         this.prestigeSystem = new PrestigeSystem();
         this.observationEngine = new ObservationEngine();
+        this.musicSystem = new MusicSystem(s);
 
         markReportStartIfMissing();
 
@@ -664,6 +667,31 @@ public class Simulation {
         s.priceMultiplier = Math.max(0.50, Math.min(2.50, m));
     }
 
+    public boolean setMusicProfile(MusicProfileType profile) {
+        if (profile == null) return false;
+        if (s.currentMusicProfile == profile) return false;
+        TimePhase phase = s.getCurrentPhase();
+        if (s.nightOpen && s.lastMusicChangePhase == phase) {
+            log.info(" Music profile can only be changed once per phase.");
+            return false;
+        }
+        MusicProfileType previous = s.currentMusicProfile;
+        s.currentMusicProfile = profile;
+        s.lastMusicChangePhase = phase;
+        s.lastMusicProfileChangeRound = s.currentRoundIndex();
+        if (s.nightOpen) s.weeklyMusicSwitches++;
+        log.info(" Music profile: " + (previous != null ? previous.getLabel() : "None") + " -> " + profile.getLabel());
+        return true;
+    }
+
+    public String currentMusicTooltip() {
+        return musicSystem.computeEffects(s.currentMusicProfile, s.getCurrentPhase()).summary();
+    }
+
+    public String currentTimePhaseLabel() {
+        return "Time: " + s.getCurrentTime() + " | Phase: " + s.getCurrentPhase();
+    }
+
     public String upgradeRequirementText(PubUpgrade up) {
         return milestones.upgradeRequirementText(up);
     }
@@ -1065,6 +1093,11 @@ public class Simulation {
         s.nightOpen = true;
         s.roundInNight = 0;
         s.nightCount++;
+        s.lastMusicChangePhase = null;
+        s.teamFatigue = Math.max(0.0, s.teamFatigue * 0.15);
+        s.sickCallTriggeredTonight = false;
+        s.sickStaffNameTonight = "";
+        s.sickStaffTonight.clear();
 
         // nightly reset
         s.activityTonight = null;
@@ -1099,8 +1132,10 @@ public class Simulation {
         s.lastChaosDeltaStreak = 0.0;
         s.lastChaosMoraleNegMult = 1.0;
         s.lastChaosMoralePosMult = 1.0;
+        s.lastNightChaosPeak = 0.0;
 
         staff.updateTeamMorale();
+        maybeTriggerSickCall();
 
         // bouncer reset
         s.bouncersHiredTonight = 0;
@@ -1140,7 +1175,7 @@ public class Simulation {
 
         // base population & bar cap
         int basePool = 5;
-        int pool = clamp((int)Math.round(basePool * baseTrafficMultiplier()), 5, 28);
+        int pool = clamp((int)Math.round(basePool * baseTrafficMultiplier() * timeOfDayTrafficMultiplier(s.getCurrentPhase(), s.getCurrentTime())), 5, 28);
 
         //  upgrades actually expand the bar cap
         s.maxBarOccupancy = pool + s.upgradeBarCapBonus + s.pubLevelBarCapBonus;
@@ -1340,30 +1375,27 @@ public class Simulation {
         int repStaff = staff.repDeltaThisRound(s.random);
         eco.applyRep(repDrift + repStaff, "Atmosphere (upgrades+staff)");
 
+        RoundModifiers modifiers = computeModifiersForCurrentRound();
+        MusicEffects roundMusic = musicSystem.computeEffects(s.currentMusicProfile, s.getCurrentPhase());
+        if (Math.abs(roundMusic.reputationDriftDelta()) > 0.001) {
+            int musicRep = (int)Math.round(roundMusic.reputationDriftDelta());
+            if (musicRep != 0) {
+                eco.applyRep(musicRep, "Music profile response");
+            }
+        }
+        applyMusicIdentityPressure(roundMusic.identityPressure());
+
         // 3) Effective price multiplier
         //  Happy Hour halves prices (true "sell-off" button)
         double activityPriceAdj = 1.0 + activities.priceMultiplierPct();
-        double effectiveMult = s.priceMultiplier * (s.happyHour ? 0.50 : 1.0) * activityPriceAdj;
+        double effectiveMult = s.priceMultiplier * (s.happyHour ? 0.50 : 1.0) * activityPriceAdj * modifiers.spendMultiplier();
         effectiveMult = Math.max(0.50, Math.min(2.50, effectiveMult));
         s.recordWeeklyPriceMultiplier(effectiveMult);
 
         // 4) Capacity this round
         int serveCap = staff.totalServeCapacity();
 
-        // 5) Traffic multiplier
-        double trafficMult =
-                upgrades.trafficMultiplier()
-                        * activities.trafficMultiplier()
-                        * baseTrafficMultiplier()
-                        * identityTrafficMultiplier()
-                        * rumorTrafficMultiplier()
-                        * securityPolicyTrafficMultiplier()
-                        * securityTaskTrafficMultiplier()
-                        * (1.0 + s.landlordTrafficBonusPct);
-
-        if (rumors != null) {
-            trafficMult *= rumors.trafficMultiplier();
-        }
+        double trafficMult = modifiers.trafficMultiplier();
         if (s.wageTrafficPenaltyRounds > 0 && s.wageTrafficPenaltyMultiplier < 1.0) {
             trafficMult *= s.wageTrafficPenaltyMultiplier;
             s.wageTrafficPenaltyRounds = Math.max(0, s.wageTrafficPenaltyRounds - 1);
@@ -1388,6 +1420,9 @@ public class Simulation {
         boolean riskyWeekend = s.isWeekend();
         int sec = security.effectiveSecurity(); //  upgrade security applies
         sec = Math.max(0, sec);
+        if (modifiers.lateChaosRisk()) {
+            log.info(" Late phase risk: current music profile is stirring chaos.");
+        }
 
         double identityTip = s.currentIdentity != null ? s.currentIdentity.getTipBonusPct() : 0.0;
         double tipRate = staff.tipRate() + s.upgradeTipBonusPct + activities.tipBonusPct() + identityTip;
@@ -1459,9 +1494,10 @@ public class Simulation {
                 + " | security " + sec);
         int fightsThisRound = Math.max(0, s.nightFights - fightsBefore);
         int refundsThisRound = Math.max(0, s.nightRefunds - refundsBefore);
-        updateObservationLine(barCount, unserved, fightsThisRound, eventsThisRound, refundsThisRound);
+        updateObservationLine(barCount, unserved, fightsThisRound, eventsThisRound, refundsThisRound, modifiers);
         punters.refreshChaosContributions();
-        s.chaos = recomputeChaos(barCount, demand, serveCap, unserved, fightsThisRound, refundsThisRound, eventsThisRound);
+        s.chaos = recomputeChaos(barCount, demand, serveCap, unserved, fightsThisRound, refundsThisRound, eventsThisRound) + modifiers.chaosDelta();
+        s.chaos = Math.max(0.0, Math.min(100.0, s.chaos));
 
         checkHighRepScandal();
 
@@ -1480,7 +1516,14 @@ public class Simulation {
             addRumorHeat(Rumor.DODGY_LATE_NIGHTS, 4, RumorSource.PUNTER);
         }
 
-        staff.adjustMoraleAfterRound(unserved, eventsThisRound, s.reputation, tipRate, sec, s.chaos);
+        staff.adjustMoraleAfterRound(unserved, eventsThisRound, s.reputation, tipRate + modifiers.tipBonus(), sec, s.chaos, modifiers.staffMoraleDelta(), modifiers.fatiguePressure());
+
+        applyFatiguePressure(unserved, eventsThisRound, fightsThisRound, serveCap);
+
+        if (maybeTriggerTimePhaseEarlyClose()) {
+            closeNight("Team exhausted. Last orders called early.");
+            return;
+        }
 
         if (s.isSecurityTaskActive()) {
             s.activeSecurityTask = null;
@@ -1493,7 +1536,7 @@ public class Simulation {
             return;
         }
 
-        if (s.roundInNight >= s.closingRound) {
+        if (s.isNightClosingTimeReached()) {
             closeNight("Closing time.");
         }
     }
@@ -1518,6 +1561,7 @@ public class Simulation {
             while (s.earlyClosePenaltyLog.size() > 8) s.earlyClosePenaltyLog.removeLast();
         }
 
+        s.lastNightChaosPeak = Math.max(s.lastNightChaosPeak, s.chaos);
         s.nightOpen = false;
         s.activeSecurityTask = null;
         s.activeSecurityTaskRound = -999;
@@ -1557,6 +1601,26 @@ public class Simulation {
         generateNightRumor();
 
         runInnNightly();
+
+        if (!s.sickStaffTonight.isEmpty()) {
+            for (Staff st : s.sickStaffTonight) {
+                if (st.getType() == Staff.Type.HEAD_CHEF || st.getType() == Staff.Type.CHEF || st.getType() == Staff.Type.SOUS_CHEF) {
+                    s.bohStaff.add(st);
+                } else if (st.getType() == Staff.Type.MANAGER || st.getType() == Staff.Type.ASSISTANT_MANAGER || st.getType() == Staff.Type.DUTY_MANAGER) {
+                    s.generalManagers.add(st);
+                } else {
+                    s.fohStaff.add(st);
+                }
+            }
+            s.sickStaffTonight.clear();
+        }
+
+        if (s.lastNightMusicProfile == s.currentMusicProfile) {
+            s.consecutiveNightsSameMusic++;
+        } else {
+            s.consecutiveNightsSameMusic = 1;
+        }
+        s.lastNightMusicProfile = s.currentMusicProfile;
 
         staff.accrueDailyWages();
         s.wagesAccruedThisWeek = staff.wagesDue();
@@ -1967,6 +2031,7 @@ public class Simulation {
             if (s.wageServePenaltyWeeks == 0) s.wageServePenaltyPct = 0.0;
         }
         s.fightsThisWeek = 0;
+        s.weeklyMusicSwitches = 0;
         s.weekRefundTotal = 0.0;
         s.weekRevenue = 0.0;
         s.weekCosts = 0.0;
@@ -4380,6 +4445,146 @@ public class Simulation {
         return Math.max(0.0, Math.min(100.0, smoothed));
     }
 
+    private record RoundModifiers(
+            double trafficMultiplier,
+            double spendMultiplier,
+            double chaosDelta,
+            double staffMoraleDelta,
+            double serveCapacityMultiplier,
+            double fatiguePressure,
+            double tipBonus,
+            boolean lateChaosRisk
+    ) {}
+
+    private RoundModifiers computeModifiersForCurrentRound() {
+        TimePhase phase = s.getCurrentPhase();
+        LocalTime now = s.getCurrentTime();
+        MusicEffects musicEffects = musicSystem.computeEffects(s.currentMusicProfile, phase);
+        double trafficMult =
+                upgrades.trafficMultiplier()
+                        * activities.trafficMultiplier()
+                        * baseTrafficMultiplier()
+                        * timeOfDayTrafficMultiplier(phase, now)
+                        * musicEffects.trafficMultiplier()
+                        * identityTrafficMultiplier()
+                        * rumorTrafficMultiplier()
+                        * securityPolicyTrafficMultiplier()
+                        * securityTaskTrafficMultiplier()
+                        * (1.0 + s.landlordTrafficBonusPct);
+        if (rumors != null) {
+            trafficMult *= rumors.trafficMultiplier();
+        }
+
+        double fatiguePenalty = 1.0 - Math.min(0.35, s.teamFatigue * (phase == TimePhase.LATE ? 0.010 : 0.007));
+        double serveCapMult = Math.max(0.65, fatiguePenalty);
+
+        return new RoundModifiers(
+                Math.max(0.45, Math.min(2.1, trafficMult)),
+                musicEffects.spendMultiplier(),
+                musicEffects.chaosDelta(),
+                musicEffects.staffMoraleDelta(),
+                serveCapMult,
+                s.teamFatigue,
+                musicEffects.lingerMultiplier() > 1.0 ? 0.002 : 0.0,
+                musicEffects.lateChaosRisk()
+        );
+    }
+
+    private void applyMusicIdentityPressure(double pressure) {
+        if (Math.abs(pressure) < 0.001) return;
+        PubIdentity target = switch (s.currentMusicProfile) {
+            case ACOUSTIC_CHILL, JAZZ_LOUNGE -> PubIdentity.RESPECTABLE;
+            case INDIE_ALT -> PubIdentity.ARTSY;
+            case CLASSIC_ROCK, ELECTRONIC_LATE -> PubIdentity.UNDERGROUND;
+            case POP_PARTY -> PubIdentity.ROWDY;
+            case SPORTS_TV -> PubIdentity.FAMILY_FRIENDLY;
+        };
+        s.recordActivitySignal(target, pressure);
+        if (s.weeklyMusicSwitches >= 4) {
+            s.recordActivitySignal(PubIdentity.NEUTRAL, Math.abs(pressure) * 0.5);
+        }
+    }
+
+    private double timeOfDayTrafficMultiplier(TimePhase phase, LocalTime time) {
+        double phaseMult = switch (phase) {
+            case EARLY_DAY -> 0.82;
+            case BUILD_UP -> 1.02;
+            case PEAK -> 1.22;
+            case LATE -> 0.92;
+        };
+        if (phase == TimePhase.BUILD_UP && !time.isBefore(LocalTime.of(17, 24)) && time.isBefore(LocalTime.of(18, 0))) {
+            phaseMult *= 1.10;
+        }
+        if (phase == TimePhase.LATE && s.chaos > 60.0) {
+            phaseMult *= 0.95;
+        }
+        return phaseMult;
+    }
+
+    private void applyFatiguePressure(int unserved, int eventsThisRound, int fightsThisRound, int serveCap) {
+        TimePhase phase = s.getCurrentPhase();
+        int activeStaff = Math.max(1, s.fohStaffCount() + s.bohStaff.size() + s.generalManagers.size());
+        double coverageRatio = activeStaff / Math.max(1.0, serveCap / 2.0);
+        double understaffPressure = coverageRatio < 1.0 ? (1.0 - coverageRatio) * 1.5 : 0.0;
+        double phasePressure = switch (phase) {
+            case EARLY_DAY -> 0.35;
+            case BUILD_UP -> 0.60;
+            case PEAK -> 1.05;
+            case LATE -> 0.85;
+        };
+        double chaosPressure = Math.max(0.0, (s.chaos - 30.0) / 30.0);
+        double incidentPressure = Math.max(0, eventsThisRound + fightsThisRound) * 0.25;
+        double unservedPressure = Math.max(0, unserved) * 0.05;
+
+        double gain = phasePressure + understaffPressure + chaosPressure + incidentPressure + unservedPressure;
+        s.teamFatigue = Math.max(0.0, Math.min(30.0, s.teamFatigue + gain));
+        s.rollingFatigueStress = Math.max(0.0, Math.min(50.0, (s.rollingFatigueStress * 0.8) + gain));
+    }
+
+    private void maybeTriggerSickCall() {
+        double chance = 0.03;
+        chance += Math.max(0.0, (55.0 - s.teamMorale) / 600.0);
+        chance += Math.max(0.0, (s.lastNightChaosPeak - 45.0) / 500.0);
+        chance += Math.max(0.0, s.rollingFatigueStress / 700.0);
+        chance = Math.min(0.28, chance);
+        if (s.random.nextDouble() >= chance) return;
+
+        java.util.List<Staff> pool = new java.util.ArrayList<>();
+        pool.addAll(s.fohStaff);
+        pool.addAll(s.bohStaff);
+        if (pool.isEmpty()) return;
+        Staff picked = pool.get(s.random.nextInt(pool.size()));
+        if (s.fohStaff.remove(picked) || s.bohStaff.remove(picked) || s.generalManagers.remove(picked)) {
+            s.sickStaffTonight.add(picked);
+            s.sickCallTriggeredTonight = true;
+            s.sickStaffNameTonight = picked.getName();
+            log.event(picked.getName() + " called in sick and can't make it tonight. Coverage reduced.");
+            staff.updateTeamMorale();
+        }
+    }
+
+    private boolean maybeTriggerTimePhaseEarlyClose() {
+        TimePhase phase = s.getCurrentPhase();
+        if (!(phase == TimePhase.PEAK || phase == TimePhase.LATE)) return false;
+        if (s.lastEarlyCloseCheckNight == s.nightCount) return false;
+
+        LocalTime now = s.getCurrentTime();
+        boolean phaseStart = (phase == TimePhase.PEAK && now.equals(LocalTime.of(18, 48)))
+                || (phase == TimePhase.LATE && now.equals(LocalTime.of(21, 48)));
+        if (!phaseStart) return false;
+
+        s.lastEarlyCloseCheckNight = s.nightCount;
+        if (s.teamMorale > 45) return false;
+
+        double chance = 0.05 + Math.max(0.0, (45.0 - s.teamMorale) / 280.0);
+        if (s.teamFatigue > 12) chance += 0.03;
+        if (s.random.nextDouble() < Math.min(0.20, chance)) {
+            log.event("Staff morale collapsed at " + now + "; last orders called early.");
+            return true;
+        }
+        return false;
+    }
+
     private double baseTrafficMultiplier() {
         double repMult =
                 (s.reputation >= 70) ? 1.28 :
@@ -4620,7 +4825,7 @@ public class Simulation {
         return arrivals;
     }
 
-    private void updateObservationLine(int barCount, int unserved, int fightsThisRound, int eventsThisRound, int refundsThisRound) {
+    private void updateObservationLine(int barCount, int unserved, int fightsThisRound, int eventsThisRound, int refundsThisRound, RoundModifiers modifiers) {
         int roundIndex = absoluteRoundIndex();
         if (s.lastObservationPriceMultiplier <= 0.0) {
             s.lastObservationPriceMultiplier = s.priceMultiplier;
@@ -4647,7 +4852,14 @@ public class Simulation {
         );
         ObservationEngine.ObservationResult result = observationEngine.nextObservation(s, ctx);
         if (result == null) return;
-        s.observationLine = result.text();
+        String note = "[" + s.getCurrentPhase() + " | " + s.currentMusicProfile.getLabel() + "]";
+        if (modifiers != null && modifiers.lateChaosRisk() && s.getCurrentPhase() == TimePhase.LATE) {
+            note += " Late chaos risk up.";
+        }
+        if (s.sickCallTriggeredTonight) {
+            note += " Sick call cut coverage.";
+        }
+        s.observationLine = trimObservationLine(result.text() + " " + note);
         s.lastObservationRound = roundIndex;
         s.lastObservationPriceMultiplier = s.priceMultiplier;
     }

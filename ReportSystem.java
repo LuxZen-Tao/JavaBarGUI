@@ -69,11 +69,21 @@ public class ReportSystem {
                 .append(" | skill ").append(fmt2(s.opCostSkillThisWeek))
                 .append(" | occupancy ").append(fmt2(s.opCostOccupancyThisWeek)).append("\n");
         sb.append("Team morale: ").append((int)Math.round(s.teamMorale)).append("\n");
+        sb.append("Team fatigue: ").append(String.format("%.1f", s.teamFatigue)).append("\n");
         sb.append("Loss reports streak: ").append(s.consecutiveDebtReports).append("\n\n");
 
         sb.append("Between-night event: ").append(s.lastBetweenNightEventSummary).append("\n\n");
 
         sb.append("NIGHT\n");
+        sb.append("Clock: ").append(s.getCurrentTime()).append(" | Phase ").append(s.getCurrentPhase()).append("\n");
+        sb.append("Music profile: ").append(s.currentMusicProfile.getLabel()).append("\n");
+        if (s.getCurrentPhase() == TimePhase.LATE
+                && (s.currentMusicProfile == MusicProfileType.POP_PARTY || s.currentMusicProfile == MusicProfileType.ELECTRONIC_LATE)) {
+            sb.append("Ops note: late-phase chaos risk elevated by music/time blend.\n");
+        }
+        if (s.sickCallTriggeredTonight) {
+            sb.append("Coverage note: ").append(s.sickStaffNameTonight).append(" called in sick before opening.\n");
+        }
         sb.append("Revenue:  ").append(fmt2(s.nightRevenue)).append("\n");
         sb.append("Sales:    ").append(s.nightSales).append("\n");
         sb.append("Unserved: ").append(s.nightUnserved).append("\n");
