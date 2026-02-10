@@ -82,7 +82,6 @@ public class UIPopup {
         dialog.setAlwaysOnTop(true);
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         dialog.setBackground(new Color(28, 31, 36));
-        dialog.pack();
 
         closeBtn.addActionListener(e -> dialog.dispose());
 
@@ -104,7 +103,7 @@ public class UIPopup {
         t.setRepeats(false);
         t.start();
 
-        positionDialog(dialog, parent);
+        DialogSizing.packClampAndCenter(dialog, parentWindow(parent));
         dialog.setVisible(true);
     }
 
@@ -115,11 +114,8 @@ public class UIPopup {
                 .replace(">", "&gt;");
     }
 
-    private static void positionDialog(JDialog dialog, Component parent) {
-        if (parent != null) {
-            dialog.setLocationRelativeTo(parent);
-        } else {
-            dialog.setLocationRelativeTo(null);
-        }
+
+    private static Window parentWindow(Component parent) {
+        return parent == null ? null : SwingUtilities.getWindowAncestor(parent);
     }
 }

@@ -24,8 +24,7 @@ public class EventFeedDialog {
         bottom.add(close);
         dialog.add(bottom, BorderLayout.SOUTH);
 
-        dialog.setSize(700, 460);
-        dialog.setLocationRelativeTo(owner);
+        DialogSizing.packClampAndCenter(dialog, owner);
     }
 
     public void appendEvent(String text) {
