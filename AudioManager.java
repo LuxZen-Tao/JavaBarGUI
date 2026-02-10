@@ -1,3 +1,4 @@
+import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -123,9 +124,9 @@ public class AudioManager {
         };
     }
 
-    private void swapMusic(Path path) {
+    private boolean swapMusic(Path path) {
         Clip next = loadClip(path);
-        if (next == null) return;
+        if (next == null) return false;
         stopAndClose(musicClip);
         musicClip = next;
         currentMusicKey = path.toAbsolutePath().normalize().toString();
@@ -140,6 +141,7 @@ public class AudioManager {
         chatterClip = next;
         currentChatterFileName = path.getFileName().toString();
         playLoop(chatterClip);
+        return true;
     }
 
     private Clip loadClip(Path wavPath) {
@@ -147,12 +149,24 @@ public class AudioManager {
             warn("Missing WAV file: " + wavPath);
             return null;
         }
-        try {
-            AudioInputStream stream = AudioSystem.getAudioInputStream(wavPath.toFile());
-            Clip clip = AudioSystem.getClip();
-            clip.open(stream);
-            openStreams.put(clip, stream);
-            return clip;
+
+        try (AudioInputStream sourceStream = AudioSystem.getAudioInputStream(wavPath.toFile())) {
+            AudioFormat sourceFormat = sourceStream.getFormat();
+            AudioFormat targetFormat = new AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    sourceFormat.getSampleRate(),
+                    16,
+                    sourceFormat.getChannels(),
+                    sourceFormat.getChannels() * 2,
+                    sourceFormat.getSampleRate(),
+                    false
+            );
+
+            try (AudioInputStream decodedStream = AudioSystem.getAudioInputStream(targetFormat, sourceStream)) {
+                Clip clip = AudioSystem.getClip();
+                clip.open(decodedStream);
+                return clip;
+            }
         } catch (UnsupportedAudioFileException | IOException | LineUnavailableException | IllegalArgumentException ex) {
             warn("Unable to load WAV " + wavPath + " | " + ex.getMessage());
             return null;
