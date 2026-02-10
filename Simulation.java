@@ -847,7 +847,7 @@ public class Simulation {
                 log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
-            if (s.fohStaff.size() >= s.fohStaffCap) {
+            if (s.fohStaffCount() >= s.fohStaffCap) {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
             }
@@ -895,7 +895,7 @@ public class Simulation {
                 log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
-            if (s.fohStaff.size() >= s.fohStaffCap) {
+            if (t != Staff.Type.ASSISTANT_MANAGER && s.fohStaffCount() >= s.fohStaffCap) {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
             }
@@ -2956,7 +2956,7 @@ public class Simulation {
         }
 
         sb.append("Total staff: ").append(totalStaff).append("/").append(combinedCap)
-                .append(" (FOH ").append(s.fohStaff.size()).append("/").append(s.fohStaffCap)
+                .append(" (FOH ").append(s.fohStaffCount()).append("/").append(s.fohStaffCap)
                 .append(", BOH ").append(s.bohStaff.size()).append("/").append(s.kitchenChefCap).append(")");
         sb.append("\nManager slots: ").append(s.managerPoolCount()).append("/").append(s.managerCap)
                 .append(" (GM ").append(s.generalManagers.size())

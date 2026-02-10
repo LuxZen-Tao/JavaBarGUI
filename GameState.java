@@ -656,7 +656,7 @@ public class GameState {
 
     public StaffSummary staff() {
         return new StaffSummary(
-                fohStaff.size(),
+                fohStaffCount(),
                 fohStaffCap,
                 generalManagers.size(),
                 assistantManagerCount(),
@@ -676,6 +676,14 @@ public class GameState {
         for (Staff st : fohStaff) if (st.getType() == type) count++;
         for (Staff st : bohStaff) if (st.getType() == type) count++;
         for (Staff st : generalManagers) if (st.getType() == type) count++;
+        return count;
+    }
+
+    public int fohStaffCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (st.getType() != Staff.Type.ASSISTANT_MANAGER) count++;
+        }
         return count;
     }
 
