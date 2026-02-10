@@ -364,6 +364,9 @@ public class WineBarGUI {
         controls.setBorder(new EmptyBorder(2, 0, 2, 0));
 
         applyButtonIcons();
+        compactEconomyActionButton(supplierBtn, 80, 14);
+        compactEconomyActionButton(kitchenSupplierBtn, 94, 24);
+        compactEconomyActionButton(loanSharkBtn, 78, 12);
 
         JPanel right = new JPanel();
         right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
@@ -446,6 +449,20 @@ public class WineBarGUI {
             Dimension preferred = combo.getPreferredSize();
             combo.setPreferredSize(new Dimension(Math.max(86, preferred.width - 20), Math.max(20, preferred.height - 2)));
         }
+    }
+
+
+    private void compactEconomyActionButton(AbstractButton button, int minWidth, int widthTrim) {
+        Font base = button.getFont();
+        if (base != null) {
+            button.setFont(base.deriveFont((float) Math.max(9, base.getSize() - 2)));
+        }
+        button.setMargin(new Insets(1, 3, 1, 3));
+        button.setIconTextGap(3);
+        Dimension preferred = button.getPreferredSize();
+        int width = Math.max(minWidth, preferred.width - widthTrim);
+        int height = Math.max(20, preferred.height - 2);
+        button.setPreferredSize(new Dimension(width, height));
     }
 
     private JPanel createControlGroup(String title, JComponent... components) {
