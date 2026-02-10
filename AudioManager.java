@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class AudioManager {
@@ -21,6 +23,7 @@ public class AudioManager {
 
     private Clip musicClip;
     private Clip chatterClip;
+    private final Map<Clip, AudioInputStream> openStreams = new HashMap<>();
 
     private String currentMusicKey;
     private String currentMusicFileName = "None";
@@ -80,10 +83,9 @@ public class AudioManager {
             warn("Chatter file not found for band: " + targetBand);
             return;
         }
-        if (swapChatter(target)) {
-            currentChatterBand = targetBand;
-            lastChatterSwapAtMs = now;
-        }
+        swapChatter(target);
+        currentChatterBand = targetBand;
+        lastChatterSwapAtMs = now;
     }
 
     public synchronized String currentMusicFileName() {
@@ -130,12 +132,11 @@ public class AudioManager {
         currentMusicKey = path.toAbsolutePath().normalize().toString();
         currentMusicFileName = path.getFileName().toString();
         playLoop(musicClip);
-        return true;
     }
 
-    private boolean swapChatter(Path path) {
+    private void swapChatter(Path path) {
         Clip next = loadClip(path);
-        if (next == null) return false;
+        if (next == null) return;
         stopAndClose(chatterClip);
         chatterClip = next;
         currentChatterFileName = path.getFileName().toString();
@@ -181,9 +182,20 @@ public class AudioManager {
 
     private void stopAndClose(Clip clip) {
         if (clip == null) return;
-        clip.stop();
-        clip.flush();
-        clip.close();
+        try {
+            clip.stop();
+            clip.flush();
+            clip.close();
+        } finally {
+            AudioInputStream stream = openStreams.remove(clip);
+            if (stream != null) {
+                try {
+                    stream.close();
+                } catch (IOException ex) {
+                    warn("Failed to close audio stream: " + ex.getMessage());
+                }
+            }
+        }
     }
 
     private void warn(String message) {
