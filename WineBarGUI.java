@@ -347,6 +347,8 @@ public class WineBarGUI {
         controls.add(autoControls);
         controls.setBorder(new EmptyBorder(6, 2, 6, 2));
 
+        controls.setPreferredSize(new Dimension(0, 220));
+
         applyButtonIcons();
 
         JPanel right = new JPanel();
@@ -428,6 +430,121 @@ public class WineBarGUI {
             group.add(component);
         }
         return group;
+    }
+
+    private static class AdaptiveControlGroup extends JPanel {
+        private static final int MAX_PRIMARY_ROWS = 2;
+
+        private final JPanel primaryPanel = new JPanel(new WrapLayout(FlowLayout.LEADING, 6, 6));
+        private final JPanel secondaryPanel = new JPanel();
+        private final java.util.List<JComponent> primaryComponents = new java.util.ArrayList<>();
+        private final java.util.List<JComponent> secondaryComponents = new java.util.ArrayList<>();
+        private boolean secondaryDetached = false;
+
+        private AdaptiveControlGroup(String title, JComponent[] primary, JComponent[] secondary) {
+            super(new BorderLayout(6, 6));
+            setBorder(BorderFactory.createTitledBorder(title));
+            setOpaque(true);
+            setBackground(new Color(34, 37, 43));
+            putClientProperty("FlatLaf.style", "arc: 14");
+
+            primaryPanel.setOpaque(false);
+            secondaryPanel.setLayout(new BoxLayout(secondaryPanel, BoxLayout.Y_AXIS));
+            secondaryPanel.setOpaque(false);
+
+            for (JComponent component : primary) {
+                primaryComponents.add(component);
+                primaryPanel.add(component);
+            }
+            for (JComponent component : secondary) {
+                secondaryComponents.add(component);
+                primaryPanel.add(component);
+            }
+
+            add(primaryPanel, BorderLayout.CENTER);
+            add(secondaryPanel, BorderLayout.EAST);
+            secondaryPanel.setVisible(false);
+
+            addComponentListener(new ComponentAdapter() {
+                @Override
+                public void componentResized(ComponentEvent e) {
+                    updateSecondaryLayout();
+                }
+            });
+
+            SwingUtilities.invokeLater(this::updateSecondaryLayout);
+        }
+
+        private void updateSecondaryLayout() {
+            if (secondaryComponents.isEmpty()) {
+                return;
+            }
+
+            int availableWidth = primaryPanel.getWidth();
+            if (availableWidth <= 0) {
+                availableWidth = getWidth() - getInsets().left - getInsets().right - 12;
+            }
+            if (availableWidth <= 0) {
+                return;
+            }
+
+            boolean shouldDetach = estimateRows(availableWidth) > MAX_PRIMARY_ROWS;
+            if (shouldDetach == secondaryDetached) {
+                return;
+            }
+
+            secondaryDetached = shouldDetach;
+            if (secondaryDetached) {
+                for (JComponent component : secondaryComponents) {
+                    primaryPanel.remove(component);
+                    secondaryPanel.add(component);
+                }
+                secondaryPanel.setVisible(true);
+            } else {
+                for (JComponent component : secondaryComponents) {
+                    secondaryPanel.remove(component);
+                    primaryPanel.add(component);
+                }
+                secondaryPanel.setVisible(false);
+            }
+
+            revalidate();
+            repaint();
+        }
+
+        private int estimateRows(int availableWidth) {
+            WrapLayout wrap = (WrapLayout) primaryPanel.getLayout();
+            Insets insets = primaryPanel.getInsets();
+            int rowWidthLimit = Math.max(1, availableWidth - insets.left - insets.right);
+            int rows = 1;
+            int currentRowWidth = 0;
+
+            for (JComponent component : primaryComponents) {
+                currentRowWidth = appendWidth(component.getPreferredSize().width, currentRowWidth, rowWidthLimit, wrap.getHgap());
+                if (currentRowWidth < 0) {
+                    rows++;
+                    currentRowWidth = component.getPreferredSize().width;
+                }
+            }
+
+            for (JComponent component : secondaryComponents) {
+                currentRowWidth = appendWidth(component.getPreferredSize().width, currentRowWidth, rowWidthLimit, wrap.getHgap());
+                if (currentRowWidth < 0) {
+                    rows++;
+                    currentRowWidth = component.getPreferredSize().width;
+                }
+            }
+
+            return rows;
+        }
+
+        private int appendWidth(int componentWidth, int currentRowWidth, int limit, int hgap) {
+            int widthWithGap = currentRowWidth == 0 ? componentWidth : currentRowWidth + hgap + componentWidth;
+            if (widthWithGap > limit && currentRowWidth > 0) {
+                return -1;
+            }
+            return widthWithGap;
+        }
     }
 
     private void applyButtonIcons() {
