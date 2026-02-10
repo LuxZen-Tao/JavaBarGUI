@@ -51,18 +51,43 @@ public class CreditLineManager {
     }
 
     public boolean applyCredit(double amount) {
+        return applyCredit(amount, null);
+    }
+
+    public boolean applyCredit(double amount, String preferredLineId) {
         if (amount <= 0) return true;
+        CreditLine line = selectLineForCredit(amount, preferredLineId);
+        if (line == null) return false;
+        line.addBalance(amount);
+        updateWeeklyPayment(line);
+        lastAppliedLine = line;
+        return true;
+    }
+
+    private CreditLine selectLineForCredit(double amount, String preferredLineId) {
+        CreditLine preferred = getLineById(preferredLineId);
+        if (preferred != null && preferred.isEnabled() && preferred.availableCredit() >= amount) {
+            return preferred;
+        }
+
+        CreditLine best = null;
         for (CreditLine line : openLines) {
             if (!line.isEnabled()) continue;
-            if (line.availableCredit() >= amount) {
-                line.addBalance(amount);
-                updateWeeklyPayment(line);
-                lastAppliedLine = line;
-                // TODO: Enable player choice for selecting credit line in Chunk 6.
-                return true;
+            if (line.availableCredit() < amount) continue;
+            if (best == null) {
+                best = line;
+                continue;
+            }
+            double apr = line.getInterestAPR() + line.getPenaltyAddOnApr();
+            double bestApr = best.getInterestAPR() + best.getPenaltyAddOnApr();
+            if (apr < bestApr) {
+                best = line;
+            } else if (Math.abs(apr - bestApr) < 0.000001
+                    && line.availableCredit() > best.availableCredit()) {
+                best = line;
             }
         }
-        return false;
+        return best;
     }
 
     public CreditLine openLine(Bank bank, java.util.Random random) {
@@ -219,11 +244,30 @@ public class CreditLineManager {
 
     private void adjustCreditScore(GameState s, int delta, String reason) {
         if (s == null || delta == 0) return;
-        int before = s.creditScore;
-        s.creditScore = s.clampCreditScore(before + delta);
-        if (s.creditScore != before) {
-            // TODO: Expand credit score effects in Chunk 6 (suppliers, events).
+        int beforeScore = s.creditScore;
+        String beforeTrust = s.supplierTrustLabel();
+
+        s.creditScore = s.clampCreditScore(beforeScore + delta);
+        if (s.creditScore == beforeScore) return;
+
+        double penalty = s.supplierTrustPenalty;
+        double magnitude = Math.min(4, Math.abs(delta));
+        if (delta > 0) {
+            penalty -= 0.005 * magnitude;
+        } else {
+            penalty += 0.004 * magnitude;
         }
+
+        String afterTrust = s.supplierTrustLabel();
+        if (!beforeTrust.equals(afterTrust)) {
+            if ("Good".equals(afterTrust)) penalty -= 0.01;
+            else if ("Very Poor".equals(afterTrust)) penalty += 0.01;
+            else if ("Poor".equals(afterTrust) && "Neutral".equals(beforeTrust)) penalty += 0.005;
+            else if ("Neutral".equals(afterTrust) && "Poor".equals(beforeTrust)) penalty -= 0.005;
+            s.supplierTrustStatus = afterTrust;
+        }
+
+        s.supplierTrustPenalty = Math.max(0.0, Math.min(0.30, penalty));
     }
 
 }

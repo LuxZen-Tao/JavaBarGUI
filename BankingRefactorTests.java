@@ -16,6 +16,8 @@ public class BankingRefactorTests {
         testCreditScoreBonusForFullPay();
         testCreditLineToCreditLinePayment();
         testWeeklyMinDueIncludesSupplier();
+        testApplyCreditPrefersRequestedLine();
+        testApplyCreditFallsBackToLowerAprLine();
         testObservationEngineMajorEventOverridesThrottle();
         testObservationEngineNoBouncerClaims();
         testObservationEngineLengthClamp();
@@ -263,6 +265,35 @@ public class BankingRefactorTests {
                 + state.wagesAccruedThisWeek;
         assert Math.abs(due.supplier() - expectedSupplierMin) < 0.001 : "Supplier minimum due should be included in weekly totals.";
         assert Math.abs(due.total() - expectedTotal) < 0.001 : "Weekly minimum due total should include supplier mins.";
+    }
+
+
+    private static void testApplyCreditPrefersRequestedLine() {
+        GameState state = GameFactory.newGame();
+        CreditLine lineA = state.creditLines.openLine(Bank.TOWNLAND, state.random);
+        CreditLine lineB = state.creditLines.openLine(Bank.SANTNERE, state.random);
+        assert lineA != null && lineB != null : "Expected two credit lines to open.";
+
+        boolean ok = state.creditLines.applyCredit(120.0, lineB.getId());
+        assert ok : "applyCredit should succeed when preferred line can cover the amount.";
+        assert lineB.getBalance() >= 120.0 : "Preferred line should receive the borrowed amount.";
+        assert lineA.getBalance() == 0.0 : "Non-selected line should remain untouched.";
+    }
+
+    private static void testApplyCreditFallsBackToLowerAprLine() {
+        GameState state = GameFactory.newGame();
+        CreditLine lineA = state.creditLines.openLine(Bank.TOWNLAND, state.random);
+        CreditLine lineB = state.creditLines.openLine(Bank.SANTNERE, state.random);
+        assert lineA != null && lineB != null : "Expected two credit lines to open.";
+
+        // Force deterministic effective APR ordering so fallback choice is testable.
+        lineA.setPenaltyAddOnApr(0.25);
+        lineB.setPenaltyAddOnApr(0.0);
+
+        boolean ok = state.creditLines.applyCredit(75.0, "missing-id");
+        assert ok : "applyCredit should still succeed without a valid preferred id.";
+        assert lineB.getBalance() >= 75.0 : "Lower APR line should be selected as fallback.";
+        assert lineA.getBalance() == 0.0 : "Higher APR line should not be selected when a cheaper line exists.";
     }
 
     private static void testObservationEngineMajorEventOverridesThrottle() {
