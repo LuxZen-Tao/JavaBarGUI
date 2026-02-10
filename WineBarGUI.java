@@ -742,6 +742,7 @@ public class WineBarGUI {
                 }
             });
 
+            DialogSizing.packClampAndCenter(reportsDialog, frame);
             restoreReportsDialogBounds();
         }
 
@@ -821,8 +822,7 @@ public class WineBarGUI {
             bottom.add(close);
             missionControlDialog.add(bottom, BorderLayout.SOUTH);
 
-            missionControlDialog.setSize(980, 720);
-            missionControlDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(missionControlDialog, frame);
         }
 
         refreshMissionControl();
@@ -924,10 +924,14 @@ public class WineBarGUI {
         int x = prefs.getInt("reportsDialog.x", Integer.MIN_VALUE);
         int y = prefs.getInt("reportsDialog.y", Integer.MIN_VALUE);
         reportsDialog.setSize(w, h);
+        DialogSizing.clampToScreen(reportsDialog);
         if (x == Integer.MIN_VALUE || y == Integer.MIN_VALUE) {
             reportsDialog.setLocationRelativeTo(frame);
         } else {
-            reportsDialog.setLocation(x, y);
+            Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+            int maxX = Math.max(0, screen.width - reportsDialog.getWidth());
+            int maxY = Math.max(0, screen.height - reportsDialog.getHeight());
+            reportsDialog.setLocation(Math.max(0, Math.min(x, maxX)), Math.max(0, Math.min(y, maxY)));
         }
     }
 
@@ -1108,8 +1112,7 @@ public class WineBarGUI {
             bottom.add(close);
             supplierDialog.add(bottom, BorderLayout.SOUTH);
 
-            supplierDialog.setSize(780, 500);
-            supplierDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(supplierDialog, frame);
         }
 
         refreshSupplierButtons();
@@ -1202,8 +1205,7 @@ public class WineBarGUI {
             bottom.add(close);
             paydayDialog.add(bottom, BorderLayout.SOUTH);
 
-            paydayDialog.setSize(900, 560);
-            paydayDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(paydayDialog, frame);
         }
 
         refreshPaydayDialog();
@@ -1626,8 +1628,7 @@ public class WineBarGUI {
             bottom.add(close);
             kitchenSupplierDialog.add(bottom, BorderLayout.SOUTH);
 
-            kitchenSupplierDialog.setSize(760, 460);
-            kitchenSupplierDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(kitchenSupplierDialog, frame);
         }
 
         refreshKitchenSupplierButtons();
@@ -1760,8 +1761,7 @@ public class WineBarGUI {
             bottom.add(close);
             staffDialog.add(bottom, BorderLayout.SOUTH);
 
-            staffDialog.setSize(980, 560);
-            staffDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(staffDialog, frame);
         }
 
         refreshStaffButtons();
@@ -2031,8 +2031,7 @@ public class WineBarGUI {
             bottom.add(close);
             securityDialog.add(bottom, BorderLayout.SOUTH);
 
-            securityDialog.setSize(520, 420);
-            securityDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(securityDialog, frame);
         }
 
         refreshSecurityButtons();
@@ -2162,8 +2161,7 @@ public class WineBarGUI {
             bottom.add(close);
             upgradesDialog.add(bottom, BorderLayout.SOUTH);
 
-            upgradesDialog.setSize(780, 520);
-            upgradesDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(upgradesDialog, frame);
         }
 
         refreshUpgradesButtons();
@@ -2256,8 +2254,7 @@ public class WineBarGUI {
             bottom.add(close);
             activitiesDialog.add(bottom, BorderLayout.SOUTH);
 
-            activitiesDialog.setSize(780, 520);
-            activitiesDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(activitiesDialog, frame);
         }
 
         refreshActivitiesButtons();
@@ -2339,8 +2336,7 @@ public class WineBarGUI {
             bottom.add(close);
             innDialog.add(bottom, BorderLayout.SOUTH);
 
-            innDialog.setSize(520, 520);
-            innDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(innDialog, frame);
         }
 
         refreshInnWindow();
@@ -2410,8 +2406,7 @@ public class WineBarGUI {
             bottom.add(close);
             actionsDialog.add(bottom, BorderLayout.SOUTH);
 
-            actionsDialog.setSize(760, 560);
-            actionsDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(actionsDialog, frame);
         }
 
         actionsPanel.refresh();
@@ -2479,8 +2474,7 @@ public class WineBarGUI {
 
             loanDialog.add(loanButtonsPanel, BorderLayout.SOUTH);
 
-            loanDialog.setSize(820, 420);
-            loanDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(loanDialog, frame);
         }
 
         refreshLoanDialog();
@@ -2671,8 +2665,7 @@ public class WineBarGUI {
             bottom.add(prestigeConfirmButton);
             bottom.add(cancel);
             prestigeDialog.add(bottom, BorderLayout.SOUTH);
-            prestigeDialog.setSize(760, 520);
-            prestigeDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(prestigeDialog, frame);
         }
 
         prestigeDialog.setTitle(preview.title());
@@ -2738,8 +2731,7 @@ public class WineBarGUI {
             bottom.add(close);
             weeklyReportDialog.add(bottom, BorderLayout.SOUTH);
 
-            weeklyReportDialog.setSize(780, 560);
-            weeklyReportDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(weeklyReportDialog, frame);
         }
 
         weeklyReportArea.setText(state.weeklyReportText);
@@ -2763,8 +2755,7 @@ public class WineBarGUI {
             bottom.add(close);
             fourWeekReportDialog.add(bottom, BorderLayout.SOUTH);
 
-            fourWeekReportDialog.setSize(780, 560);
-            fourWeekReportDialog.setLocationRelativeTo(frame);
+            DialogSizing.packClampAndCenter(fourWeekReportDialog, frame);
         }
 
         fourWeekReportArea.setText(state.fourWeekReportText);
