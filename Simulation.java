@@ -7,6 +7,9 @@ public class Simulation {
     private static final double INN_MAINTENANCE_PER_ROOM = 2.6;
     private static final double INN_USAGE_CLEANLINESS_DECAY = 1.3;
     private static final double INN_CLEAN_RECOVERY = 2.0;
+    private static final int INN_PRICE_VOLATILITY_THRESHOLD = 2;
+    private static final double INN_PRICE_VOLATILITY_CHAOS = 1.0;
+    private static final double INN_PRICE_VOLATILITY_INN_REP = 0.6;
 
     private static final List<String> MISCONDUCT_DRIVER_LINES = List.of(
             "Pressure stacked up with low morale and high chaos.",
@@ -309,12 +312,15 @@ public class Simulation {
             }
             s.innTier = tier;
             s.roomsTotal = innRoomsForTier(tier) + s.legacy.innRoomBonus;
+            s.hohStaffCap = s.baseHohCap + innHohCapForTier(tier);
             if (s.roomsBookedLast > s.roomsTotal) {
                 s.roomsBookedLast = s.roomsTotal;
             }
             if (s.lastNightRoomsBooked > s.roomsTotal) {
                 s.lastNightRoomsBooked = s.roomsTotal;
             }
+        } else {
+            s.hohStaffCap = s.baseHohCap;
         }
     }
 
@@ -334,6 +340,17 @@ public class Simulation {
             case 3 -> 10;
             case 4 -> 15;
             case 5 -> 25;
+            default -> 0;
+        };
+    }
+
+    private int innHohCapForTier(int tier) {
+        return switch (tier) {
+            case 1 -> 2;
+            case 2 -> 4;
+            case 3 -> 6;
+            case 4 -> 8;
+            case 5 -> 10;
             default -> 0;
         };
     }
@@ -847,7 +864,7 @@ public class Simulation {
                 log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
-            if (s.fohStaff.size() >= s.fohStaffCap) {
+            if (s.fohStaffCount() >= s.fohStaffCap) {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
             }
@@ -895,7 +912,11 @@ public class Simulation {
                 log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
-            if (s.fohStaff.size() >= s.fohStaffCap) {
+            if (s.isHohRole(t) && s.hohStaffCount() >= s.hohStaffCap) {
+                log.neg("HOH staff cap reached (" + s.hohStaffCap + ").");
+                return;
+            }
+            if (t != Staff.Type.ASSISTANT_MANAGER && !s.isHohRole(t) && s.fohStaffCount() >= s.fohStaffCap) {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
             }
@@ -1083,6 +1104,12 @@ public class Simulation {
         s.nextNightServeCapBonus = 0;
 
         s.nightStartCash = s.cash;
+        s.currentNightInnBookings.clear();
+        s.innPriceSegments.clear();
+        s.innPriceChangesThisNight = 0;
+        if (s.innUnlocked) {
+            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.closingRound, s.roomPrice));
+        }
 
         if (s.scheduledActivity != null && s.absDayIndex() >= s.scheduledActivity.startAbsDayIndex()) {
             s.activityTonight = s.scheduledActivity.activity();
@@ -1114,6 +1141,37 @@ public class Simulation {
         log.popup("Supplier deal", "Locked for this night: " + supplierSystem.dealLabel(), "");
         if (s.tempServeBonusTonight > 0) {
             log.popup(" Milestone perk", "+" + s.tempServeBonusTonight + " serve capacity tonight.", "");
+        }
+    }
+
+    public void setRoomPrice(double price) {
+        double nextPrice = Math.max(0.0, price);
+        if (Math.abs(s.roomPrice - nextPrice) < 0.0001) return;
+        double previousPrice = s.roomPrice;
+        s.roomPrice = nextPrice;
+        if (!s.nightOpen || !s.innUnlocked) return;
+
+        if (s.innPriceSegments.isEmpty()) {
+            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.closingRound, previousPrice));
+        }
+
+        if (s.roundInNight == 0) {
+            s.innPriceSegments.set(0, new GameState.InnPriceSegment(1, s.closingRound, nextPrice));
+        } else {
+            int endRound = Math.min(s.roundInNight, s.closingRound);
+            int lastIndex = s.innPriceSegments.size() - 1;
+            GameState.InnPriceSegment last = s.innPriceSegments.get(lastIndex);
+            int adjustedEnd = Math.max(last.startRound(), endRound);
+            s.innPriceSegments.set(lastIndex, new GameState.InnPriceSegment(last.startRound(), adjustedEnd, last.rateApplied()));
+            int startRound = Math.min(adjustedEnd + 1, s.closingRound);
+            if (startRound <= s.closingRound) {
+                s.innPriceSegments.add(new GameState.InnPriceSegment(startRound, s.closingRound, nextPrice));
+            }
+        }
+
+        s.innPriceChangesThisNight++;
+        if (s.innPriceChangesThisNight > INN_PRICE_VOLATILITY_THRESHOLD) {
+            applyInnPriceVolatilityPenalty();
         }
     }
 
@@ -1221,9 +1279,6 @@ public class Simulation {
         for (Punter p : s.nightPunters) {
             p.tickFoodCooldown();
         }
-
-        // 1) Rent accrues gradually
-        eco.accrueDailyRent();
 
         // 1b) Operating costs per round (tiny now, matters later)
         double opCost = staff.roundOperatingCost(s.nightPunters.size());
@@ -1418,6 +1473,7 @@ public class Simulation {
         s.dayIndex = (s.dayIndex + 1) % 7;
         s.dayCounter++;
 
+        eco.accrueDailyRent();
         accrueSecurityUpkeep();
 
         // between-nights spice (v2 event system)
@@ -1473,6 +1529,8 @@ public class Simulation {
             s.lastNightRoomsBooked = 0;
             s.lastNightRoomRevenue = 0.0;
             s.lastNightInnSummaryLine = "Inn locked.";
+            s.currentNightInnBookings.clear();
+            s.lastNightInnBookings.clear();
             return;
         }
 
@@ -1498,12 +1556,47 @@ public class Simulation {
         s.lastInnHousekeepingCoverage = housekeepingCoverage;
         s.lastInnHousekeepingNeeded = roomsBooked;
 
-        double revenue = roomsBooked * s.roomPrice;
+        if (s.innPriceSegments.isEmpty()) {
+            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.closingRound, s.roomPrice));
+        }
+
+        s.currentNightInnBookings.clear();
+        int totalDuration = 0;
+        for (GameState.InnPriceSegment segment : s.innPriceSegments) {
+            totalDuration += Math.max(0, segment.endRound() - segment.startRound() + 1);
+        }
+        if (totalDuration <= 0) totalDuration = 1;
+
+        int remaining = roomsBooked;
+        double revenue = 0.0;
+        for (int i = 0; i < s.innPriceSegments.size(); i++) {
+            GameState.InnPriceSegment segment = s.innPriceSegments.get(i);
+            int duration = Math.max(0, segment.endRound() - segment.startRound() + 1);
+            int rooms = (i == s.innPriceSegments.size() - 1)
+                    ? remaining
+                    : (int)Math.round(roomsBooked * (duration / (double)totalDuration));
+            rooms = Math.min(rooms, remaining);
+            if (rooms > 0) {
+                s.currentNightInnBookings.add(new GameState.InnBookingRecord(rooms, segment.rateApplied()));
+                revenue += rooms * segment.rateApplied();
+                remaining -= rooms;
+            }
+        }
+        if (remaining > 0) {
+            revenue += remaining * s.roomPrice;
+            s.currentNightInnBookings.add(new GameState.InnBookingRecord(remaining, s.roomPrice));
+        }
+
         if (revenue > 0.0) {
             eco.addCash(revenue, "Inn room bookings");
             s.weekInnRevenue += revenue;
         }
+        if (roomsBooked > 0) {
+            s.weekInnRoomsSold += roomsBooked;
+        }
         s.lastNightRoomRevenue = revenue;
+        s.lastNightInnBookings.clear();
+        s.lastNightInnBookings.addAll(s.currentNightInnBookings);
 
         double cleanlinessDelta = -roomsBooked * INN_USAGE_CLEANLINESS_DECAY;
         boolean underHousekeeping = housekeepingCoverage < roomsBooked;
@@ -1621,9 +1714,14 @@ public class Simulation {
         }
         if (maintenanceDelta > 0.0) {
             s.innMaintenanceAccruedWeekly += maintenanceDelta;
+            s.weekInnEventMaintenance += maintenanceDelta;
         }
         if (pubRepDelta != 0) {
             eco.applyRep(pubRepDelta, "Inn feedback");
+        }
+        s.weekInnEventsCount++;
+        if (headline.toLowerCase().contains("complaint")) {
+            s.weekInnComplaintCount++;
         }
         addInnEventLog(headline);
         s.lastInnEventsCount++;
@@ -1636,6 +1734,13 @@ public class Simulation {
             s.innEventLog.removeLast();
         }
         s.observationLine = "Inn: " + headline;
+    }
+
+    private void applyInnPriceVolatilityPenalty() {
+        s.chaos += INN_PRICE_VOLATILITY_CHAOS;
+        s.innRep = clamp01to100(s.innRep - INN_PRICE_VOLATILITY_INN_REP);
+        log.neg(" Inn pricing volatility hurt confidence (chaos +" + fmt1(INN_PRICE_VOLATILITY_CHAOS)
+                + ", inn rep -" + fmt1(INN_PRICE_VOLATILITY_INN_REP) + ").");
     }
 
     private double computeInnDemandScore(double demandBoost) {
@@ -1773,6 +1878,11 @@ public class Simulation {
         s.weekRevenue = 0.0;
         s.weekCosts = 0.0;
         s.weekInnRevenue = 0.0;
+        s.weekInnRoomsSold = 0;
+        s.weekInnEventsCount = 0;
+        s.weekInnComplaintCount = 0;
+        s.weekInnEventMaintenance = 0.0;
+        s.weekInnEventRefunds = 0.0;
         s.unservedThisWeek = 0;
         s.weekPriceMultiplierSum = 0.0;
         s.weekPriceMultiplierSamples = 0;
@@ -2949,7 +3059,7 @@ public class Simulation {
 
     private String buildStaffTabSummary(int serveCap) {
         StringBuilder sb = new StringBuilder();
-        int combinedCap = s.fohStaffCap + s.kitchenChefCap;
+        int combinedCap = s.fohStaffCap + s.hohStaffCap + s.kitchenChefCap;
         int totalStaff = s.fohStaff.size() + s.bohStaff.size() + s.generalManagers.size();
         double tipRate = staff.tipRate();
         int kitchenCapacity = 0;
@@ -2958,7 +3068,8 @@ public class Simulation {
         }
 
         sb.append("Total staff: ").append(totalStaff).append("/").append(combinedCap)
-                .append(" (FOH ").append(s.fohStaff.size()).append("/").append(s.fohStaffCap)
+                .append(" (FOH ").append(s.fohStaffCount()).append("/").append(s.fohStaffCap)
+                .append(", HOH ").append(s.hohStaffCount()).append("/").append(s.hohStaffCap)
                 .append(", BOH ").append(s.bohStaff.size()).append("/").append(s.kitchenChefCap).append(")");
         sb.append("\nManager slots: ").append(s.managerPoolCount()).append("/").append(s.managerCap)
                 .append(" (GM ").append(s.generalManagers.size())

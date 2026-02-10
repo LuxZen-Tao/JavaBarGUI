@@ -56,12 +56,16 @@ public class WageRentTests {
     private static void testRentAccrual() {
         GameState state = GameFactory.newGame();
         EconomySystem eco = new EconomySystem(state, new UILogger(new JTextPane()));
+        state.roomsTotal = 0;
         eco.accrueDailyRent();
         assert closeTo(state.rentAccruedThisWeek, 60.0) : "Rent should accrue at 60 per day.";
-        for (int i = 0; i < 6; i++) {
+        state.roomsTotal = 2;
+        eco.accrueDailyRent();
+        assert closeTo(state.rentAccruedThisWeek, 160.0) : "Rent should scale with rooms total.";
+        for (int i = 0; i < 5; i++) {
             eco.accrueDailyRent();
         }
-        assert closeTo(state.rentAccruedThisWeek, 420.0) : "Rent should accrue to 420 per week.";
+        assert closeTo(state.rentAccruedThisWeek, 660.0) : "Rent should accrue to 7 days of daily rent.";
     }
 
     private static void testWeeklyMinDueIncludesRentAndWages() {
@@ -76,7 +80,7 @@ public class WageRentTests {
         }
         double wagesDue = staffSystem.wagesDue();
         Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
-        assert closeTo(due.rent(), 420.0) : "Weekly rent due should be 420.";
+        assert closeTo(due.rent(), state.weeklyRentTotal()) : "Weekly rent due should match rent accrual.";
         assert closeTo(due.wages(), wagesDue) : "Weekly wages due should be included in breakdown.";
         assert due.total() >= due.rent() + due.wages() + due.innMaintenance() : "Total due should include rent, wages, and inn maintenance.";
     }

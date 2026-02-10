@@ -57,6 +57,14 @@ public class GameState {
     public double opCostSkillThisWeek = 0.0;
     public double opCostOccupancyThisWeek = 0.0;
 
+    public double dailyRent() {
+        return 60.0 + (roomsTotal * 20.0);
+    }
+
+    public double weeklyRentTotal() {
+        return dailyRent() * 7.0;
+    }
+
     // rep/security
     public int reputation = 10;                 // -100..100
     public int consecutiveNeg100Rounds = 0;
@@ -161,6 +169,8 @@ public class GameState {
 
     public int baseStaffCap = 4;
     public int fohStaffCap = 4;
+    public int baseHohCap = 0;
+    public int hohStaffCap = 0;
 
     public int baseManagerCap = 1;
     public int managerCap = 1;
@@ -177,6 +187,7 @@ public class GameState {
     public double innRep = 0.0;
     public double cleanliness = 0.0;
     public double innMaintenanceAccruedWeekly = 0.0;
+    public int weekInnRoomsSold = 0;
     public int lastNightRoomsBooked = 0;
     public double lastNightRoomRevenue = 0.0;
     public String lastNightInnSummaryLine = "Inn locked.";
@@ -194,7 +205,19 @@ public class GameState {
     public int lastInnHousekeepingNeeded = 0;
     public int lastInnEventsCount = 0;
     public double weekInnRevenue = 0.0;
+    public int weekInnEventsCount = 0;
+    public int weekInnComplaintCount = 0;
+    public double weekInnEventMaintenance = 0.0;
+    public double weekInnEventRefunds = 0.0;
     public final Deque<String> innEventLog = new ArrayDeque<>();
+    public final List<InnBookingRecord> currentNightInnBookings = new ArrayList<>();
+    public final List<InnBookingRecord> lastNightInnBookings = new ArrayList<>();
+    public final List<InnPriceSegment> innPriceSegments = new ArrayList<>();
+    public int innPriceChangesThisNight = 0;
+
+    public record InnBookingRecord(int rooms, double rateApplied) {}
+
+    public record InnPriceSegment(int startRound, int endRound, double rateApplied) {}
 
     public int pubLevel = 0;
     public int pubLevelServeCapBonus = 0;
@@ -624,6 +647,8 @@ public class GameState {
     public record StaffSummary(
             int staffCount,
             int staffCap,
+            int hohCount,
+            int hohCap,
             int managerCount,
             int assistantManagerCount,
             int dutyManagerCount,
@@ -637,6 +662,7 @@ public class GameState {
     ) {
         public String summaryLine() {
             return staffCount + "/" + staffCap
+                    + " | HOH: " + hohCount + "/" + hohCap
                     + " | Managers: " + managerPoolCount + "/" + managerCap
                     + " (GM " + managerCount + ", AM " + assistantManagerCount + ", DM " + dutyManagerCount + ")"
                     + (bouncersTonight > 0 ? " | Bouncer: " + bouncersTonight + "/" + bouncerCap : "")
@@ -648,8 +674,10 @@ public class GameState {
 
     public StaffSummary staff() {
         return new StaffSummary(
-                fohStaff.size(),
-                fohStaffCap,
+                fohStaffCount() + hohStaffCount(),
+                fohStaffCap + hohStaffCap,
+                hohStaffCount(),
+                hohStaffCap,
                 generalManagers.size(),
                 assistantManagerCount(),
                 dutyManagerCount(),
@@ -669,6 +697,48 @@ public class GameState {
         for (Staff st : bohStaff) if (st.getType() == type) count++;
         for (Staff st : generalManagers) if (st.getType() == type) count++;
         return count;
+    }
+
+    public int fohStaffCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (st.getType() != Staff.Type.ASSISTANT_MANAGER && !isHohRole(st.getType())) count++;
+        }
+        return count;
+    }
+
+    public int hohStaffCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (isHohRole(st.getType())) count++;
+        }
+        return count;
+    }
+
+    public boolean isHohRole(Staff.Type type) {
+        if (type == null) return false;
+        return type == Staff.Type.RECEPTION_TRAINEE
+                || type == Staff.Type.RECEPTIONIST
+                || type == Staff.Type.SENIOR_RECEPTIONIST
+                || type == Staff.Type.HOUSEKEEPING_TRAINEE
+                || type == Staff.Type.HOUSEKEEPER
+                || type == Staff.Type.HEAD_HOUSEKEEPER;
+    }
+
+    public double innStaffWeeklyWages() {
+        double total = 0.0;
+        for (Staff st : fohStaff) {
+            if (st.getType() == Staff.Type.RECEPTION_TRAINEE
+                    || st.getType() == Staff.Type.RECEPTIONIST
+                    || st.getType() == Staff.Type.SENIOR_RECEPTIONIST
+                    || st.getType() == Staff.Type.HOUSEKEEPING_TRAINEE
+                    || st.getType() == Staff.Type.HOUSEKEEPER
+                    || st.getType() == Staff.Type.HEAD_HOUSEKEEPER
+                    || st.getType() == Staff.Type.DUTY_MANAGER) {
+                total += st.getWeeklyWage();
+            }
+        }
+        return total;
     }
 
     /**  Only defined once. Count BOH kitchen roles. */
