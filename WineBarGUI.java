@@ -311,6 +311,22 @@ public class WineBarGUI {
             refreshAll();
         });
 
+        compactBottomControl(openBtn);
+        compactBottomControl(nextRoundBtn);
+        compactBottomControl(closeBtn);
+        compactBottomControl(happyHourBtn);
+        compactBottomControl(supplierBtn);
+        compactBottomControl(kitchenSupplierBtn);
+        compactBottomControl(loanSharkBtn);
+        compactBottomControl(staffBtn);
+        compactBottomControl(innBtn);
+        compactBottomControl(upgradesBtn);
+        compactBottomControl(securityBtn);
+        compactBottomControl(activitiesBtn);
+        compactBottomControl(actionsBtn);
+        compactBottomControl(autoBtn);
+        compactBottomControl(musicProfileBox);
+
         JPanel nightControls = createControlGroup(
                 "Night",
                 openBtn, nextRoundBtn, closeBtn, happyHourBtn, musicProfileBox
@@ -335,19 +351,17 @@ public class WineBarGUI {
         JPanel autoControls = createControlGroup("Automation", autoBtn);
 
         controls.add(nightControls);
-        controls.add(Box.createHorizontalStrut(8));
+        controls.add(Box.createHorizontalStrut(4));
         controls.add(economyControls);
-        controls.add(Box.createHorizontalStrut(8));
+        controls.add(Box.createHorizontalStrut(4));
         controls.add(managementControls);
-        controls.add(Box.createHorizontalStrut(8));
+        controls.add(Box.createHorizontalStrut(4));
         controls.add(riskControls);
-        controls.add(Box.createHorizontalStrut(8));
+        controls.add(Box.createHorizontalStrut(4));
         controls.add(activityControls);
-        controls.add(Box.createHorizontalStrut(8));
+        controls.add(Box.createHorizontalStrut(4));
         controls.add(autoControls);
-        controls.setBorder(new EmptyBorder(6, 2, 6, 2));
-
-        controls.setPreferredSize(new Dimension(0, 220));
+        controls.setBorder(new EmptyBorder(4, 1, 4, 1));
 
         applyButtonIcons();
 
@@ -380,7 +394,7 @@ public class WineBarGUI {
         frame.setContentPane(root);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
-        int minBottomWidth = controls.getPreferredSize().width + 40;
+        int minBottomWidth = controls.getPreferredSize().width + 20;
         int minHeight = Math.max(frame.getPreferredSize().height, 740);
         frame.setMinimumSize(new Dimension(minBottomWidth, minHeight));
         frame.setSize(Math.max(1320, minBottomWidth), Math.max(760, minHeight));
@@ -420,8 +434,22 @@ public class WineBarGUI {
         return createBadge(NIGHT_BG, wrapper);
     }
 
+
+    private void compactBottomControl(JComponent component) {
+        Font base = component.getFont();
+        if (base != null) {
+            component.setFont(base.deriveFont((float) Math.max(11, base.getSize() - 1)));
+        }
+        if (component instanceof AbstractButton button) {
+            button.setMargin(new Insets(2, 6, 2, 6));
+        } else if (component instanceof JComboBox<?> combo) {
+            Dimension preferred = combo.getPreferredSize();
+            combo.setPreferredSize(new Dimension(Math.max(96, preferred.width - 12), preferred.height));
+        }
+    }
+
     private JPanel createControlGroup(String title, JComponent... components) {
-        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 4));
+        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEADING, 4, 2));
         group.setBorder(BorderFactory.createTitledBorder(title));
         group.setOpaque(true);
         group.setBackground(new Color(34, 37, 43));
