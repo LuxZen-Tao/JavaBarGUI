@@ -28,7 +28,7 @@ public class BootSequencePanel extends JPanel {
     private static final double COVER_FADE_OUT_SECONDS = 1.0;
     private static final double RANDOM_FADE_OUT_SECONDS = 1.0;
 
-    private static final String COVER_PHRASE = "Brava!! Summer of '93 XOXO";
+    private static final String COVER_PHRASE = "Where it all started... Barva, Jan '89 XOXO";
 
     private enum Stage {
         GAME_BOOT_HOLD,
