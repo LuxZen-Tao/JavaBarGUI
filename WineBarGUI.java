@@ -75,6 +75,18 @@ public class WineBarGUI {
     private JPanel activitiesListPanel;
     private JDialog actionsDialog;
     private LandlordActionsPanel actionsPanel;
+    private JDialog innDialog;
+    private JLabel innRoomsLabel;
+    private JLabel innBookedLabel;
+    private JLabel innPriceLabel;
+    private JSlider innPriceSlider;
+    private JProgressBar innRepBar;
+    private JProgressBar innCleanBar;
+    private JLabel innReceptionLabel;
+    private JLabel innHousekeepingLabel;
+    private JLabel innDutyManagerLabel;
+    private JLabel innMaintenanceLabel;
+    private JLabel innSummaryLabel;
 
     // Reports panel (right side)
     private JTextArea reportArea;
@@ -124,6 +136,7 @@ public class WineBarGUI {
     private final JButton activitiesBtn = new JButton("Activities");
     private final JButton actionsBtn = new JButton("Actions");
     private final JButton staffBtn = new JButton("Staff");
+    private final JButton innBtn = new JButton("Inn");
 
     private final JButton securityBtn = new JButton("Security");
     private final JButton loanSharkBtn = new JButton("Finance");
@@ -159,6 +172,7 @@ public class WineBarGUI {
     private JTextArea missionInventoryArea;
     private JTextArea missionLoansArea;
     private JTextArea missionLogArea;
+    private JTextArea missionInnArea;
     private JRadioButton policyFriendlyBtn;
     private JRadioButton policyBalancedBtn;
     private JRadioButton policyStrictBtn;
@@ -289,7 +303,7 @@ public class WineBarGUI {
 
         JPanel nightControls = createControlGroup("Night", openBtn, nextRoundBtn, closeBtn, happyHourBtn);
         JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
-        JPanel managementControls = createControlGroup("Management", staffBtn, upgradesBtn);
+        JPanel managementControls = createControlGroup("Management", staffBtn, innBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
         JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
         JPanel autoControls = createControlGroup("Automation", autoBtn);
@@ -524,6 +538,7 @@ public class WineBarGUI {
             missionSuppliersArea = createMissionTextArea();
             missionProgressionArea = createMissionTextArea();
             missionOperationsArea = createMissionTextArea();
+            missionInnArea = createMissionTextArea();
             missionStaffArea = createMissionTextArea();
             missionStaffDetailArea = createMissionTextArea();
             missionRiskArea = createMissionTextArea();
@@ -547,6 +562,7 @@ public class WineBarGUI {
             tabs.add("Staff", new JScrollPane(missionStaffDetailArea));
             tabs.add("Economy", new JScrollPane(missionEconomyArea));
             tabs.add("Operations", new JScrollPane(missionOperationsArea));
+            tabs.add("Inn", new JScrollPane(missionInnArea));
             tabs.add("Risk & Security", new JScrollPane(missionRiskArea));
             tabs.add("Reputation & Identity", new JScrollPane(missionReputationArea));
             tabs.add("Rumors", new JScrollPane(missionRumorsArea));
@@ -724,6 +740,7 @@ public class WineBarGUI {
         activitiesBtn.addActionListener(e -> openActivitiesWindow());
         actionsBtn.addActionListener(e -> openActionsDialog());
         staffBtn.addActionListener(e -> openStaffWindow());
+        innBtn.addActionListener(e -> openInnWindow());
 
         securityBtn.addActionListener(e -> openSecurityWindow());
         happyHourBtn.addActionListener(e -> {
@@ -746,6 +763,7 @@ public class WineBarGUI {
         refreshLoanDialog();
         refreshUpgradesButtons();
         refreshActivitiesButtons();
+        refreshInnWindow();
     }
 
     private void toggleAuto() {
@@ -1460,6 +1478,17 @@ public class WineBarGUI {
             addStaffHireButton(Staff.Type.SPEED);
             addStaffHireButton(Staff.Type.CHARISMA);
             addStaffHireButton(Staff.Type.SECURITY);
+            JLabel innLockLabel = new JLabel("Inn roles (requires Inn Wing upgrade)");
+            innLockLabel.setForeground(new Color(150, 150, 150));
+            staffHirePanel.add(innLockLabel);
+            staffHirePanel.add(Box.createVerticalStrut(6));
+            addStaffHireButton(Staff.Type.RECEPTION_TRAINEE);
+            addStaffHireButton(Staff.Type.RECEPTIONIST);
+            addStaffHireButton(Staff.Type.SENIOR_RECEPTIONIST);
+            addStaffHireButton(Staff.Type.HOUSEKEEPING_TRAINEE);
+            addStaffHireButton(Staff.Type.HOUSEKEEPER);
+            addStaffHireButton(Staff.Type.HEAD_HOUSEKEEPER);
+            addStaffHireButton(Staff.Type.DUTY_MANAGER);
             kitchenLockLabel = new JLabel("Kitchen not installed (requires Kitchen upgrade)");
             kitchenLockLabel.setForeground(new Color(150, 150, 150));
             staffHirePanel.add(kitchenLockLabel);
@@ -1533,6 +1562,12 @@ public class WineBarGUI {
             if (t == Staff.Type.MANAGER) {
                 enabled = state.managerPoolCount() < state.managerCap;
 
+            } else if (t == Staff.Type.DUTY_MANAGER) {
+                enabled = state.innUnlocked
+                        && state.innTier >= 2
+                        && state.managerPoolCount() < state.managerCap
+                        && state.fohStaff.size() < state.fohStaffCap;
+
                 // Kitchen roles (BOH)
             } else if (t == Staff.Type.HEAD_CHEF
                     || t == Staff.Type.SOUS_CHEF
@@ -1548,6 +1583,14 @@ public class WineBarGUI {
                 // FOH roles (includes assistant manager + bar staff)
             } else {
                 enabled = state.fohStaff.size() < state.fohStaffCap;
+                if (t == Staff.Type.RECEPTION_TRAINEE
+                        || t == Staff.Type.RECEPTIONIST
+                        || t == Staff.Type.SENIOR_RECEPTIONIST
+                        || t == Staff.Type.HOUSEKEEPING_TRAINEE
+                        || t == Staff.Type.HOUSEKEEPER
+                        || t == Staff.Type.HEAD_HOUSEKEEPER) {
+                    enabled = enabled && state.innUnlocked;
+                }
                 if (t == Staff.Type.ASSISTANT_MANAGER) {
                     enabled = enabled && state.managerPoolCount() < state.managerCap;
                 }
@@ -1564,7 +1607,8 @@ public class WineBarGUI {
 
         // Manager pool summary + general manager rows
         staffRosterPanel.add(new JLabel("Manager slots used: " + state.managerPoolCount() + "/" + state.managerCap
-                + " (GM " + state.generalManagers.size() + ", AM " + state.assistantManagerCount() + ")"));
+                + " (GM " + state.generalManagers.size() + ", AM " + state.assistantManagerCount()
+                + ", DM " + state.dutyManagerCount() + ")"));
         staffRosterPanel.add(Box.createVerticalStrut(6));
         if (state.generalManagers.isEmpty()) {
             staffRosterPanel.add(new JLabel("General Managers: (none)"));
@@ -1918,6 +1962,139 @@ public class WineBarGUI {
         activitiesDialog.setVisible(true);
     }
 
+    // -----------------------
+    // Inn Window
+    // -----------------------
+
+    void openInnWindow() {
+        if (innDialog == null) {
+            innDialog = new JDialog(frame, "Inn", false);
+            innDialog.setLayout(new BorderLayout(10, 10));
+
+            JLabel top = new JLabel("Rooms, bookings, and nightly upkeep.");
+            top.setBorder(new EmptyBorder(8, 10, 0, 10));
+            innDialog.add(top, BorderLayout.NORTH);
+
+            JPanel content = new JPanel();
+            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+            content.setBorder(new EmptyBorder(8, 10, 10, 10));
+
+            innRoomsLabel = new JLabel();
+            innBookedLabel = new JLabel();
+            innPriceLabel = new JLabel();
+            innPriceSlider = new JSlider(20, 120, 45);
+            innPriceSlider.setMajorTickSpacing(20);
+            innPriceSlider.setMinorTickSpacing(5);
+            innPriceSlider.setPaintTicks(true);
+            innPriceSlider.addChangeListener(e -> {
+                if (!state.innUnlocked) return;
+                state.roomPrice = innPriceSlider.getValue();
+                innPriceLabel.setText("Room price: " + money0(state.roomPrice));
+                refreshAll();
+            });
+
+            innRepBar = new JProgressBar(0, 100);
+            innRepBar.setStringPainted(true);
+            innCleanBar = new JProgressBar(0, 100);
+            innCleanBar.setStringPainted(true);
+
+            innReceptionLabel = new JLabel();
+            innHousekeepingLabel = new JLabel();
+            innDutyManagerLabel = new JLabel();
+            innMaintenanceLabel = new JLabel();
+            innSummaryLabel = new JLabel();
+
+            content.add(innRoomsLabel);
+            content.add(Box.createVerticalStrut(4));
+            content.add(innBookedLabel);
+            content.add(Box.createVerticalStrut(4));
+            content.add(innPriceLabel);
+            content.add(innPriceSlider);
+            content.add(Box.createVerticalStrut(6));
+
+            content.add(new JLabel("Inn reputation:"));
+            content.add(innRepBar);
+            content.add(Box.createVerticalStrut(4));
+            content.add(new JLabel("Cleanliness:"));
+            content.add(innCleanBar);
+            content.add(Box.createVerticalStrut(6));
+
+            content.add(innReceptionLabel);
+            content.add(Box.createVerticalStrut(4));
+            content.add(innHousekeepingLabel);
+            content.add(Box.createVerticalStrut(4));
+            content.add(innDutyManagerLabel);
+            content.add(Box.createVerticalStrut(4));
+            content.add(innMaintenanceLabel);
+            content.add(Box.createVerticalStrut(6));
+            content.add(innSummaryLabel);
+
+            innDialog.add(new JScrollPane(content), BorderLayout.CENTER);
+
+            JButton close = new JButton("Close");
+            close.addActionListener(e -> innDialog.setVisible(false));
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(close);
+            innDialog.add(bottom, BorderLayout.SOUTH);
+
+            innDialog.setSize(520, 520);
+            innDialog.setLocationRelativeTo(frame);
+        }
+
+        refreshInnWindow();
+        innDialog.setVisible(true);
+    }
+
+    private void refreshInnWindow() {
+        if (innDialog == null) return;
+        boolean unlocked = state.innUnlocked;
+        if (innRoomsLabel != null) {
+            innRoomsLabel.setText(unlocked
+                    ? "Rooms: " + state.roomsTotal + " (Tier " + state.innTier + ")"
+                    : "Rooms: Locked (purchase Inn Wing upgrade)");
+        }
+        if (innBookedLabel != null) {
+            innBookedLabel.setText(unlocked
+                    ? "Booked last night: " + state.lastNightRoomsBooked + " | Revenue " + money2(state.lastNightRoomRevenue)
+                    : "Booked last night: 0");
+        }
+        if (innPriceLabel != null) {
+            innPriceLabel.setText("Room price: " + (unlocked ? money0(state.roomPrice) : "Locked"));
+        }
+        if (innPriceSlider != null) {
+            innPriceSlider.setEnabled(unlocked && !state.nightOpen);
+            if (unlocked) {
+                innPriceSlider.setValue((int)Math.round(state.roomPrice));
+            }
+        }
+        if (innRepBar != null) {
+            innRepBar.setValue((int)Math.round(state.innRep));
+            innRepBar.setString(unlocked ? (int)Math.round(state.innRep) + "%" : "Locked");
+        }
+        if (innCleanBar != null) {
+            innCleanBar.setValue((int)Math.round(state.cleanliness));
+            innCleanBar.setString(unlocked ? (int)Math.round(state.cleanliness) + "%" : "Locked");
+        }
+        if (innReceptionLabel != null) {
+            innReceptionLabel.setText("Reception coverage: " + state.lastInnReceptionCapacity
+                    + " / needed " + state.roomsTotal);
+        }
+        if (innHousekeepingLabel != null) {
+            innHousekeepingLabel.setText("Housekeeping coverage: " + state.lastInnHousekeepingCoverage
+                    + " / rooms booked " + state.lastInnHousekeepingNeeded);
+        }
+        if (innDutyManagerLabel != null) {
+            innDutyManagerLabel.setText("Duty manager: " + (state.dutyManagerCount() > 0 ? "Yes" : "No"));
+        }
+        if (innMaintenanceLabel != null) {
+            innMaintenanceLabel.setText("Maintenance accrued (weekly): " + money2(state.innMaintenanceAccruedWeekly)
+                    + " | Due at Payday");
+        }
+        if (innSummaryLabel != null) {
+            innSummaryLabel.setText(unlocked ? ("Summary: " + state.lastNightInnSummaryLine) : "Summary: Inn locked.");
+        }
+    }
+
     private void openActionsDialog() {
         if (actionsDialog == null) {
             actionsDialog = new JDialog(frame, "Landlord Actions", true);
@@ -2129,6 +2306,7 @@ public class WineBarGUI {
         if (missionStaffDetailArea != null) missionStaffDetailArea.setText(snapshot.staffDetail);
         if (missionEconomyArea != null) missionEconomyArea.setText(snapshot.economy);
         if (missionOperationsArea != null) missionOperationsArea.setText(snapshot.operations);
+        if (missionInnArea != null) missionInnArea.setText(snapshot.inn);
         if (missionStaffArea != null) missionStaffArea.setText(snapshot.staff);
         if (missionRiskArea != null) missionRiskArea.setText(snapshot.risk);
         if (missionReputationArea != null) missionReputationArea.setText(snapshot.reputationIdentity);
@@ -2241,6 +2419,7 @@ public class WineBarGUI {
         updateInventory();
         updateReportsPanel(lastSnapshot);
         refreshMissionControl();
+        refreshInnWindow();
         updateMoodLighting();
         checkReportPopups();
         refreshActionsDialog();
@@ -2261,13 +2440,16 @@ public class WineBarGUI {
 
         cashLabel.setText("Cash: " + money2(state.cash));
         debtLabel.setText("Debt: " + money2(currentDebt));
-        pubNameLabel.setText(" " + state.pubName + " (Lv " + state.pubLevel + ")");
+        String nextLevelLine = sim.pubLevelBadgeLine();
+        pubNameLabel.setText("<html> " + state.pubName + " (Lv " + state.pubLevel + ")"
+                + "<br/><span style='font-size:10px'>" + nextLevelLine + "</span></html>");
         Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
         invoiceDueLabel.setText("<html>Weekly Costs (Due at Payday): " + money2(due.total())
                 + "<br/>Supplier " + money2(due.supplier())
                 + " | Wages " + money2(due.wages())
                 + " | Rent " + money2(due.rent())
                 + "<br/>Security " + money2(due.security())
+                + " | Inn " + money2(due.innMaintenance())
                 + " | Credit " + money2(due.creditLines())
                 + " | Shark " + money2(due.loanShark())
                 + "</html>");
@@ -2390,7 +2572,8 @@ public class WineBarGUI {
         int combinedCap = state.fohStaffCap + state.kitchenChefCap;
         String staffLine = "Staff: " + summary.staffCount() + "/" + combinedCap
                 + " | Managers: " + summary.managerPoolCount() + "/" + summary.managerCap()
-                + " (GM " + summary.managerCount() + ", AM " + summary.assistantManagerCount() + ")"
+                + " (GM " + summary.managerCount() + ", AM " + summary.assistantManagerCount()
+                + ", DM " + summary.dutyManagerCount() + ")"
                 + (summary.bouncersTonight() > 0 ? " | Bouncer: " + summary.bouncersTonight() + "/" + summary.bouncerCap() : "")
                 + " | Morale: " + (int)Math.round(summary.teamMorale())
                 + " | Upgrades: " + summary.upgradesOwned()

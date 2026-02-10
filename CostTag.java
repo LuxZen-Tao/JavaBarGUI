@@ -9,6 +9,7 @@ public enum CostTag {
     SECURITY,
     BOUNCER,
     EVENT,
+    INN_MAINTENANCE,
     INTEREST,   //  add this
     OTHER
 }

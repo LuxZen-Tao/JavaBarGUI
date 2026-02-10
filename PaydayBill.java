@@ -6,6 +6,7 @@ public class PaydayBill {
         WAGES,
         RENT,
         SECURITY,
+        INN_MAINTENANCE,
         CREDIT_LINE,
         LOAN_SHARK,
         OTHER
