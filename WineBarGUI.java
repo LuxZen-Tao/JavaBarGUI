@@ -252,7 +252,7 @@ public class WineBarGUI {
         invList.setVisibleRowCount(14);
 
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
-        controls.setLayout(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
 
         hud.setBorder(new EmptyBorder(2, 4, 2, 4));
         hud.setOpaque(false);
@@ -303,7 +303,7 @@ public class WineBarGUI {
         // Price multiplier control (0.50x to 2.50x)
         priceLabel = new JLabel("Price x" + String.format("%.2f", state.priceMultiplier));
         priceSlider = new JSlider(50, 250, (int)Math.round(state.priceMultiplier * 100));
-        priceSlider.setPreferredSize(new Dimension(110, 24));
+        priceSlider.setPreferredSize(new Dimension(95, 24));
         priceSlider.addChangeListener(e -> {
             double m = priceSlider.getValue() / 100.0;
             sim.setPriceMultiplier(m);
@@ -311,7 +311,10 @@ public class WineBarGUI {
             refreshAll();
         });
 
-        JPanel nightControls = createControlGroup("Night", openBtn, nextRoundBtn, closeBtn, happyHourBtn);
+        JPanel nightControls = createControlGroup(
+                "Night",
+                openBtn, nextRoundBtn, closeBtn, happyHourBtn, musicProfileBox
+        );
         musicProfileBox.setToolTipText(sim.currentMusicTooltip());
         musicProfileBox.addActionListener(e -> {
             Object selected = musicProfileBox.getSelectedItem();
@@ -322,23 +325,27 @@ public class WineBarGUI {
             }
         });
 
-        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, musicProfileBox, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
+        JPanel economyControls = createControlGroup(
+                "Economy",
+                priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn
+        );
         JPanel managementControls = createControlGroup("Management", staffBtn, innBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
         JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
         JPanel autoControls = createControlGroup("Automation", autoBtn);
 
         controls.add(nightControls);
-        controls.add(Box.createHorizontalStrut(10));
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(economyControls);
-        controls.add(Box.createHorizontalStrut(10));
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(managementControls);
-        controls.add(Box.createHorizontalStrut(10));
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(riskControls);
-        controls.add(Box.createHorizontalStrut(10));
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(activityControls);
-        controls.add(Box.createHorizontalStrut(10));
+        controls.add(Box.createHorizontalStrut(8));
         controls.add(autoControls);
+        controls.setBorder(new EmptyBorder(6, 2, 6, 2));
 
         applyButtonIcons();
 
@@ -365,16 +372,16 @@ public class WineBarGUI {
 
         root.add(hud, BorderLayout.NORTH);
         root.add(logPanel, BorderLayout.CENTER);
-        JScrollPane controlsScroll = new JScrollPane(controls, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        controlsScroll.setBorder(BorderFactory.createEmptyBorder());
-        controlsScroll.getViewport().setOpaque(false);
-        controlsScroll.setOpaque(false);
-        root.add(controlsScroll, BorderLayout.SOUTH);
+        root.add(controls, BorderLayout.SOUTH);
         root.add(right, BorderLayout.EAST);
 
         frame.setContentPane(root);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1320, 760);
+        frame.pack();
+        int minBottomWidth = controls.getPreferredSize().width + 40;
+        int minHeight = Math.max(frame.getPreferredSize().height, 740);
+        frame.setMinimumSize(new Dimension(minBottomWidth, minHeight));
+        frame.setSize(Math.max(1320, minBottomWidth), Math.max(760, minHeight));
         frame.setLocationRelativeTo(null);
         frame.setTitle("Pub Landlord Idle - " + state.pubName);
 
@@ -412,7 +419,7 @@ public class WineBarGUI {
     }
 
     private JPanel createControlGroup(String title, JComponent... components) {
-        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 4));
         group.setBorder(BorderFactory.createTitledBorder(title));
         group.setOpaque(true);
         group.setBackground(new Color(34, 37, 43));
