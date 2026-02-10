@@ -160,6 +160,7 @@ public class MilestoneSystem {
                                 Runnable reward) {
         if (s.achievedMilestones.contains(milestone)) return;
         s.achievedMilestones.add(milestone);
+        s.prestigeMilestones.add(milestone);
         applyingReward = true;
         try {
             if (reward != null) reward.run();

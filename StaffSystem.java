@@ -37,6 +37,8 @@ public class StaffSystem {
         if (s.wageServePenaltyWeeks > 0 && s.wageServePenaltyPct > 0.0) {
             cap = Math.max(1, (int)Math.floor(cap * (1.0 - s.wageServePenaltyPct)));
         }
+        double legacyEff = 1.0 + Math.max(0.0, s.legacy.staffEfficiencyBonus);
+        cap = Math.max(1, (int)Math.floor(cap * legacyEff));
         return cap;
     }
 

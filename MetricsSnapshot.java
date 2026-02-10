@@ -30,6 +30,7 @@ public class MetricsSnapshot {
     public final String security;
     public final String staffDetail;
     public final String inn;
+    public final String prestige;
 
     public MetricsSnapshot(
             String hudCash,
@@ -60,7 +61,8 @@ public class MetricsSnapshot {
             String progression,
             String security,
             String staffDetail,
-            String inn
+            String inn,
+            String prestige
     ) {
         this.hudCash = hudCash;
         this.hudDebt = hudDebt;
@@ -91,5 +93,6 @@ public class MetricsSnapshot {
         this.security = security;
         this.staffDetail = staffDetail;
         this.inn = inn;
+        this.prestige = prestige;
     }
 }

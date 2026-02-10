@@ -205,6 +205,10 @@ public class GameState {
     public int pubLevelManagerCapBonus = 0;
     public int pubLevelChefCapBonus = 0;
     public int pubLevelBouncerCapBonus = 0;
+    public int starCount = 0;
+    public final LegacyBonuses legacy = new LegacyBonuses();
+    public int prestigeWeekStart = 1;
+    public final EnumSet<MilestoneSystem.Milestone> prestigeMilestones = EnumSet.noneOf(MilestoneSystem.Milestone.class);
     public final EnumMap<LandlordActionId, LandlordActionState> landlordActionStates = new EnumMap<>(LandlordActionId.class);
     public int lastLandlordActionRound = -999;
     public double landlordIdentityScore = 0.0;
@@ -382,6 +386,7 @@ public class GameState {
     }
 
     public int absWeekIndex() { return weekCount - 1; }
+    public int weeksSincePrestige() { return Math.max(1, weekCount - prestigeWeekStart + 1); }
     public int clampRep(int r) { return Math.max(-100, Math.min(100, r)); }
     public int absDayIndex() { return dayCounter; }
     public int clampCreditScore(int score) { return Math.max(300, Math.min(850, score)); }
@@ -557,7 +562,7 @@ public class GameState {
         else base = 1200.0;
         double trustMult = Math.max(0.6, 1.0 - (supplierTrustPenalty * 3.0));
         double levelMult = 1.0 + (0.08 * pubLevel);
-        return base * trustMult * levelMult;
+        return base * trustMult * levelMult + legacy.supplierTradeCreditBonus;
     }
 
     public double supplierMinDue(SupplierTradeCredit account) {
