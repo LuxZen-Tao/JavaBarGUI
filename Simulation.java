@@ -163,6 +163,7 @@ public class Simulation {
     private final PrestigeSystem prestigeSystem;
     private final ObservationEngine observationEngine;
     private final MusicSystem musicSystem;
+    private final AudioManager audioManager;
 
     public Simulation(GameState state, UILogger log) {
 
@@ -186,6 +187,7 @@ public class Simulation {
         this.prestigeSystem = new PrestigeSystem();
         this.observationEngine = new ObservationEngine();
         this.musicSystem = new MusicSystem(s);
+        this.audioManager = new AudioManager();
 
         markReportStartIfMissing();
 
@@ -201,6 +203,8 @@ public class Simulation {
         // Deal exists BETWEEN nights (so you can restock before opening)
         supplierSystem.rollNewDeal();
         log.popup(" Supplier deal", "Available between nights: " + supplierSystem.dealLabel(), "");
+
+        audioManager.setMusicProfile(s.currentMusicProfile != null ? s.currentMusicProfile.name() : MusicProfileType.ACOUSTIC_CHILL.name());
     }
 
     /** Re-apply upgrades that change hard caps / base stats. Call at boot + on buyUpgrade + on openNight. */
@@ -694,6 +698,7 @@ public class Simulation {
         s.lastMusicProfileChangeRound = s.currentRoundIndex();
         if (s.nightOpen) s.weeklyMusicSwitches++;
         log.info(" Music profile: " + (previous != null ? previous.getLabel() : "None") + " -> " + profile.getLabel());
+        audioManager.setMusicProfile(profile.name());
         return true;
     }
 
@@ -1234,6 +1239,8 @@ public class Simulation {
         if (s.maxBarOccupancy < 5) s.maxBarOccupancy = 5;
 
         punters.seedNightPunters(pool);
+        audioManager.setPubOpen(true);
+        audioManager.updateChatterOccupancy(s.nightPunters.size(), s.maxBarOccupancy);
 
         log.header(" " + s.pubName + " OPEN - " + s.dayName() + " | Week " + s.weekCount);
         log.info("Punters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy);
@@ -1532,6 +1539,7 @@ public class Simulation {
         finalizeRoundSales();
 
         int removed = punters.cleanupDeparted();
+        audioManager.updateChatterOccupancy(s.nightPunters.size(), s.maxBarOccupancy);
         if (removed > 0) log.info("Bar cleared: -" + removed + " (now " + s.nightPunters.size() + "/" + s.maxBarOccupancy + ")");
         s.lastTrafficIn = added;
         s.lastTrafficOut = removed;
@@ -1614,6 +1622,7 @@ public class Simulation {
         }
 
         s.lastNightChaosPeak = Math.max(s.lastNightChaosPeak, s.chaos);
+        audioManager.setPubOpen(false);
         s.nightOpen = false;
         s.activeSecurityTask = null;
         s.activeSecurityTaskRound = -999;
@@ -1693,6 +1702,7 @@ public class Simulation {
         }
 
         milestones.onNightEnd();
+        audioManager.onNightEnd();
     }
 
     void runInnNightly() {
@@ -3348,6 +3358,9 @@ public class Simulation {
         double timeMult = timeOfDayTrafficMultiplier(phase, s.getCurrentTime());
         StringBuilder sb = new StringBuilder();
         sb.append("Profile: ").append(s.currentMusicProfile.getLabel()).append("\n");
+        sb.append("Audio track: ").append(audioManager.currentMusicFileName()).append("\n");
+        sb.append("Crowd chatter: ").append(audioManager.currentChatterBandLabel())
+                .append(" (").append(audioManager.currentChatterFileName()).append(")\n");
         sb.append("Time: ").append(s.getCurrentTime()).append(" | Phase: ").append(phase).append("\n");
         sb.append("Change rule: once per phase\n");
         sb.append("Last change round index: ").append(s.lastMusicProfileChangeRound).append("\n\n");
