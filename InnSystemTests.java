@@ -10,6 +10,8 @@ public class InnSystemTests {
         testHousekeepingEffect();
         testDutyManagerEffects();
         testMaintenanceAccrualAndPayday();
+        testHohPoolAndCap();
+        testRoomsTotalOnlyFromInnTier();
         testRateLockedBookings();
         testInnVolatilityPenalty();
         testInnReportStrings();
@@ -186,6 +188,34 @@ public class InnSystemTests {
         assert state.innMaintenanceAccruedWeekly > 0.0 : "Inn maintenance should accrue.";
         boolean found = state.paydayBills.stream().anyMatch(b -> b.getType() == PaydayBill.Type.INN_MAINTENANCE);
         assert found : "Payday bills should include inn maintenance.";
+    }
+
+    private static void testHohPoolAndCap() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_1);
+        assert state.hohStaffCap == 2 : "HOH cap should scale with inn tier.";
+        sim.hireStaff(Staff.Type.RECEPTIONIST);
+        sim.hireStaff(Staff.Type.HOUSEKEEPER);
+        sim.hireStaff(Staff.Type.RECEPTION_TRAINEE);
+        assert state.hohStaffCount() == 2 : "HOH cap should limit reception/housekeeping hires.";
+        assert state.fohStaffCount() == 0 : "HOH staff should not count toward FOH.";
+        assert state.bohStaff.isEmpty() : "HOH hires should not affect BOH.";
+
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_2);
+        assert state.hohStaffCap == 4 : "HOH cap should increase with inn tier.";
+        sim.hireStaff(Staff.Type.RECEPTION_TRAINEE);
+        sim.hireStaff(Staff.Type.HEAD_HOUSEKEEPER);
+        assert state.hohStaffCount() == 4 : "HOH hires should use new cap after tier upgrade.";
+    }
+
+    private static void testRoomsTotalOnlyFromInnTier() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_2);
+        int roomsBefore = state.roomsTotal;
+        sim.installUpgradeForTest(PubUpgrade.SOUNDPROOFING_I);
+        assert state.roomsTotal == roomsBefore : "Non-inn upgrades should not change rooms total.";
     }
 
     private static void testRateLockedBookings() {

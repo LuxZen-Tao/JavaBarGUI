@@ -312,12 +312,15 @@ public class Simulation {
             }
             s.innTier = tier;
             s.roomsTotal = innRoomsForTier(tier) + s.legacy.innRoomBonus;
+            s.hohStaffCap = s.baseHohCap + innHohCapForTier(tier);
             if (s.roomsBookedLast > s.roomsTotal) {
                 s.roomsBookedLast = s.roomsTotal;
             }
             if (s.lastNightRoomsBooked > s.roomsTotal) {
                 s.lastNightRoomsBooked = s.roomsTotal;
             }
+        } else {
+            s.hohStaffCap = s.baseHohCap;
         }
     }
 
@@ -337,6 +340,17 @@ public class Simulation {
             case 3 -> 10;
             case 4 -> 15;
             case 5 -> 25;
+            default -> 0;
+        };
+    }
+
+    private int innHohCapForTier(int tier) {
+        return switch (tier) {
+            case 1 -> 2;
+            case 2 -> 4;
+            case 3 -> 6;
+            case 4 -> 8;
+            case 5 -> 10;
             default -> 0;
         };
     }
@@ -898,7 +912,11 @@ public class Simulation {
                 log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
-            if (t != Staff.Type.ASSISTANT_MANAGER && s.fohStaffCount() >= s.fohStaffCap) {
+            if (s.isHohRole(t) && s.hohStaffCount() >= s.hohStaffCap) {
+                log.neg("HOH staff cap reached (" + s.hohStaffCap + ").");
+                return;
+            }
+            if (t != Staff.Type.ASSISTANT_MANAGER && !s.isHohRole(t) && s.fohStaffCount() >= s.fohStaffCap) {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
             }
@@ -3041,7 +3059,7 @@ public class Simulation {
 
     private String buildStaffTabSummary(int serveCap) {
         StringBuilder sb = new StringBuilder();
-        int combinedCap = s.fohStaffCap + s.kitchenChefCap;
+        int combinedCap = s.fohStaffCap + s.hohStaffCap + s.kitchenChefCap;
         int totalStaff = s.fohStaff.size() + s.bohStaff.size() + s.generalManagers.size();
         double tipRate = staff.tipRate();
         int kitchenCapacity = 0;
@@ -3051,6 +3069,7 @@ public class Simulation {
 
         sb.append("Total staff: ").append(totalStaff).append("/").append(combinedCap)
                 .append(" (FOH ").append(s.fohStaffCount()).append("/").append(s.fohStaffCap)
+                .append(", HOH ").append(s.hohStaffCount()).append("/").append(s.hohStaffCap)
                 .append(", BOH ").append(s.bohStaff.size()).append("/").append(s.kitchenChefCap).append(")");
         sb.append("\nManager slots: ").append(s.managerPoolCount()).append("/").append(s.managerCap)
                 .append(" (GM ").append(s.generalManagers.size())

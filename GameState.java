@@ -169,6 +169,8 @@ public class GameState {
 
     public int baseStaffCap = 4;
     public int fohStaffCap = 4;
+    public int baseHohCap = 0;
+    public int hohStaffCap = 0;
 
     public int baseManagerCap = 1;
     public int managerCap = 1;
@@ -645,6 +647,8 @@ public class GameState {
     public record StaffSummary(
             int staffCount,
             int staffCap,
+            int hohCount,
+            int hohCap,
             int managerCount,
             int assistantManagerCount,
             int dutyManagerCount,
@@ -658,6 +662,7 @@ public class GameState {
     ) {
         public String summaryLine() {
             return staffCount + "/" + staffCap
+                    + " | HOH: " + hohCount + "/" + hohCap
                     + " | Managers: " + managerPoolCount + "/" + managerCap
                     + " (GM " + managerCount + ", AM " + assistantManagerCount + ", DM " + dutyManagerCount + ")"
                     + (bouncersTonight > 0 ? " | Bouncer: " + bouncersTonight + "/" + bouncerCap : "")
@@ -669,8 +674,10 @@ public class GameState {
 
     public StaffSummary staff() {
         return new StaffSummary(
-                fohStaffCount(),
-                fohStaffCap,
+                fohStaffCount() + hohStaffCount(),
+                fohStaffCap + hohStaffCap,
+                hohStaffCount(),
+                hohStaffCap,
                 generalManagers.size(),
                 assistantManagerCount(),
                 dutyManagerCount(),
@@ -695,9 +702,27 @@ public class GameState {
     public int fohStaffCount() {
         int count = 0;
         for (Staff st : fohStaff) {
-            if (st.getType() != Staff.Type.ASSISTANT_MANAGER) count++;
+            if (st.getType() != Staff.Type.ASSISTANT_MANAGER && !isHohRole(st.getType())) count++;
         }
         return count;
+    }
+
+    public int hohStaffCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (isHohRole(st.getType())) count++;
+        }
+        return count;
+    }
+
+    public boolean isHohRole(Staff.Type type) {
+        if (type == null) return false;
+        return type == Staff.Type.RECEPTION_TRAINEE
+                || type == Staff.Type.RECEPTIONIST
+                || type == Staff.Type.SENIOR_RECEPTIONIST
+                || type == Staff.Type.HOUSEKEEPING_TRAINEE
+                || type == Staff.Type.HOUSEKEEPER
+                || type == Staff.Type.HEAD_HOUSEKEEPER;
     }
 
     public double innStaffWeeklyWages() {

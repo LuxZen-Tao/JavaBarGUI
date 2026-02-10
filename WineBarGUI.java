@@ -1597,14 +1597,10 @@ public class WineBarGUI {
 
                 // FOH roles (bar staff + inn roles)
             } else {
-                enabled = state.fohStaffCount() < state.fohStaffCap;
-                if (t == Staff.Type.RECEPTION_TRAINEE
-                        || t == Staff.Type.RECEPTIONIST
-                        || t == Staff.Type.SENIOR_RECEPTIONIST
-                        || t == Staff.Type.HOUSEKEEPING_TRAINEE
-                        || t == Staff.Type.HOUSEKEEPER
-                        || t == Staff.Type.HEAD_HOUSEKEEPER) {
-                    enabled = enabled && state.innUnlocked;
+                if (state.isHohRole(t)) {
+                    enabled = state.innUnlocked && state.hohStaffCount() < state.hohStaffCap;
+                } else {
+                    enabled = state.fohStaffCount() < state.fohStaffCap;
                 }
                 if (t == Staff.Type.ASSISTANT_MANAGER) {
                     enabled = state.managerPoolCount() < state.managerCap;
@@ -1646,11 +1642,14 @@ public class WineBarGUI {
         }
 
         java.util.List<Integer> assistantManagerIndices = new java.util.ArrayList<>();
+        java.util.List<Integer> hohIndices = new java.util.ArrayList<>();
         java.util.List<Integer> fohIndices = new java.util.ArrayList<>();
         for (int i = 0; i < state.fohStaff.size(); i++) {
             Staff st = state.fohStaff.get(i);
             if (st.getType() == Staff.Type.ASSISTANT_MANAGER) {
                 assistantManagerIndices.add(i);
+            } else if (state.isHohRole(st.getType())) {
+                hohIndices.add(i);
             } else {
                 fohIndices.add(i);
             }
@@ -1665,6 +1664,26 @@ public class WineBarGUI {
                 Staff st = state.fohStaff.get(index);
                 staffRosterPanel.add(makeStaffRow(st.toString(), () -> {
                     sim.fireStaffAt(index);
+                    state.lastStaffChangeDay = state.dayCounter;
+                    state.lastStaffChangeSummary = "Fired " + st.getName();
+                    refreshAll();
+                    refreshAllMenus();
+                }));
+                staffRosterPanel.add(Box.createVerticalStrut(6));
+            }
+        }
+        staffRosterPanel.add(Box.createVerticalStrut(6));
+
+        if (hohIndices.isEmpty()) {
+            staffRosterPanel.add(new JLabel("HOH Staff: (none)"));
+        } else {
+            staffRosterPanel.add(new JLabel("HOH Staff (" + state.hohStaffCount() + "/" + state.hohStaffCap + "):"));
+            staffRosterPanel.add(Box.createVerticalStrut(4));
+            for (int index : hohIndices) {
+                final int idx = index;
+                Staff st = state.fohStaff.get(index);
+                staffRosterPanel.add(makeStaffRow(st.toString(), () -> {
+                    sim.fireStaffAt(idx);
                     state.lastStaffChangeDay = state.dayCounter;
                     state.lastStaffChangeSummary = "Fired " + st.getName();
                     refreshAll();
@@ -2659,7 +2678,7 @@ public class WineBarGUI {
 
     private String buildStaffBadgeText(int serveCap) {
         GameState.StaffSummary summary = state.staff();
-        int combinedCap = state.fohStaffCap + state.kitchenChefCap;
+        int combinedCap = state.fohStaffCap + state.hohStaffCap + state.kitchenChefCap;
         String staffLine = "Staff: " + summary.staffCount() + "/" + combinedCap
                 + " | Managers: " + summary.managerPoolCount() + "/" + summary.managerCap()
                 + " (GM " + summary.managerCount() + ", AM " + summary.assistantManagerCount()
@@ -2670,6 +2689,7 @@ public class WineBarGUI {
                 + (summary.activityTonight() != null ? " | Activity: " + summary.activityTonight() : "")
                 + " | Serve cap " + serveCap;
         String staffCounts = "FOH: " + state.fohStaffCount() + "/" + state.fohStaffCap
+                + " | HOH: " + state.hohStaffCount() + "/" + state.hohStaffCap
                 + " | BOH: " + state.bohStaff.size() + "/" + state.kitchenChefCap;
         return "<html>" + staffLine + "<br>" + staffCounts + "</html>";
     }
