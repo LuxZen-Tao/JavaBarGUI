@@ -55,7 +55,7 @@ public class ReportSystem {
                 .append(" ( ").append(fmt2(debtDelta)).append(")\n\n");
 
         sb.append("Rent accrued: ").append(fmt2(s.rentAccruedThisWeek))
-                .append(" / ").append(fmt2(s.weeklyRent)).append("\n");
+                .append(" / ").append(fmt2(s.weeklyRentTotal())).append("\n");
         sb.append("Security level: ").append(s.baseSecurityLevel).append("\n");
         double dailySecurity = s.baseSecurityLevel * SecuritySystem.SECURITY_UPKEEP_PER_LEVEL;
         sb.append("Security upkeep (daily): ").append(fmt2(dailySecurity)).append("\n");

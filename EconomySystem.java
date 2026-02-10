@@ -109,7 +109,7 @@ public class EconomySystem {
     }
 
     public void accrueDailyRent() {
-        s.rentAccruedThisWeek += (s.weeklyRent / 7.0);
+        s.rentAccruedThisWeek += s.dailyRent();
     }
 
     public void accrueDailySecurityUpkeep(int baseSecurityLevel, double dailyRate) {

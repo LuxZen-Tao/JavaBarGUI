@@ -57,6 +57,14 @@ public class GameState {
     public double opCostSkillThisWeek = 0.0;
     public double opCostOccupancyThisWeek = 0.0;
 
+    public double dailyRent() {
+        return 60.0 + (roomsTotal * 20.0);
+    }
+
+    public double weeklyRentTotal() {
+        return dailyRent() * 7.0;
+    }
+
     // rep/security
     public int reputation = 10;                 // -100..100
     public int consecutiveNeg100Rounds = 0;
