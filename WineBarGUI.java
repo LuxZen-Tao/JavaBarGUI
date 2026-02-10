@@ -192,6 +192,7 @@ public class WineBarGUI {
     private JDialog fourWeekReportDialog;
     private JTextArea fourWeekReportArea;
     private final Preferences prefs = Preferences.userNodeForPackage(WineBarGUI.class);
+    private boolean bootSequenceShown = false;
 
     // Money formatting for UI (visual only)
     private static final DecimalFormat MONEY_2DP;
@@ -240,7 +241,20 @@ public class WineBarGUI {
         log.info("Supplier  restock. Staff  hire. Then Open Pub.");
     }
 
-    public void show() { frame.setVisible(true); }
+    public void show() {
+        frame.setVisible(true);
+        if (!bootSequenceShown) {
+            bootSequenceShown = true;
+            frame.setContentPane(new BootSequencePanel(() -> {
+                frame.setContentPane(root);
+                frame.revalidate();
+                frame.repaint();
+                frame.requestFocusInWindow();
+            }));
+            frame.revalidate();
+            frame.repaint();
+        }
+    }
 
     private void buildUI() {
         logPane.setEditable(false);
