@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
+import java.util.concurrent.ThreadLocalRandom;
 
 @SuppressWarnings({"unused", "FieldCanBeLocal", "DuplicatedCode"})
 public class WineBarGUI {
@@ -192,6 +193,8 @@ public class WineBarGUI {
     private JDialog fourWeekReportDialog;
     private JTextArea fourWeekReportArea;
     private final Preferences prefs = Preferences.userNodeForPackage(WineBarGUI.class);
+    private boolean bootSequenceShown = false;
+    private boolean randomMusicChosenOnBoot = false;
 
     // Money formatting for UI (visual only)
     private static final DecimalFormat MONEY_2DP;
@@ -240,7 +243,32 @@ public class WineBarGUI {
         log.info("Supplier  restock. Staff  hire. Then Open Pub.");
     }
 
-    public void show() { frame.setVisible(true); }
+    public void show() {
+        chooseRandomMusicProfileOnBoot();
+        frame.setVisible(true);
+        if (!bootSequenceShown) {
+            bootSequenceShown = true;
+            frame.setContentPane(new BootSequencePanel(() -> {
+                frame.setContentPane(root);
+                frame.revalidate();
+                frame.repaint();
+                frame.requestFocusInWindow();
+            }));
+            frame.revalidate();
+            frame.repaint();
+        }
+    }
+
+    private void chooseRandomMusicProfileOnBoot() {
+        if (randomMusicChosenOnBoot) return;
+        MusicProfileType[] profiles = MusicProfileType.values();
+        if (profiles.length == 0) return;
+        MusicProfileType chosen = profiles[ThreadLocalRandom.current().nextInt(profiles.length)];
+        randomMusicChosenOnBoot = true;
+        sim.setMusicProfile(chosen);
+        musicProfileBox.setSelectedItem(chosen);
+        musicProfileBox.setToolTipText(sim.currentMusicTooltip());
+    }
 
     private void buildUI() {
         logPane.setEditable(false);
