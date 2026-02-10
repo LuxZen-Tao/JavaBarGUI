@@ -199,6 +199,7 @@ public class Simulation {
         s.bouncerCap = Math.max(1, s.baseBouncerCap + s.pubLevelBouncerCapBonus + upgrades.bouncerCapBonus());
         s.managerCap = Math.max(1, s.baseManagerCap + s.pubLevelManagerCapBonus + upgrades.managerCapBonus());
         s.kitchenChefCap = Math.max(1, s.baseKitchenChefCap + s.pubLevelChefCapBonus + upgrades.chefCapBonus());
+        s.marshallCap = Math.max(0, s.baseMarshallCap + marshallCapBonusFromUpgrades());
         s.kitchenQualityBonus = upgrades.kitchenQualityBonus();
         s.refundRiskReductionPct = upgrades.refundRiskReductionPct();
         s.staffMisconductReductionPct = upgrades.staffMisconductReductionPct();
@@ -353,6 +354,13 @@ public class Simulation {
             case 5 -> 10;
             default -> 0;
         };
+    }
+
+    private int marshallCapBonusFromUpgrades() {
+        int bonus = 0;
+        if (s.ownedUpgrades.contains(PubUpgrade.MARSHALLS_II)) bonus += 2;
+        if (s.ownedUpgrades.contains(PubUpgrade.MARSHALLS_III)) bonus += 2;
+        return bonus;
     }
 
     public int landlordActionTier() {
@@ -1183,6 +1191,31 @@ public class Simulation {
         s.addSecurityLog("Policy set: " + policy.getLabel());
     }
 
+    public void hireMarshall() {
+        if (!s.isMarshallUnlocked()) {
+            log.neg("Marshalls unlock via the Marshalls upgrade.");
+            return;
+        }
+        if (s.marshallCount() >= s.marshallCap) {
+            log.info("Marshall cap reached (" + s.marshallCap + ").");
+            return;
+        }
+        if (s.nightOpen) {
+            log.neg("Marshalls can only be hired between nights.");
+            return;
+        }
+        BouncerQuality quality = rollMarshallQuality();
+        s.marshalls.add(quality);
+        log.pos(" Hired Marshall (" + quality.name().toLowerCase() + ").");
+    }
+
+    private BouncerQuality rollMarshallQuality() {
+        int roll = s.random.nextInt(100);
+        if (roll < 15) return BouncerQuality.LOW;
+        if (roll < 60) return BouncerQuality.MEDIUM;
+        return BouncerQuality.HIGH;
+    }
+
     public SecuritySystem.SecurityBreakdown securityBreakdown() {
         return security.breakdown();
     }
@@ -1472,6 +1505,7 @@ public class Simulation {
         // end of day
         s.dayIndex = (s.dayIndex + 1) % 7;
         s.dayCounter++;
+        s.currentWeather = s.rollWeather(s.random);
 
         eco.accrueDailyRent();
         accrueSecurityUpkeep();
@@ -1537,6 +1571,7 @@ public class Simulation {
         boolean hasDutyManager = s.dutyManagerCount() > 0;
         int receptionCapacity = computeReceptionCapacity(hasDutyManager);
         int housekeepingCoverage = computeHousekeepingCoverage(hasDutyManager);
+        double marshallMitigation = marshallMitigationFactor();
 
         double demandBoost = s.innDemandBoostNextNight;
         s.innDemandBoostNextNight = 0.0;
@@ -1620,39 +1655,40 @@ public class Simulation {
                 + (understaffedReception ? 0.10 : 0.0)
                 + (s.cleanliness < 45 ? 0.12 : 0.0);
         if (hasDutyManager) complaintChance *= 0.7;
+        if (marshallMitigation > 0.0) complaintChance *= (1.0 - marshallMitigation);
 
         boolean eventTriggered = false;
         s.lastInnEventsCount = 0;
 
         if (roomsBooked > 0 && s.random.nextDouble() < complaintChance) {
             if (underHousekeeping || s.cleanliness < 45) {
-                applyInnEvent("Dirty room complaint", -2.0, -1, 0.0, hasDutyManager);
+                applyInnEventWithMarshalls("Dirty room complaint", -2.0, -1, 0.0, hasDutyManager, marshallMitigation);
             } else {
-                applyInnEvent("Slow check-in complaint", -1.5, -1, 0.0, hasDutyManager);
+                applyInnEventWithMarshalls("Slow check-in complaint", -1.5, -1, 0.0, hasDutyManager, marshallMitigation);
             }
             eventTriggered = true;
         }
 
         if (!eventTriggered && roomsBooked > 0 && s.cleanliness < 40 && s.random.nextDouble() < (hasDutyManager ? 0.08 : 0.12)) {
             double damageCost = 8.0 + (s.random.nextDouble() * 6.0);
-            applyInnEvent("Room damage incident", -2.5, -1, damageCost, hasDutyManager);
+            applyInnEventWithMarshalls("Room damage incident", -2.5, -1, damageCost, hasDutyManager, marshallMitigation);
             eventTriggered = true;
         }
 
         if (!eventTriggered && roomsBooked > 0 && s.cleanliness > 85 && !understaffedReception
                 && s.random.nextDouble() < 0.15) {
-            applyInnEvent("Spotless stay review", 2.0, 0, 0.0, hasDutyManager);
+            applyInnEventWithMarshalls("Spotless stay review", 2.0, 0, 0.0, hasDutyManager, marshallMitigation);
             s.innDemandBoostNextNight = Math.min(1.2, s.innDemandBoostNextNight + 0.6);
             eventTriggered = true;
         }
 
         if (!eventTriggered && roomsBooked > 0 && !understaffedReception && s.random.nextDouble() < 0.10) {
-            applyInnEvent("Friendly reception shoutout", 1.2, 0, 0.0, hasDutyManager);
+            applyInnEventWithMarshalls("Friendly reception shoutout", 1.2, 0, 0.0, hasDutyManager, marshallMitigation);
             eventTriggered = true;
         }
 
         if (!eventTriggered && roomsBooked > 0 && s.innRep > 70 && s.random.nextDouble() < 0.08) {
-            applyInnEvent("Repeat guest booked another night", 1.0, 1, 0.0, hasDutyManager);
+            applyInnEventWithMarshalls("Repeat guest booked another night", 1.0, 1, 0.0, hasDutyManager, marshallMitigation);
             eventTriggered = true;
         }
 
@@ -1725,6 +1761,41 @@ public class Simulation {
         }
         addInnEventLog(headline);
         s.lastInnEventsCount++;
+    }
+
+    private void applyInnEventWithMarshalls(String headline,
+                                            double innRepDelta,
+                                            int pubRepDelta,
+                                            double extraMaintenance,
+                                            boolean hasDutyManager,
+                                            double marshallMitigation) {
+        double mitigation = Math.max(0.0, Math.min(0.6, marshallMitigation * marshallQualityFactor()));
+        double adjustedInnRep = innRepDelta < 0 ? innRepDelta * (1.0 - mitigation) : innRepDelta;
+        int adjustedPubRep = pubRepDelta < 0 ? (int)Math.ceil(pubRepDelta * (1.0 - mitigation)) : pubRepDelta;
+        double adjustedMaintenance = extraMaintenance > 0 ? extraMaintenance * (1.0 - mitigation) : extraMaintenance;
+        applyInnEvent(headline, adjustedInnRep, adjustedPubRep, adjustedMaintenance, hasDutyManager);
+    }
+
+    private double marshallMitigationFactor() {
+        if (s.marshallCount() <= 0) return 0.0;
+        double base = s.marshallCount() * 0.05;
+        double security = s.baseSecurityLevel * 0.002;
+        double upgrades = (s.reinforcedDoorTier() + s.lightingTier() + s.burglarAlarmTier()) * 0.01
+                + s.cctvRepMitigationPct();
+        return Math.min(0.45, base + security + upgrades);
+    }
+
+    private double marshallQualityFactor() {
+        if (s.marshalls.isEmpty()) return 0.0;
+        double total = 0.0;
+        for (BouncerQuality quality : s.marshalls) {
+            total += switch (quality) {
+                case LOW -> 0.6;
+                case MEDIUM -> 0.85;
+                case HIGH -> 1.0;
+            };
+        }
+        return total / s.marshalls.size();
     }
 
     private void addInnEventLog(String headline) {

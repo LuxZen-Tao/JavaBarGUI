@@ -213,6 +213,7 @@ public class WineBarGUI {
     private JDialog securityDialog;
     private JButton securityUpgradeBtn;
     private JButton bouncerBtn;
+    private JButton marshallBtn;
     private JPanel securityTasksPanel;
     private JPanel securityTasksListPanel;
     private boolean updatingSecurityPolicyBox = false;
@@ -1745,7 +1746,7 @@ public class WineBarGUI {
             securityDialog = new JDialog(frame, "Security", false);
             securityDialog.setLayout(new BorderLayout(10, 10));
 
-            JLabel top = new JLabel("Manage base security and bouncers.");
+            JLabel top = new JLabel("Manage base security, bouncers, and marshalls.");
             top.setBorder(new EmptyBorder(8, 10, 0, 10));
             securityDialog.add(top, BorderLayout.NORTH);
 
@@ -1774,9 +1775,18 @@ public class WineBarGUI {
                 refreshAllMenus();
             });
 
+            marshallBtn = new JButton();
+            marshallBtn.addActionListener(e -> {
+                sim.hireMarshall();
+                refreshAll();
+                refreshAllMenus();
+            });
+
             securityListPanel.add(securityUpgradeBtn);
             securityListPanel.add(Box.createVerticalStrut(8));
             securityListPanel.add(bouncerBtn);
+            securityListPanel.add(Box.createVerticalStrut(8));
+            securityListPanel.add(marshallBtn);
 
             JPanel content = new JPanel();
             content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
@@ -1804,13 +1814,15 @@ public class WineBarGUI {
     }
 
     private void refreshSecurityButtons() {
-        if (securityDialog == null || securityUpgradeBtn == null || bouncerBtn == null) return;
+        if (securityDialog == null || securityUpgradeBtn == null || bouncerBtn == null || marshallBtn == null) return;
         securityUpgradeBtn.setText("Base Security +1 (level " + state.baseSecurityLevel
                 + ", cost " + money0(sim.peekSecurityUpgradeCost()) + ")");
         securityUpgradeBtn.setEnabled(!state.nightOpen);
 
         bouncerBtn.setText("Hire Bouncer Tonight " + state.bouncersHiredTonight + "/" + state.bouncerCap);
         bouncerBtn.setEnabled(state.nightOpen && state.bouncersHiredTonight < state.bouncerCap);
+        marshallBtn.setText("Hire Marshall " + state.marshallCount() + "/" + state.marshallCap);
+        marshallBtn.setEnabled(!state.nightOpen && state.isMarshallUnlocked() && state.marshallCount() < state.marshallCap);
         refreshSecurityPolicyButtons();
         refreshSecurityTasksPanel();
     }
@@ -2571,7 +2583,11 @@ public class WineBarGUI {
                                                 " Toxic";
 
         repLabel.setText(buildReputationBadgeText(mood));
-        calendarLabel.setText("Week " + state.weekCount + "  " + state.dayName() + " | Night " + state.nightCount);
+        calendarLabel.setText("<html>Week " + state.weekCount + "  " + state.dayName()
+                + " | Night " + state.nightCount
+                + "<br/>Date " + state.dateString()
+                + "<br/>Weather " + state.weatherLabel()
+                + "</html>");
 
         int cap = sim.peekServeCapacity();
 

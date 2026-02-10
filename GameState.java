@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 public class GameState {
@@ -178,6 +180,10 @@ public class GameState {
     public int baseKitchenChefCap = 2;
     public int kitchenChefCap = 2;
 
+    public int baseMarshallCap = 2;
+    public int marshallCap = 2;
+    public final List<BouncerQuality> marshalls = new ArrayList<>();
+
     // inn system
     public boolean innUnlocked = false;
     public int innTier = 0;
@@ -214,6 +220,12 @@ public class GameState {
     public final List<InnBookingRecord> lastNightInnBookings = new ArrayList<>();
     public final List<InnPriceSegment> innPriceSegments = new ArrayList<>();
     public int innPriceChangesThisNight = 0;
+    public int lastWeatherObservationDay = -999;
+    public int lastMarshallObservationDay = -999;
+    public String currentWeather = "Clear";
+
+    private static final LocalDate START_DATE = LocalDate.of(1989, 1, 16);
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public record InnBookingRecord(int rooms, double rateApplied) {}
 
@@ -406,12 +418,15 @@ public class GameState {
             landlordActionStates.put(id, new LandlordActionState());
         }
         identityHistory.add(currentIdentity);
+        currentWeather = rollWeather(random);
     }
 
     public int absWeekIndex() { return weekCount - 1; }
     public int weeksSincePrestige() { return Math.max(1, weekCount - prestigeWeekStart + 1); }
     public int clampRep(int r) { return Math.max(-100, Math.min(100, r)); }
     public int absDayIndex() { return dayCounter; }
+    public LocalDate currentDate() { return START_DATE.plusDays(dayCounter); }
+    public String dateString() { return currentDate().format(DATE_FORMAT); }
     public int clampCreditScore(int score) { return Math.max(300, Math.min(850, score)); }
     public double totalCreditBalance() { return creditLines.totalBalance(); }
     public double totalCreditLimit() { return creditLines.totalLimit(); }
@@ -723,6 +738,47 @@ public class GameState {
                 || type == Staff.Type.HOUSEKEEPING_TRAINEE
                 || type == Staff.Type.HOUSEKEEPER
                 || type == Staff.Type.HEAD_HOUSEKEEPER;
+    }
+
+    public int marshallCount() {
+        return marshalls.size();
+    }
+
+    public boolean isMarshallUnlocked() {
+        return ownedUpgrades.contains(PubUpgrade.MARSHALLS_I)
+                || ownedUpgrades.contains(PubUpgrade.MARSHALLS_II)
+                || ownedUpgrades.contains(PubUpgrade.MARSHALLS_III);
+    }
+
+    public String weatherLabel() {
+        String emoji = switch (currentWeather) {
+            case "Sunny", "Sunshine" -> "☀️ ";
+            case "Rain" -> "🌧️ ";
+            case "Heavy Rain" -> "🌧️ ";
+            case "Windy" -> "💨 ";
+            case "Cold" -> "❄️ ";
+            case "Hail" -> "🌨️ ";
+            case "Stormy" -> "⛈️ ";
+            case "Rainbow" -> "🌈 ";
+            case "Cloudy" -> "☁️ ";
+            default -> "";
+        };
+        return emoji + currentWeather;
+    }
+
+    public String rollWeather(Random rng) {
+        int roll = rng.nextInt(100);
+        if (roll < 14) return "Clear";
+        if (roll < 27) return "Cloudy";
+        if (roll < 38) return "Sunny";
+        if (roll < 48) return "Sunshine";
+        if (roll < 64) return "Rain";
+        if (roll < 72) return "Heavy Rain";
+        if (roll < 80) return "Windy";
+        if (roll < 88) return "Cold";
+        if (roll < 94) return "Hail";
+        if (roll < 98) return "Stormy";
+        return "Rainbow";
     }
 
     public double innStaffWeeklyWages() {
