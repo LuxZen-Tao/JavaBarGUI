@@ -168,6 +168,34 @@ public class GameState {
     public int baseKitchenChefCap = 2;
     public int kitchenChefCap = 2;
 
+    // inn system
+    public boolean innUnlocked = false;
+    public int innTier = 0;
+    public int roomsTotal = 0;
+    public int roomsBookedLast = 0;
+    public double roomPrice = 0.0;
+    public double innRep = 0.0;
+    public double cleanliness = 0.0;
+    public double innMaintenanceAccruedWeekly = 0.0;
+    public int lastNightRoomsBooked = 0;
+    public double lastNightRoomRevenue = 0.0;
+    public String lastNightInnSummaryLine = "Inn locked.";
+    public double innDemandBoostNextNight = 0.0;
+    public double lastInnDemandScore = 0.0;
+    public double lastInnDemandBase = 0.0;
+    public double lastInnDemandRep = 0.0;
+    public double lastInnDemandClean = 0.0;
+    public double lastInnDemandPubRep = 0.0;
+    public double lastInnDemandPrice = 0.0;
+    public double lastInnDemandSecurity = 0.0;
+    public double lastInnDemandNoise = 0.0;
+    public int lastInnReceptionCapacity = 0;
+    public int lastInnHousekeepingCoverage = 0;
+    public int lastInnHousekeepingNeeded = 0;
+    public int lastInnEventsCount = 0;
+    public double weekInnRevenue = 0.0;
+    public final Deque<String> innEventLog = new ArrayDeque<>();
+
     public int pubLevel = 0;
     public int pubLevelServeCapBonus = 0;
     public int pubLevelBarCapBonus = 0;
@@ -593,6 +621,7 @@ public class GameState {
             int staffCap,
             int managerCount,
             int assistantManagerCount,
+            int dutyManagerCount,
             int managerPoolCount,
             int managerCap,
             double teamMorale,
@@ -604,7 +633,7 @@ public class GameState {
         public String summaryLine() {
             return staffCount + "/" + staffCap
                     + " | Managers: " + managerPoolCount + "/" + managerCap
-                    + " (GM " + managerCount + ", AM " + assistantManagerCount + ")"
+                    + " (GM " + managerCount + ", AM " + assistantManagerCount + ", DM " + dutyManagerCount + ")"
                     + (bouncersTonight > 0 ? " | Bouncer: " + bouncersTonight + "/" + bouncerCap : "")
                     + " | Morale: " + (int)Math.round(teamMorale)
                     + " | Upgrades: " + upgradesOwned
@@ -618,6 +647,7 @@ public class GameState {
                 fohStaffCap,
                 generalManagers.size(),
                 assistantManagerCount(),
+                dutyManagerCount(),
                 managerPoolCount(),
                 managerCap,
                 teamMorale,
@@ -670,7 +700,15 @@ public class GameState {
     }
 
     public int managerPoolCount() {
-        return generalManagers.size() + assistantManagerCount();
+        return generalManagers.size() + assistantManagerCount() + dutyManagerCount();
+    }
+
+    public int dutyManagerCount() {
+        int count = 0;
+        for (Staff st : fohStaff) {
+            if (st.getType() == Staff.Type.DUTY_MANAGER) count++;
+        }
+        return count;
     }
 
     public String bouncerQualitySummary() {

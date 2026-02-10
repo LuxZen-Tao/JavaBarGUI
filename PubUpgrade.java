@@ -214,7 +214,24 @@ public enum PubUpgrade {
 
     FIRE_SUPPRESSION_III("Fire Suppression III", 760, 0.00, 0, 0,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-            0.00, 0.00, 0.00, 0.00, 0.20, 0.00);
+            0.00, 0.00, 0.00, 0.00, 0.20, 0.00),
+
+    // Inn
+    INN_WING_1("Inn Wing (Tier 1)", 800, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+    INN_WING_2("Inn Wing (Tier 2)", 1200, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+    INN_WING_3("Inn Wing (Tier 3)", 1700, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+    INN_WING_4("Inn Wing (Tier 4)", 2400, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+    INN_WING_5("Inn Wing (Tier 5)", 3500, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00);
             
 
     private final String label;
@@ -366,15 +383,30 @@ public enum PubUpgrade {
         };
     }
 
+    public boolean isInnRelated() {
+        return switch (this) {
+            case INN_WING_1,
+                    INN_WING_2,
+                    INN_WING_3,
+                    INN_WING_4,
+                    INN_WING_5 -> true;
+            default -> false;
+        };
+    }
+
     private record TierInfo(String chainKey, int tier) {
         static TierInfo fromName(String name) {
             if (name == null) return new TierInfo(null, 1);
             if (name.endsWith("_I")) return new TierInfo(name.replace("_I", ""), 1);
             if (name.endsWith("_II")) return new TierInfo(name.replace("_II", ""), 2);
             if (name.endsWith("_III")) return new TierInfo(name.replace("_III", ""), 3);
+            if (name.endsWith("_IV")) return new TierInfo(name.replace("_IV", ""), 4);
+            if (name.endsWith("_V")) return new TierInfo(name.replace("_V", ""), 5);
             if (name.endsWith("_1")) return new TierInfo(name.replace("_1", ""), 1);
             if (name.endsWith("_2")) return new TierInfo(name.replace("_2", ""), 2);
             if (name.endsWith("_3")) return new TierInfo(name.replace("_3", ""), 3);
+            if (name.endsWith("_4")) return new TierInfo(name.replace("_4", ""), 4);
+            if (name.endsWith("_5")) return new TierInfo(name.replace("_5", ""), 5);
             return new TierInfo(null, 1);
         }
     }

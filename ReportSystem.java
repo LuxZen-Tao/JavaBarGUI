@@ -25,6 +25,7 @@ public class ReportSystem {
         double upC = s.reportCost(CostTag.UPGRADE);
         double actC = s.reportCost(CostTag.ACTIVITY);
         double secC = s.reportCost(CostTag.SECURITY);
+        double innC = s.reportCost(CostTag.INN_MAINTENANCE);
         double bouncerC = s.reportCost(CostTag.BOUNCER);
         double eventC = s.reportCost(CostTag.EVENT);
         double otherC = s.reportCost(CostTag.OTHER);
@@ -38,6 +39,7 @@ public class ReportSystem {
         sb.append("  Upgrades:   ").append(fmt2(upC)).append("\n");
         sb.append("  Activities: ").append(fmt2(actC)).append("\n");
         sb.append("  Security:   ").append(fmt2(secC)).append("\n");
+        sb.append("  Inn Maint:  ").append(fmt2(innC)).append("\n");
         sb.append("  Bouncer:    ").append(fmt2(bouncerC)).append("\n");
         sb.append("  Events:     ").append(fmt2(eventC)).append("\n");
         if (otherC > 0) sb.append("  Other:      ").append(fmt2(otherC)).append("\n");
@@ -58,6 +60,7 @@ public class ReportSystem {
         double dailySecurity = s.baseSecurityLevel * SecuritySystem.SECURITY_UPKEEP_PER_LEVEL;
         sb.append("Security upkeep (daily): ").append(fmt2(dailySecurity)).append("\n");
         sb.append("Security upkeep accrued: ").append(fmt2(s.securityUpkeepAccruedThisWeek)).append("\n");
+        sb.append("Inn maintenance accrued: ").append(fmt2(s.innMaintenanceAccruedWeekly)).append("\n");
         sb.append("Wages accrued (this week): ").append(fmt2(s.wagesAccruedThisWeek)).append("\n");
         sb.append("Weekly costs due at payday: ").append(fmt2(weeklyMinDueEstimate(s))).append("\n");
         sb.append("Refunds this week: ").append(fmt2(s.weekRefundTotal)).append("\n");
@@ -136,6 +139,7 @@ public class ReportSystem {
         sb.append("  Operating:  ").append(fmt2(s.reportCost(CostTag.OPERATING))).append("\n");
         sb.append("  Food:       ").append(fmt2(s.reportCost(CostTag.FOOD))).append("\n");
         sb.append("  Security:   ").append(fmt2(s.reportCost(CostTag.SECURITY))).append("\n");
+        sb.append("  Inn Maint:  ").append(fmt2(s.reportCost(CostTag.INN_MAINTENANCE))).append("\n");
         sb.append("  Supplier:   ").append(fmt2(s.reportCost(CostTag.SUPPLIER))).append("\n");
         sb.append("  Upgrades:   ").append(fmt2(s.reportCost(CostTag.UPGRADE))).append("\n");
         sb.append("  Activities: ").append(fmt2(s.reportCost(CostTag.ACTIVITY))).append("\n");
@@ -159,10 +163,11 @@ public class ReportSystem {
         double wages = s.wagesAccruedThisWeek + (s.tipsThisWeek * 0.50);
         double rent = s.rentAccruedThisWeek;
         double security = s.securityUpkeepAccruedThisWeek;
+        double inn = s.innMaintenanceAccruedWeekly;
         double supplier = s.supplierWineMinDue() + s.supplierFoodMinDue();
         double credit = s.totalCreditWeeklyPaymentDue();
         double shark = s.loanShark.isOpen() ? s.loanShark.minPaymentDue() : 0.0;
-        return wages + rent + security + supplier + credit + shark;
+        return wages + rent + security + inn + supplier + credit + shark;
     }
 
     private static double identityTrafficMult(GameState s){

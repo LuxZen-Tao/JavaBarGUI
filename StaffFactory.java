@@ -222,6 +222,90 @@ public class StaffFactory {
                     65,
                     76
             );
+            case RECEPTION_TRAINEE -> new StaffTemplate(
+                    0,
+                    4 + random.nextInt(2),
+                    0, 0,
+                    40 + random.nextInt(21),
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    48,
+                    70
+            );
+            case RECEPTIONIST -> new StaffTemplate(
+                    0,
+                    5 + random.nextInt(3),
+                    0, 0,
+                    60 + random.nextInt(31),
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    50,
+                    72
+            );
+            case SENIOR_RECEPTIONIST -> new StaffTemplate(
+                    0,
+                    6 + random.nextInt(3),
+                    0, 0,
+                    85 + random.nextInt(46),
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    55,
+                    74
+            );
+            case HOUSEKEEPING_TRAINEE -> new StaffTemplate(
+                    0,
+                    4 + random.nextInt(2),
+                    0, 0,
+                    35 + random.nextInt(21),
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    45,
+                    70
+            );
+            case HOUSEKEEPER -> new StaffTemplate(
+                    0,
+                    5 + random.nextInt(2),
+                    0, 0,
+                    55 + random.nextInt(26),
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    50,
+                    72
+            );
+            case HEAD_HOUSEKEEPER -> new StaffTemplate(
+                    0,
+                    6 + random.nextInt(3),
+                    0, 0,
+                    75 + random.nextInt(36),
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    55,
+                    74
+            );
+            case DUTY_MANAGER -> new StaffTemplate(
+                    0,
+                    6 + random.nextInt(3),
+                    0, 0,
+                    95 + random.nextInt(46),
+                    1.02,
+                    0.0,
+                    0.0,
+                    0,
+                    60,
+                    74
+            );
         };
     }
 
