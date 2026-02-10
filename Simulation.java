@@ -3066,6 +3066,7 @@ public class Simulation {
         String staffDetail = buildStaffDetailText();
         String innDetail = buildInnDetailText();
         String prestigeDetail = buildPrestigeText();
+        String musicDetail = buildMusicDetailText();
 
         String logSummary = "Night events: " + s.nightEvents
                 + "\nBetween-night: " + s.lastBetweenNightEventSummary;
@@ -3103,11 +3104,48 @@ public class Simulation {
                 securityDetail,
                 staffDetail,
                 innDetail,
-                prestigeDetail
+                prestigeDetail,
+                musicDetail
         );
+    }
+    private String buildMusicDetailText() {
+        TimePhase phase = s.getCurrentPhase();
+        MusicEffects fx = musicSystem.computeEffects(s.currentMusicProfile, phase);
+        double timeMult = timeOfDayTrafficMultiplier(phase, s.getCurrentTime());
+        StringBuilder sb = new StringBuilder();
+        sb.append("Profile: ").append(s.currentMusicProfile.getLabel()).append("\n");
+        sb.append("Time: ").append(s.getCurrentTime()).append(" | Phase: ").append(phase).append("\n");
+        sb.append("Change rule: once per phase\n");
+        sb.append("Last change round index: ").append(s.lastMusicProfileChangeRound).append("\n\n");
+
+        sb.append("Current effects\n");
+        sb.append("- Traffic multiplier: x").append(fmt2(fx.trafficMultiplier())).append("\n");
+        sb.append("- Spend multiplier: x").append(fmt2(fx.spendMultiplier())).append("\n");
+        sb.append("- Linger signal: x").append(fmt2(fx.lingerMultiplier())).append("\n");
+        sb.append("- Chaos delta pressure: ").append(String.format("%+.2f", fx.chaosDelta())).append("\n");
+        sb.append("- Reputation drift pressure: ").append(String.format("%+.2f", fx.reputationDriftDelta())).append("\n");
+        sb.append("- Staff morale pressure: ").append(String.format("%+.2f", fx.staffMoraleDelta())).append("\n");
+        sb.append("- Identity pressure: ").append(String.format("%+.2f", fx.identityPressure())).append("\n");
+        sb.append("- Late chaos risk: ").append(fx.lateChaosRisk() ? "ELEVATED" : "Normal").append("\n\n");
+
+        sb.append("Traffic stack (current round)\n");
+        sb.append("- Base traffic: x").append(fmt2(baseTrafficMultiplier())).append("\n");
+        sb.append("- Time-of-day curve: x").append(fmt2(timeMult)).append("\n");
+        sb.append("- Music profile: x").append(fmt2(fx.trafficMultiplier())).append("\n");
+        sb.append("- Identity: x").append(fmt2(identityTrafficMultiplier())).append("\n");
+        sb.append("- Rumors: x").append(fmt2(rumorTrafficMultiplier())).append("\n");
+        sb.append("- Activity: x").append(fmt2(activities.trafficMultiplier())).append("\n");
+        sb.append("- Security policy/task: x").append(fmt2(securityPolicyTrafficMultiplier() * securityTaskTrafficMultiplier())).append("\n");
+
+        sb.append("\nConsistency pressure\n");
+        sb.append("- Consecutive nights same profile: ").append(s.consecutiveNightsSameMusic).append("\n");
+        sb.append("- Switches this week: ").append(s.weeklyMusicSwitches).append("\n");
+        sb.append("- Summary: ").append(fx.summary()).append("\n");
+        return sb.toString();
     }
 
     private String buildPrestigeText() {
+
         StringBuilder sb = new StringBuilder();
         sb.append("Stars: ").append(s.starCount).append("/").append(PrestigeSystem.MAX_STARS)
                 .append(" ").append(buildStarBadge()).append("\n");
