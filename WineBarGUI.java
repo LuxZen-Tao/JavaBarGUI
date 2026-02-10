@@ -109,6 +109,7 @@ public class WineBarGUI {
     private final JLabel invoiceDueLabel = new JLabel();
     private final JLabel calendarLabel = new JLabel();
     private final JLabel roundLabel = new JLabel();
+    private final JLabel timePhaseLabel = new JLabel();
     private final JLabel securityLabel = new JLabel();
     private final JLabel staffLabel = new JLabel();
     private final JLabel reportLabel = new JLabel();
@@ -143,6 +144,7 @@ public class WineBarGUI {
 
     private final JButton securityBtn = new JButton("Security");
     private final JButton loanSharkBtn = new JButton("Finance");
+    private final JComboBox<MusicProfileType> musicProfileBox = new JComboBox<>(MusicProfileType.values());
 
     private final JToggleButton autoBtn = new JToggleButton("Auto: OFF");
     private Timer autoTimer;
@@ -178,6 +180,7 @@ public class WineBarGUI {
     private JTextArea missionLogArea;
     private JTextArea missionInnArea;
     private JTextArea missionPrestigeArea;
+    private JTextArea missionMusicArea;
     private JButton prestigePreviewButton;
     private JRadioButton policyFriendlyBtn;
     private JRadioButton policyBalancedBtn;
@@ -249,7 +252,7 @@ public class WineBarGUI {
         invList.setVisibleRowCount(14);
 
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
-        controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
+        controls.setLayout(new FlowLayout(FlowLayout.LEFT, 8, 4));
 
         hud.setBorder(new EmptyBorder(2, 4, 2, 4));
         hud.setOpaque(false);
@@ -300,7 +303,7 @@ public class WineBarGUI {
         // Price multiplier control (0.50x to 2.50x)
         priceLabel = new JLabel("Price x" + String.format("%.2f", state.priceMultiplier));
         priceSlider = new JSlider(50, 250, (int)Math.round(state.priceMultiplier * 100));
-        priceSlider.setPreferredSize(new Dimension(140, 26));
+        priceSlider.setPreferredSize(new Dimension(110, 24));
         priceSlider.addChangeListener(e -> {
             double m = priceSlider.getValue() / 100.0;
             sim.setPriceMultiplier(m);
@@ -309,7 +312,17 @@ public class WineBarGUI {
         });
 
         JPanel nightControls = createControlGroup("Night", openBtn, nextRoundBtn, closeBtn, happyHourBtn);
-        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
+        musicProfileBox.setToolTipText(sim.currentMusicTooltip());
+        musicProfileBox.addActionListener(e -> {
+            Object selected = musicProfileBox.getSelectedItem();
+            if (selected instanceof MusicProfileType profile) {
+                sim.setMusicProfile(profile);
+                musicProfileBox.setToolTipText(sim.currentMusicTooltip());
+                refreshAll();
+            }
+        });
+
+        JPanel economyControls = createControlGroup("Economy", priceLabel, priceSlider, musicProfileBox, supplierBtn, kitchenSupplierBtn, loanSharkBtn);
         JPanel managementControls = createControlGroup("Management", staffBtn, innBtn, upgradesBtn);
         JPanel riskControls = createControlGroup("Risk", securityBtn);
         JPanel activityControls = createControlGroup("Activities", activitiesBtn, actionsBtn);
@@ -352,7 +365,11 @@ public class WineBarGUI {
 
         root.add(hud, BorderLayout.NORTH);
         root.add(logPanel, BorderLayout.CENTER);
-        root.add(controls, BorderLayout.SOUTH);
+        JScrollPane controlsScroll = new JScrollPane(controls, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        controlsScroll.setBorder(BorderFactory.createEmptyBorder());
+        controlsScroll.getViewport().setOpaque(false);
+        controlsScroll.setOpaque(false);
+        root.add(controlsScroll, BorderLayout.SOUTH);
         root.add(right, BorderLayout.EAST);
 
         frame.setContentPane(root);
@@ -389,6 +406,8 @@ public class WineBarGUI {
         nightIndicator.setVisible(false);
         wrapper.add(nightIndicator);
         wrapper.add(roundLabel);
+        wrapper.add(new JLabel("  "));
+        wrapper.add(timePhaseLabel);
         return createBadge(NIGHT_BG, wrapper);
     }
 
@@ -557,6 +576,7 @@ public class WineBarGUI {
             missionLoansArea = createMissionTextArea();
             missionLogArea = createMissionTextArea();
             missionPrestigeArea = createMissionTextArea();
+            missionMusicArea = createMissionTextArea();
             prestigePreviewButton = new JButton("Preview Prestige");
             prestigePreviewButton.addActionListener(e -> showPrestigePreviewDialog());
 
@@ -577,6 +597,7 @@ public class WineBarGUI {
             tabs.add("Reputation & Identity", new JScrollPane(missionReputationArea));
             tabs.add("Rumors", new JScrollPane(missionRumorsArea));
             tabs.add("Traffic & Punters", new JScrollPane(missionTrafficArea));
+            tabs.add("Music", new JScrollPane(missionMusicArea));
             tabs.add("Inventory", new JScrollPane(missionInventoryArea));
             tabs.add("Loans", new JScrollPane(missionLoansArea));
             tabs.add("Log / Events", new JScrollPane(missionLogArea));
@@ -2391,6 +2412,7 @@ public class WineBarGUI {
         if (missionInventoryArea != null) missionInventoryArea.setText(buildInventoryPanelText());
         if (missionLoansArea != null) missionLoansArea.setText(snapshot.loans);
         if (missionPrestigeArea != null) missionPrestigeArea.setText(snapshot.prestige);
+        if (missionMusicArea != null) missionMusicArea.setText(snapshot.music);
         if (prestigePreviewButton != null) {
             prestigePreviewButton.setEnabled(sim.isPrestigeAvailable());
         }
@@ -2594,6 +2616,7 @@ public class WineBarGUI {
         String closedSuffix = state.lastEarlyCloseRepPenalty < 0
                 ? (" | Last early close " + state.lastEarlyCloseRepPenalty + " rep")
                 : "";
+        timePhaseLabel.setText("Time: " + state.getCurrentTime() + " | Phase: " + state.getCurrentPhase() + " | Music: " + state.currentMusicProfile.getLabel());
         roundLabel.setText(state.nightOpen
                 ? ("Night OPEN  Round " + state.roundInNight + "/" + state.closingRound
                 + " | Bar " + state.nightPunters.size() + "/" + state.maxBarOccupancy)
@@ -2643,6 +2666,8 @@ public class WineBarGUI {
             kitchenSupplierBtn.setToolTipText(null);
         }
         happyHourBtn.setEnabled(state.nightOpen);
+        musicProfileBox.setSelectedItem(state.currentMusicProfile);
+        musicProfileBox.setToolTipText(sim.currentMusicTooltip());
 
         lastCash = state.cash;
         lastDebt = currentDebt;

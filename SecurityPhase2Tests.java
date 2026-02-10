@@ -75,8 +75,8 @@ public class SecurityPhase2Tests {
         lit.fohStaff.add(s2);
         base.teamMorale = 70.0;
         lit.teamMorale = 70.0;
-        staffBase.adjustMoraleAfterRound(6, 2, -30, 0.0, 0, 45.0);
-        staffLit.adjustMoraleAfterRound(6, 2, -30, 0.0, 0, 45.0);
+        staffBase.adjustMoraleAfterRound(6, 2, -30, 0.0, 0, 45.0, 0.0, 0.0);
+        staffLit.adjustMoraleAfterRound(6, 2, -30, 0.0, 0, 45.0, 0.0, 0.0);
         assert lit.teamMorale > base.teamMorale : "Lighting morale stability should soften morale loss.";
     }
 
