@@ -154,6 +154,10 @@ public class GameState implements java.io.Serializable {
     public boolean staffIncidentThisRound = false;
     public String lastStaffIncidentSummary = "None";
     public String lastStaffIncidentDrivers = "None";
+    public String lastServiceDrivers = "Service: n/a";
+    public String lastStabilityDrivers = "Stability: n/a";
+    public double lastRoundWorkload = 1.0;
+    public double lastRoundWorkloadPenalty = 0.0;
     public String lastRumorHeadline = "None";
     public String lastRumorDrivers = "None";
     public int posStreak = 0;
