@@ -21,6 +21,15 @@ public class StaffFactory {
 
     public static Staff createStaff(int id, String name, Staff.Type type, Random random) {
         StaffTemplate template = templateFor(type, random);
+        return createFromTemplate(id, name, type, template);
+    }
+
+    public static Staff createStaff(int id, String name, Staff.Type type, Random random, int week, int reputation) {
+        StaffTemplate template = templateFor(type, random, week, reputation);
+        return createFromTemplate(id, name, type, template);
+    }
+
+    private static Staff createFromTemplate(int id, String name, Staff.Type type, StaffTemplate template) {
         return new Staff(
                 id,
                 name,
@@ -36,6 +45,61 @@ public class StaffFactory {
                 template.securityBonus(),
                 template.chaosTolerance(),
                 template.morale()
+        );
+    }
+
+    public static StaffTemplate templateFor(Staff.Type type, Random random, int week, int reputation) {
+        StaffTemplate base = templateFor(type, random);
+        double weekFactor = clamp01((Math.max(1, week) - 1) / 36.0);
+        double repFactor = clamp01((reputation + 40.0) / 140.0);
+        double progression = clamp01((weekFactor * 0.6) + (repFactor * 0.4));
+
+        int speed = base.serveCapacity();
+        int skill = base.skill();
+        int repMin = base.repMin();
+        int repMax = base.repMax();
+        int chaosTolerance = base.chaosTolerance();
+
+        // Better candidates become more common later, but not dominant.
+        if (random.nextDouble() < progression * 0.65) {
+            speed += random.nextInt(2);
+            skill += random.nextInt(2);
+            chaosTolerance += random.nextInt(4);
+            repMax += random.nextInt(2);
+        }
+
+        // Tradeoff candidates: fast but sloppy, or polished but slower.
+        if (random.nextDouble() < 0.28) {
+            if (random.nextBoolean()) {
+                speed += 2;
+                skill = Math.max(1, skill - 1);
+                repMin -= 1;
+            } else {
+                skill += 2;
+                speed = Math.max(0, speed - 1);
+                chaosTolerance += 2;
+            }
+        }
+
+        double power = speed * 6.0 + skill * 5.0 + Math.max(0, repMax) * 3.0 + chaosTolerance * 0.35
+                + (base.securityBonus() * 8.0) + (base.tipBonus() * 220.0) + (base.tipRate() * 260.0)
+                + ((base.capacityMultiplier() - 1.0) * 320.0);
+        double statPremium = power * (0.015 + progression * 0.010);
+        double levelPremium = Math.max(0.0, progression * 14.0);
+        double weeklyWage = Math.max(18.0, base.weeklyWage() + statPremium + levelPremium);
+
+        return new StaffTemplate(
+                Math.max(0, speed),
+                Math.max(1, skill),
+                Math.min(repMin, repMax),
+                Math.max(repMin, repMax),
+                weeklyWage,
+                base.capacityMultiplier(),
+                base.tipRate(),
+                base.tipBonus(),
+                base.securityBonus(),
+                Math.max(20, Math.min(100, chaosTolerance)),
+                base.morale()
         );
     }
 
@@ -307,6 +371,10 @@ public class StaffFactory {
                     74
             );
         };
+    }
+
+    private static double clamp01(double value) {
+        return Math.max(0.0, Math.min(1.0, value));
     }
 
     private static double applyWageMultiplier(double wage) {
