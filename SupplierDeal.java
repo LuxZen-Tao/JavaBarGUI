@@ -1,4 +1,4 @@
-public class SupplierDeal {
+public class SupplierDeal  implements java.io.Serializable {
 
     public enum Type { DISCOUNT, SHORTAGE }
 

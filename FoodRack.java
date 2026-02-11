@@ -1,6 +1,6 @@
 import java.util.*;
 
-public class FoodRack {
+public class FoodRack  implements java.io.Serializable {
 
     public static class Meal {
         public final Food food;

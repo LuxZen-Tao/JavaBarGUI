@@ -5,7 +5,7 @@ public enum VIPArcStage {
     ADVOCATE,
     ANNOYED,
     DISGRUNTLED,
-    BACKLASH
+    BACKLASH,
     NEWCOMER,
     CURIOUS,
     DEVOTED,

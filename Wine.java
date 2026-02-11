@@ -1,5 +1,5 @@
 // Wine.java
-public class Wine {
+public class Wine  implements java.io.Serializable {
     private final String name;
     private final int year;
     private final String region;

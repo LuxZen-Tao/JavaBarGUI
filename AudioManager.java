@@ -2,6 +2,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.IOException;
@@ -31,6 +32,9 @@ public class AudioManager {
     private ChatterBand currentChatterBand;
     private String currentChatterFileName = "None";
     private long lastChatterSwapAtMs;
+
+    private int musicVolume = 80;
+    private int chatterVolume = 80;
 
     private String indieAltChosenFileThisNight;
     private String highBandChosenFileThisNight;
@@ -131,6 +135,7 @@ public class AudioManager {
         musicClip = next;
         currentMusicKey = path.toAbsolutePath().normalize().toString();
         currentMusicFileName = path.getFileName().toString();
+        applyVolume(musicClip, musicVolume);
         playLoop(musicClip);
         return true;
     }
@@ -141,6 +146,7 @@ public class AudioManager {
         stopAndClose(chatterClip);
         chatterClip = next;
         currentChatterFileName = path.getFileName().toString();
+        applyVolume(chatterClip, chatterVolume);
         playLoop(chatterClip);
     }
 
@@ -196,6 +202,38 @@ public class AudioManager {
                 }
             }
         }
+    }
+
+
+    public synchronized void setMusicVolume(int volume) {
+        musicVolume = clampVolume(volume);
+        applyVolume(musicClip, musicVolume);
+    }
+
+    public synchronized void setChatterVolume(int volume) {
+        chatterVolume = clampVolume(volume);
+        applyVolume(chatterClip, chatterVolume);
+    }
+
+    public synchronized int getMusicVolume() { return musicVolume; }
+
+    public synchronized int getChatterVolume() { return chatterVolume; }
+
+    private int clampVolume(int value) {
+        return Math.max(0, Math.min(100, value));
+    }
+
+    private void applyVolume(Clip clip, int volume) {
+        if (clip == null) return;
+        if (!clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) return;
+        FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+        if (volume <= 0) {
+            gain.setValue(gain.getMinimum());
+            return;
+        }
+        float dB = (float) (20.0 * Math.log10(volume / 100.0));
+        dB = Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), dB));
+        gain.setValue(dB);
     }
 
     private void warn(String message) {

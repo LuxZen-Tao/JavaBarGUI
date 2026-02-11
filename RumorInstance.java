@@ -5,7 +5,7 @@ public record RumorInstance(
         int intensity,
         double spreadRate,
         int daysRemaining
-) {
+) implements java.io.Serializable {
     public double trafficMultiplier() {
         double normalized = intensity / 100.0;
         return 1.0 + type.trafficImpact(normalized);

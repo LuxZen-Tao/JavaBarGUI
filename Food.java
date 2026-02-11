@@ -1,4 +1,4 @@
-public class Food {
+public class Food  implements java.io.Serializable {
     private final String name;
     private final double baseCost;
     private final double basePrice;

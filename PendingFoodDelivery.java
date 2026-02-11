@@ -3,4 +3,4 @@ public record PendingFoodDelivery(
         int quantity,
         int deliverRound,
         double cost
-) {}
+) implements java.io.Serializable {}

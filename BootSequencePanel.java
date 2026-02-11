@@ -104,11 +104,11 @@ public class BootSequencePanel extends JPanel {
     private final JButton loadGameButton = new JButton("Load Game");
     private final JPanel menuPanel = new JPanel();
 
-    public BootSequencePanel(java.util.function.Consumer<StartAction> onComplete) {
+    public BootSequencePanel(java.util.function.Consumer<StartAction> onComplete, boolean loadEnabled) {
         this.onComplete = onComplete;
         setBackground(Color.BLACK);
         setLayout(new GridBagLayout());
-        buildMainMenu();
+        buildMainMenu(loadEnabled);
         loadAssets();
         chooseFlowStart();
         this.timer = new Timer(16, e -> tick());
@@ -116,7 +116,7 @@ public class BootSequencePanel extends JPanel {
         this.timer.start();
     }
 
-    private void buildMainMenu() {
+    private void buildMainMenu(boolean loadEnabled) {
         menuPanel.setOpaque(false);
         menuPanel.setBorder(new EmptyBorder(24, 24, 24, 24));
         menuPanel.setLayout(new BoxLayout(menuPanel, BoxLayout.Y_AXIS));
@@ -141,6 +141,8 @@ public class BootSequencePanel extends JPanel {
 
         newGameButton.addActionListener(e -> beginMenuExit(StartAction.NEW_GAME));
         loadGameButton.addActionListener(e -> beginMenuExit(StartAction.LOAD_GAME));
+        loadGameButton.setEnabled(loadEnabled);
+        loadGameButton.setToolTipText(loadEnabled ? null : "No save found.");
 
         menuPanel.add(title);
         menuPanel.add(Box.createVerticalStrut(10));
@@ -440,7 +442,9 @@ public class BootSequencePanel extends JPanel {
         if (menuPanel.isVisible() == visible) return;
         menuPanel.setVisible(visible);
         newGameButton.setEnabled(visible);
-        loadGameButton.setEnabled(visible);
+        boolean canLoad = SaveManager.hasSave();
+        loadGameButton.setEnabled(visible && canLoad);
+        loadGameButton.setToolTipText(canLoad ? null : "No save found.");
     }
 
     private void setStage(Stage next) {

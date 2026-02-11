@@ -1,6 +1,6 @@
 import java.util.UUID;
 
-public class PaydayBill {
+public class PaydayBill  implements java.io.Serializable {
     public enum Type {
         SUPPLIER,
         WAGES,

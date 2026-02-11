@@ -1,4 +1,4 @@
-public class LandlordActionState {
+public class LandlordActionState  implements java.io.Serializable {
     private int cooldownRemaining;
     private int lastUsedRound;
 
