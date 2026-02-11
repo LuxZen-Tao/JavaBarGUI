@@ -2,7 +2,8 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
-public final class MarketPressure {
+public final class MarketPressure implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private final int totalRivals;
     private final EnumMap<RivalStance, Integer> stanceCounts;
 

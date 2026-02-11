@@ -303,6 +303,18 @@ public class WineBarGUI {
         SwingUtilities.invokeLater(() -> new WineBarGUI(newState).show());
     }
 
+    private void resetToMainMenu() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(this::resetToMainMenu);
+            return;
+        }
+        shutdownForMenuTransition();
+        frame.setContentPane(new BootSequencePanel(this::finishBootSequence, SaveManager.hasSave(), true));
+        frame.revalidate();
+        frame.repaint();
+        frame.requestFocusInWindow();
+    }
+
     private void applySavedAudioPreferences() {
         int music = prefs.getInt("audio.music", 80);
         int chatter = prefs.getInt("audio.chatter", 80);
@@ -322,8 +334,9 @@ public class WineBarGUI {
             SaveManager.save(state);
             lastAutosavedWeek = week;
             log.info("Autosaved at fresh week start (Week " + week + ").");
-        } catch (IOException ex) {
-            log.neg("Autosave failed: " + ex.getMessage());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            log.neg("Saving failed: " + ex.getMessage());
         }
     }
 
@@ -878,9 +891,10 @@ public class WineBarGUI {
         try {
             SaveManager.save(state);
             optionsSaveStatusLabel.setText("Game saved.");
-        } catch (IOException ex) {
-            optionsSaveStatusLabel.setText("Save failed.");
-            log.neg("Save failed: " + ex.getMessage());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            optionsSaveStatusLabel.setText("Saving failed: " + ex.getMessage());
+            log.neg("Saving failed: " + ex.getMessage());
         }
     }
 
@@ -896,7 +910,7 @@ public class WineBarGUI {
                 options[0]);
         if (choice != 1) return;
         dialog.dispose();
-        launchReplacementGame(GameFactory.newGame());
+        resetToMainMenu();
     }
 
     private void confirmQuitGame() {

@@ -2,7 +2,8 @@ import java.util.*;
 
 public class FoodRack  implements java.io.Serializable {
 
-    public static class Meal {
+    public static class Meal implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
         public final Food food;
         public final int dayAdded;
         public final int spoilAfterDays;

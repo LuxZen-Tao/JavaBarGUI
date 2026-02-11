@@ -92,6 +92,7 @@ public class BootSequencePanel extends JPanel {
     private final List<BootPhoto> randomPhotos = new ArrayList<>();
 
     private BufferedImage gameBootImage;
+    private BufferedImage menuImage;
     private BufferedImage logoImage;
     private BufferedImage coverImage;
     private BootPhoto coverPhoto;
@@ -105,12 +106,16 @@ public class BootSequencePanel extends JPanel {
     private final JPanel menuPanel = new JPanel();
 
     public BootSequencePanel(java.util.function.Consumer<StartAction> onComplete, boolean loadEnabled) {
+        this(onComplete, loadEnabled, false);
+    }
+
+    public BootSequencePanel(java.util.function.Consumer<StartAction> onComplete, boolean loadEnabled, boolean startAtMainMenu) {
         this.onComplete = onComplete;
         setBackground(Color.BLACK);
-        setLayout(new GridBagLayout());
+        setLayout(new BorderLayout());
         buildMainMenu(loadEnabled);
         loadAssets();
-        chooseFlowStart();
+        chooseFlowStart(startAtMainMenu);
         this.timer = new Timer(16, e -> tick());
         this.timer.setCoalesce(true);
         this.timer.start();
@@ -118,25 +123,11 @@ public class BootSequencePanel extends JPanel {
 
     private void buildMainMenu(boolean loadEnabled) {
         menuPanel.setOpaque(false);
-        menuPanel.setBorder(new EmptyBorder(24, 24, 24, 24));
-        menuPanel.setLayout(new BoxLayout(menuPanel, BoxLayout.Y_AXIS));
-
-        JLabel title = new JLabel("Pub Landlord Idle");
-        title.setAlignmentX(Component.CENTER_ALIGNMENT);
-        title.setForeground(new Color(240, 240, 240));
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 36f));
-
-        JLabel subtitle = new JLabel("GameBootScreen2");
-        subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        subtitle.setForeground(new Color(200, 200, 200));
-        subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 18f));
+        menuPanel.setBorder(new EmptyBorder(18, 24, 52, 24));
+        menuPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 16, 0));
 
         Dimension buttonSize = new Dimension(220, 48);
-        newGameButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        newGameButton.setMaximumSize(buttonSize);
         newGameButton.setPreferredSize(buttonSize);
-        loadGameButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        loadGameButton.setMaximumSize(buttonSize);
         loadGameButton.setPreferredSize(buttonSize);
 
         newGameButton.addActionListener(e -> beginMenuExit(StartAction.NEW_GAME));
@@ -144,15 +135,13 @@ public class BootSequencePanel extends JPanel {
         loadGameButton.setEnabled(loadEnabled);
         loadGameButton.setToolTipText(loadEnabled ? null : "No save found.");
 
-        menuPanel.add(title);
-        menuPanel.add(Box.createVerticalStrut(10));
-        menuPanel.add(subtitle);
-        menuPanel.add(Box.createVerticalStrut(28));
         menuPanel.add(newGameButton);
-        menuPanel.add(Box.createVerticalStrut(12));
         menuPanel.add(loadGameButton);
 
-        add(menuPanel, new GridBagConstraints());
+        JPanel menuWrapper = new JPanel(new BorderLayout());
+        menuWrapper.setOpaque(false);
+        menuWrapper.add(menuPanel, BorderLayout.SOUTH);
+        add(menuWrapper, BorderLayout.SOUTH);
         menuPanel.setVisible(false);
     }
 
@@ -166,7 +155,8 @@ public class BootSequencePanel extends JPanel {
 
     private void loadAssets() {
         Path root = Paths.get("Art", "BootSequence");
-        gameBootImage = loadGameBootImage(root.resolve("Photos"));
+        gameBootImage = loadSplashImage(root.resolve(Paths.get("Splash", "GameBootScreen")));
+        menuImage = loadSplashImage(root.resolve(Paths.get("Splash", "GameBootMenu")));
         logoImage = readImage(root.resolve(Paths.get("Logos", "StudioLogo.png")));
         coverImage = readImage(root.resolve(Paths.get("Photos", "GameCoverv1.png")));
 
@@ -192,7 +182,11 @@ public class BootSequencePanel extends JPanel {
         loadRandomPhotos(root.resolve("Photos"));
     }
 
-    private void chooseFlowStart() {
+    private void chooseFlowStart(boolean startAtMainMenu) {
+        if (startAtMainMenu) {
+            setStage(Stage.MENU_HOLD);
+            return;
+        }
         if (gameBootImage != null) {
             setStage(Stage.GAME_BOOT_HOLD);
         } else if (logoImage != null) {
@@ -289,7 +283,7 @@ public class BootSequencePanel extends JPanel {
         String lower = fileName.toLowerCase(Locale.ROOT);
         boolean excluded = lower.startsWith("gamecoverv1")
                 || lower.startsWith("gamebootscreen")
-                || lower.startsWith("gamebootscreen2")
+                || lower.startsWith("gamebootmenu")
                 || lower.contains("logo");
         if (excluded) {
             System.out.println("[BootSequence] Excluding boot-only photo from loading rotation: " + fileName);
@@ -297,17 +291,13 @@ public class BootSequencePanel extends JPanel {
         return excluded;
     }
 
-    private BufferedImage loadGameBootImage(Path photosDir) {
-        if (!Files.isDirectory(photosDir)) {
-            return null;
-        }
-
-        BufferedImage image = readImage(photosDir.resolve("GameBootScreen"));
+    private BufferedImage loadSplashImage(Path basePath) {
+        BufferedImage image = readImage(basePath);
         if (image != null) return image;
 
-        String[] names = {"GameBootScreen.png", "GameBootScreen.jpg", "GameBootScreen.jpeg"};
-        for (String name : names) {
-            image = readImage(photosDir.resolve(name));
+        String[] extensions = {".png", ".jpg", ".jpeg"};
+        for (String ext : extensions) {
+            image = readImage(Path.of(basePath.toString() + ext));
             if (image != null) return image;
         }
         return null;
@@ -478,8 +468,8 @@ public class BootSequencePanel extends JPanel {
             double alpha = stage == Stage.MENU_FADE_OUT
                     ? clamp(elapsedSeconds() / MENU_FADE_OUT_SECONDS, 0.0, 1.0)
                     : 0.0;
-            if (gameBootImage != null) {
-                drawImageWithFade(g2, gameBootImage, null, alpha);
+            if (menuImage != null) {
+                drawImageWithFade(g2, menuImage, null, alpha);
             } else {
                 g2.setColor(new Color(18, 18, 18));
                 g2.fillRect(0, 0, getWidth(), getHeight());

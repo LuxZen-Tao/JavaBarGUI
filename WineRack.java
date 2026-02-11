@@ -4,7 +4,8 @@ import java.util.function.Consumer;
 public class WineRack  implements java.io.Serializable {
 
     /** Each bottle carries the day it was added (for spoilage). */
-    public static class Bottle {
+    public static class Bottle implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
         public final Wine wine;
         public final int dayAdded;
         public final int spoilAfterDays;
