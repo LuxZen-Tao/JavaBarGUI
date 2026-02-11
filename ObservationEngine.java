@@ -18,6 +18,12 @@ public class ObservationEngine {
             "Room feels balanced and comfortable."
     );
 
+    private static final List<String> SEASON_LINES = List.of(
+            "Seasonal mood is nudging tonight's crowd mix.",
+            "You can feel the seasonal swing in who turned up.",
+            "Seasonal pulse is showing in the room tonight."
+    );
+
     private static final List<String> BUSY_LINES = List.of(
             "Packed house and quick pours kept it moving.",
             "Busy room, but the bar kept pace.",
@@ -140,6 +146,18 @@ public class ObservationEngine {
             "Entry control felt firm without killing the vibe."
     );
 
+    private static final List<String> VIP_ARC_LINES = List.of(
+            "A known regular is loudly backing the pub this week.",
+            "A high-profile regular seems unhappy and people noticed.",
+            "VIP chatter around the bar is shaping tonight's mood."
+    );
+
+    private static final List<String> RIVAL_LINES = List.of(
+            "Competitor undercut prices across the district tonight.",
+            "A rival pub pushed hard on events this week.",
+            "Nearby venues leaned premium, shifting tonight's crowd."
+    );
+
     private static final List<String> BOUNCER_PRESENCE_LINES = List.of(
             "Door staff kept things under control.",
             "Bouncers kept the room calm without fuss.",
@@ -219,6 +237,16 @@ public class ObservationEngine {
         addIf(candidates, Category.STAFF_CHANGE, ctx.staffChangeRecent);
         addIf(candidates, Category.REP_HIGH, s.reputation >= 60);
         addIf(candidates, Category.REP_LOW, s.reputation <= -20);
+        addIf(candidates, Category.VIP_ARC, FeatureFlags.FEATURE_VIPS
+                && s.vipObservationRoundsRemaining > 0
+                && !majorEvent && s.random.nextInt(100) < 18);
+        addIf(candidates, Category.RIVAL, FeatureFlags.FEATURE_RIVALS
+                && s.latestMarketPressure != null
+                && s.latestMarketPressure.totalRivals() > 0
+                && !majorEvent && s.random.nextInt(100) < 14);
+        addIf(candidates, Category.SEASON, FeatureFlags.FEATURE_SEASONS
+                && !new SeasonCalendar(s).getActiveSeasonTags().isEmpty()
+                && !majorEvent && s.random.nextInt(100) < 16);
         addIf(candidates, Category.MARSHALLS, s.marshallCount() > 0 && !majorEvent
                 && s.dayCounter != s.lastMarshallObservationDay && s.random.nextInt(100) < 12);
         addIf(candidates, Category.WEATHER, s.currentWeather != null && !majorEvent
@@ -258,6 +286,12 @@ public class ObservationEngine {
             case STAFF_CHANGE -> pick(STAFF_CHANGE_LINES, s);
             case REP_HIGH -> pick(REP_HIGH_LINES, s);
             case REP_LOW -> pick(REP_LOW_LINES, s);
+            case SEASON -> pick(SEASON_LINES, s);
+            case VIP_ARC -> {
+                s.vipObservationRoundsRemaining = Math.max(0, s.vipObservationRoundsRemaining - 1);
+                yield (s.vipObservationSnippet != null && !s.vipObservationSnippet.isBlank()) ? s.vipObservationSnippet : pick(VIP_ARC_LINES, s);
+            }
+            case RIVAL -> pick(RIVAL_LINES, s);
             case POLICY_STRICT -> pick(POLICY_STRICT_LINES, s);
             case POLICY_FRIENDLY -> pick(POLICY_FRIENDLY_LINES, s);
             case TASK -> pick(TASK_LINES, s);
@@ -322,6 +356,9 @@ public class ObservationEngine {
         STAFF_CHANGE,
         REP_HIGH,
         REP_LOW,
+        SEASON,
+        VIP_ARC,
+        RIVAL,
         POLICY_STRICT,
         POLICY_FRIENDLY,
         TASK,

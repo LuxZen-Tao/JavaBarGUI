@@ -72,7 +72,12 @@ public class ReportSystem {
         sb.append("Team fatigue: ").append(String.format("%.1f", s.teamFatigue)).append("\n");
         sb.append("Loss reports streak: ").append(s.consecutiveDebtReports).append("\n\n");
 
-        sb.append("Between-night event: ").append(s.lastBetweenNightEventSummary).append("\n\n");
+        sb.append("Between-night event: ").append(s.lastBetweenNightEventSummary).append("\n");
+        if (FeatureFlags.FEATURE_SEASONS) {
+            java.util.List<SeasonTag> tags = new SeasonCalendar(s).getActiveSeasonTags();
+            sb.append("Season outlook: ").append(tags.isEmpty() ? "No active seasonal pressure." : formatSeasonTags(tags)).append("\n");
+        }
+        sb.append("\n");
 
         sb.append("NIGHT\n");
         sb.append("Clock: ").append(s.getCurrentTime()).append(" | Phase ").append(s.getCurrentPhase()).append("\n");
@@ -138,6 +143,19 @@ public class ReportSystem {
         sb.append("Active rumors:\n");
         for (String line : summarizeRumors(s, 4)) {
             sb.append("  - ").append(line).append("\n");
+        }
+        if (FeatureFlags.FEATURE_VIPS) {
+            sb.append("VIP arcs:\n");
+            if (s.vipWeeklyNotes.isEmpty()) {
+                sb.append("  - No major VIP arc movement this week.\n");
+            } else {
+                int shown = 0;
+                for (String note : s.vipWeeklyNotes) {
+                    sb.append("  - ").append(note).append("\n");
+                    shown++;
+                    if (shown >= 2) break;
+                }
+            }
         }
         sb.append("\n");
         sb.append("INN SUMMARY\n");
@@ -225,6 +243,16 @@ public class ReportSystem {
         mult += s.rumorHeat.getOrDefault(Rumor.FRIENDLY_STAFF,0)*0.002;
         mult += s.rumorHeat.getOrDefault(Rumor.GREAT_ATMOSPHERE,0)*0.002;
         return Math.max(0.80,Math.min(1.20,mult));
+    }
+
+    private static String formatSeasonTags(java.util.List<SeasonTag> tags) {
+        if (tags == null || tags.isEmpty()) return "No active seasonal pressure.";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < tags.size(); i++) {
+            if (i > 0) out.append(", ");
+            out.append(tags.get(i).name().replace('_', ' ').toLowerCase());
+        }
+        return out.toString();
     }
 
     private static String pressTone(GameState s){

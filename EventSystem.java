@@ -73,6 +73,7 @@ public class EventSystem {
         int chance = 12 + upgradeBonus + activityBonus + (int)Math.round(chaosFactor * 10);
         if (s.reputation <= -40) chance += 6;
         if (s.reputation >= 60) chance += 3;
+        chance = (int)Math.round(chance * seasonalRoundEventChanceMultiplier());
 
         boolean roll = s.random.nextInt(100) < chance;
         if (force || roll) {
@@ -92,7 +93,7 @@ public class EventSystem {
         double repChanceMult = (s.reputation >= 60) ? 0.85 : (s.reputation <= -40 ? 1.20 : 1.0);
         double repDmgMult = (s.reputation >= 60) ? 0.90 : (s.reputation <= -40 ? 1.15 : 1.0);
         double chaosMult = 1.0 + (chaosFactor * 0.35);
-        chanceMult *= repChanceMult * chaosMult;
+        chanceMult *= repChanceMult * chaosMult * seasonalBetweenNightChanceMultiplier();
         dmgMult *= repDmgMult * chaosMult;
         int triggered = 0;
 
@@ -142,6 +143,33 @@ public class EventSystem {
             s.lastBetweenNightEventSummary = "None";
         }
         return triggered;
+    }
+
+
+    double seasonalRoundEventChanceMultiplier() {
+        return seasonalEventChanceMultiplier(1.0, 1.05, 0.95, 1.08);
+    }
+
+    double seasonalBetweenNightChanceMultiplier() {
+        return seasonalEventChanceMultiplier(1.0, 1.06, 0.94, 1.10);
+    }
+
+    private double seasonalEventChanceMultiplier(double examMult, double touristMult, double winterMult, double derbyMult) {
+        if (!FeatureFlags.FEATURE_SEASONS) return 1.0;
+
+        java.util.List<SeasonTag> tags = new SeasonCalendar(s).getActiveSeasonTags();
+        if (tags.isEmpty()) return 1.0;
+
+        double mult = 1.0;
+        for (SeasonTag tag : tags) {
+            switch (tag) {
+                case EXAM_SEASON -> mult *= examMult;
+                case TOURIST_WAVE -> mult *= touristMult;
+                case WINTER_SLUMP -> mult *= winterMult;
+                case DERBY_WEEK -> mult *= derbyMult;
+            }
+        }
+        return mult;
     }
 
     private boolean handleBurglaryAttempt(int sec, double chanceMult, double dmgMult) {

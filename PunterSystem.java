@@ -694,30 +694,84 @@ public class PunterSystem {
     }
 
     private Punter.Tier rollTierForReputation() {
-        int roll = s.random.nextInt(100);
-        roll -= s.pubLevel * 2;
+        double bigWeight;
+        double decentWeight;
+        double regularWeight;
+        double lowlifeWeight;
+
         if (s.reputation >= 70) {
-            if (roll < 20) return Punter.Tier.BIG_SPENDER;
-            if (roll < 65) return Punter.Tier.DECENT;
-            if (roll < 95) return Punter.Tier.REGULAR;
-            return Punter.Tier.LOWLIFE;
+            bigWeight = 20;
+            decentWeight = 45;
+            regularWeight = 30;
+            lowlifeWeight = 5;
+        } else if (s.reputation >= 40) {
+            bigWeight = 12;
+            decentWeight = 38;
+            regularWeight = 35;
+            lowlifeWeight = 15;
+        } else if (s.reputation >= 0) {
+            bigWeight = 6;
+            decentWeight = 29;
+            regularWeight = 40;
+            lowlifeWeight = 25;
+        } else {
+            bigWeight = 3;
+            decentWeight = 17;
+            regularWeight = 35;
+            lowlifeWeight = 45;
         }
-        if (s.reputation >= 40) {
-            if (roll < 12) return Punter.Tier.BIG_SPENDER;
-            if (roll < 50) return Punter.Tier.DECENT;
-            if (roll < 85) return Punter.Tier.REGULAR;
-            return Punter.Tier.LOWLIFE;
-        }
-        if (s.reputation >= 0) {
-            if (roll < 6) return Punter.Tier.BIG_SPENDER;
-            if (roll < 35) return Punter.Tier.DECENT;
-            if (roll < 75) return Punter.Tier.REGULAR;
-            return Punter.Tier.LOWLIFE;
-        }
-        if (roll < 3) return Punter.Tier.BIG_SPENDER;
-        if (roll < 20) return Punter.Tier.DECENT;
-        if (roll < 55) return Punter.Tier.REGULAR;
+
+        int pubLevelShift = Math.max(0, s.pubLevel) * 2;
+        bigWeight += pubLevelShift;
+        lowlifeWeight = Math.max(1.0, lowlifeWeight - pubLevelShift);
+
+        bigWeight *= seasonalTierWeightMultiplier(Punter.Tier.BIG_SPENDER);
+        decentWeight *= seasonalTierWeightMultiplier(Punter.Tier.DECENT);
+        regularWeight *= seasonalTierWeightMultiplier(Punter.Tier.REGULAR);
+        lowlifeWeight *= seasonalTierWeightMultiplier(Punter.Tier.LOWLIFE);
+
+        double total = bigWeight + decentWeight + regularWeight + lowlifeWeight;
+        double roll = s.random.nextDouble() * total;
+        if (roll < bigWeight) return Punter.Tier.BIG_SPENDER;
+        roll -= bigWeight;
+        if (roll < decentWeight) return Punter.Tier.DECENT;
+        roll -= decentWeight;
+        if (roll < regularWeight) return Punter.Tier.REGULAR;
         return Punter.Tier.LOWLIFE;
+    }
+
+    double seasonalTierWeightMultiplier(Punter.Tier tier) {
+        if (!FeatureFlags.FEATURE_SEASONS) return 1.0;
+
+        List<SeasonTag> tags = new SeasonCalendar(s).getActiveSeasonTags();
+        if (tags.isEmpty()) return 1.0;
+
+        double mult = 1.0;
+        for (SeasonTag tag : tags) {
+            switch (tag) {
+                case TOURIST_WAVE -> {
+                    if (tier == Punter.Tier.BIG_SPENDER) mult *= 1.08;
+                    else if (tier == Punter.Tier.DECENT) mult *= 1.05;
+                    else if (tier == Punter.Tier.LOWLIFE) mult *= 0.94;
+                }
+                case EXAM_SEASON -> {
+                    if (tier == Punter.Tier.DECENT) mult *= 1.08;
+                    else if (tier == Punter.Tier.REGULAR) mult *= 1.04;
+                    else if (tier == Punter.Tier.BIG_SPENDER) mult *= 0.96;
+                }
+                case WINTER_SLUMP -> {
+                    if (tier == Punter.Tier.BIG_SPENDER) mult *= 0.92;
+                    else if (tier == Punter.Tier.DECENT) mult *= 0.96;
+                    else if (tier == Punter.Tier.LOWLIFE) mult *= 1.08;
+                }
+                case DERBY_WEEK -> {
+                    if (tier == Punter.Tier.REGULAR) mult *= 1.05;
+                    else if (tier == Punter.Tier.LOWLIFE) mult *= 1.12;
+                    else if (tier == Punter.Tier.BIG_SPENDER) mult *= 0.95;
+                }
+            }
+        }
+        return mult;
     }
 
     private Punter.Tier adjustTierForIdentityAndRumors(Punter.Tier base) {
@@ -731,6 +785,7 @@ public class PunterSystem {
         bias += rumorHeat(Rumor.BEST_SUNDAY_ROAST) * 0.002;
         if (s.currentIdentity != null) bias += s.currentIdentity.getWealthBias();
         if (rumors != null) bias += rumors.wealthBias();
+        if (FeatureFlags.FEATURE_RIVALS) bias += s.rivalPunterMixBias;
         bias += s.pubLevel * 0.06;
 
         if (bias > 0.15 && s.random.nextInt(100) < 35) {

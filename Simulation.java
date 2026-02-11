@@ -156,6 +156,7 @@ public class Simulation {
     private final EventSystem events;
     private final PunterSystem punters;
     private final SupplierSystem supplierSystem;
+    private final RivalSystem rivalSystem;
     private final MilestoneSystem milestones;
     private final PubIdentitySystem identitySystem;
     private final RumorSystem rumors;
@@ -164,6 +165,7 @@ public class Simulation {
     private final ObservationEngine observationEngine;
     private final MusicSystem musicSystem;
     private final AudioManager audioManager;
+    private final VIPSystem vipSystem;
 
     public Simulation(GameState state, UILogger log) {
 
@@ -180,6 +182,7 @@ public class Simulation {
         this.rumors = new RumorSystem(s, log);
         this.punters = new PunterSystem(s, eco, inv, events, rumors, log);
         this.supplierSystem = new SupplierSystem(s);
+        this.rivalSystem = new RivalSystem();
         this.milestones = new MilestoneSystem(s, log);
         this.eco.setMilestones(milestones);
         this.identitySystem = new PubIdentitySystem(s, log);
@@ -188,6 +191,7 @@ public class Simulation {
         this.observationEngine = new ObservationEngine();
         this.musicSystem = new MusicSystem(s);
         this.audioManager = new AudioManager();
+        this.vipSystem = new VIPSystem();
 
         markReportStartIfMissing();
 
@@ -1239,6 +1243,9 @@ public class Simulation {
         if (s.maxBarOccupancy < 5) s.maxBarOccupancy = 5;
 
         punters.seedNightPunters(pool);
+        if (FeatureFlags.FEATURE_VIPS) {
+            vipSystem.ensureRosterFromNames(currentPunterNames(), s.random);
+        }
         audioManager.setPubOpen(true);
         audioManager.updateChatterOccupancy(s.nightPunters.size(), s.maxBarOccupancy);
 
@@ -1663,6 +1670,10 @@ public class Simulation {
 
         runInnNightly();
 
+        if (FeatureFlags.FEATURE_VIPS) {
+            applyVipConsequences(vipSystem.evaluateNightWithConsequences(buildVipNightOutcome()));
+        }
+
         if (!s.sickStaffTonight.isEmpty()) {
             for (Staff st : s.sickStaffTonight) {
                 if (st.getType() == Staff.Type.HEAD_CHEF || st.getType() == Staff.Type.CHEF || st.getType() == Staff.Type.SOUS_CHEF) {
@@ -2085,6 +2096,7 @@ public class Simulation {
         applyDebtSpiralMoraleDecay();
         identitySystem.updateWeeklyIdentity();
         rumors.updateWeeklyRumors();
+        runRivalDistrictWeek();
         endOfWeekReport();
         preparePaydayBills(wagesDue, tipsDue);
         milestones.onWeekEnd();
@@ -2300,7 +2312,9 @@ public class Simulation {
         if (s.nightFights > 0) baseChance += 0.03;
         if (s.chaos > 55) baseChance += 0.03;
         if (s.chaos < 18 && s.nightUnserved == 0 && s.nightRefunds == 0) baseChance -= 0.03;
-        baseChance = Math.max(0.04, Math.min(0.25, baseChance));
+        GameModifierSnapshot mods = buildModifierSnapshot();
+        baseChance -= mods.vipRumorShield();
+        baseChance = Math.max(0.02, Math.min(0.25, baseChance));
 
         RumorTone tone = rumorToneFromMorale();
         s.lastRumorDrivers = buildRumorDriverLine(baseChance, tone);
@@ -2321,8 +2335,12 @@ public class Simulation {
     }
 
     private RumorTone rumorToneFromMorale() {
-        if (s.teamMorale <= 40) return RumorTone.NEGATIVE;
-        if (s.teamMorale >= 70) return RumorTone.POSITIVE;
+        double morale = s.teamMorale;
+        if (FeatureFlags.FEATURE_RIVALS) {
+            morale -= (s.rivalRumorSentimentBias * 10.0);
+        }
+        if (morale <= 40) return RumorTone.NEGATIVE;
+        if (morale >= 70) return RumorTone.POSITIVE;
         return RumorTone.MIXED;
     }
 
@@ -3196,7 +3214,8 @@ public class Simulation {
         double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier()
                 * activities.trafficMultiplier() * securityPolicyTrafficMultiplier()
                 * securityTaskTrafficMultiplier()
-                * (1.0 + s.landlordTrafficBonusPct);
+                * (1.0 + s.landlordTrafficBonusPct)
+                * buildModifierSnapshot().finalTrafficMultiplier();
         double creditBalance = s.totalCreditBalance()
                 + (s.loanShark.isOpen() ? s.loanShark.getBalance() : 0.0);
         double creditWeeklyDue = s.totalCreditWeeklyPaymentDue();
@@ -4341,6 +4360,11 @@ public class Simulation {
         sb.append("Weeks active: ").append(s.weekCount).append("\n");
         sb.append("Milestones achieved: ").append(s.achievedMilestones.size()).append("\n");
         sb.append(pubLevelSystem.progressionSummary(s)).append("\n");
+        if (FeatureFlags.FEATURE_RIVALS) {
+            sb.append("\nDistrict update\n");
+            sb.append(s.rivalDistrictUpdate).append("\n");
+            sb.append("Dominant rival stance: ").append(s.latestMarketPressure.dominantStance()).append("\n");
+        }
         return sb.toString();
     }
 
@@ -4909,6 +4933,79 @@ public class Simulation {
         return false;
     }
 
+    void runRivalDistrictWeekForTests(java.util.Random rng) {
+        applyRivalMarketPressure(rivalSystem.runWeekly(defaultDistrictRivals(), rng));
+    }
+
+    private void runRivalDistrictWeek() {
+        if (!FeatureFlags.FEATURE_RIVALS) {
+            applyRivalMarketPressure(MarketPressure.empty());
+            return;
+        }
+        applyRivalMarketPressure(rivalSystem.runWeekly(defaultDistrictRivals(), s.random));
+    }
+
+    private void applyRivalMarketPressure(MarketPressure pressure) {
+        s.latestMarketPressure = pressure == null ? MarketPressure.empty() : pressure;
+        if (!FeatureFlags.FEATURE_RIVALS || s.latestMarketPressure.totalRivals() <= 0) {
+            s.rivalDemandTrafficMultiplier = 1.0;
+            s.rivalPunterMixBias = 0.0;
+            s.rivalRumorSentimentBias = 0.0;
+            s.rivalDistrictUpdate = "District update: quiet week.";
+            return;
+        }
+
+        int priceWar = s.latestMarketPressure.countFor(RivalStance.PRICE_WAR);
+        int qualityPush = s.latestMarketPressure.countFor(RivalStance.QUALITY_PUSH);
+        int eventSpam = s.latestMarketPressure.countFor(RivalStance.EVENT_SPAM);
+        int layLow = s.latestMarketPressure.countFor(RivalStance.LAY_LOW);
+        int recovery = s.latestMarketPressure.countFor(RivalStance.CHAOS_RECOVERY);
+
+        s.rivalDemandTrafficMultiplier = clamp(1.0
+                - (priceWar * 0.03)
+                - (eventSpam * 0.02)
+                + (layLow * 0.01)
+                + (recovery * 0.01), 0.90, 1.06);
+
+        s.rivalPunterMixBias = clamp((qualityPush * 0.06) - (priceWar * 0.05) - (eventSpam * 0.03), -0.20, 0.20);
+        s.rivalRumorSentimentBias = clamp((priceWar * 0.18) + (eventSpam * 0.14) - (qualityPush * 0.12) - (layLow * 0.08), -0.50, 0.60);
+
+        s.rivalDistrictUpdate = buildRivalDistrictUpdate(s.latestMarketPressure);
+    }
+
+    private String buildRivalDistrictUpdate(MarketPressure pressure) {
+        RivalStance dominant = pressure.dominantStance();
+        String line1 = "District: rivals leaned " + dominant.name().replace('_', ' ').toLowerCase() + " this week.";
+        String line2 = "Pressure: traffic x" + fmt2(s.rivalDemandTrafficMultiplier)
+                + " | mix bias " + fmt2(s.rivalPunterMixBias)
+                + " | rumor bias " + fmt2(s.rivalRumorSentimentBias);
+        return line1 + "\n" + line2;
+    }
+
+    private List<RivalPub> defaultDistrictRivals() {
+        return List.of(
+                new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
+                new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
+                new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
+        );
+    }
+
+    private GameModifierSnapshot buildModifierSnapshot() {
+        return GameModifierSnapshot.from(s);
+    }
+
+    private void debugModifierSnapshot(String context, GameModifierSnapshot mods) {
+        if (!FeatureFlags.DEBUG_MODIFIER_LOGS || mods == null) return;
+        log.info("[DEBUG modifiers:" + context + "] season x" + fmt2(mods.seasonTrafficMultiplier())
+                + " -> rival x" + fmt2(mods.rivalTrafficMultiplier())
+                + " -> vip x" + fmt2(mods.vipTrafficMultiplier())
+                + " => final x" + fmt2(mods.finalTrafficMultiplier()));
+    }
+
+    private double rivalTrafficMultiplier() {
+        return buildModifierSnapshot().rivalTrafficMultiplier();
+    }
+
     private double baseTrafficMultiplier() {
         double repMult =
                 (s.reputation >= 70) ? 1.28 :
@@ -4935,7 +5032,10 @@ public class Simulation {
         double identityMult = s.currentIdentity != null ? s.currentIdentity.getTrafficMultiplier() : 1.0;
         double levelMult = 1.0 + s.pubLevelTrafficBonusPct;
         double legacyMult = 1.0 + s.legacy.trafficMultiplierBonus;
-        return repMult * weekendMult * identityMult * levelMult * legacyMult;
+
+        GameModifierSnapshot mods = buildModifierSnapshot();
+        debugModifierSnapshot("traffic", mods);
+        return repMult * weekendMult * identityMult * levelMult * legacyMult * mods.finalTrafficMultiplier();
     }
 
     private double identityTrafficMultiplier() {
@@ -4977,6 +5077,58 @@ public class Simulation {
         mult += atmosphere * 0.002;
 
         return Math.max(0.80, Math.min(1.20, mult));
+    }
+
+
+    private List<String> currentPunterNames() {
+        List<String> names = new java.util.ArrayList<>();
+        for (Punter punter : s.nightPunters) {
+            if (punter != null && punter.getName() != null && !punter.getName().isBlank()) {
+                names.add(punter.getName());
+            }
+        }
+        return names;
+    }
+
+    private VIPNightOutcome buildVipNightOutcome() {
+        double foodQualitySignal = s.nightFoodUnserved == 0 && s.nightRefunds == 0 ? 0.8 : 0.3;
+        return new VIPNightOutcome(
+                s.nightUnserved,
+                s.nightFights,
+                s.nightEvents,
+                s.nightRefunds,
+                s.priceMultiplier,
+                foodQualitySignal
+        );
+    }
+
+    private void applyVipConsequences(List<VIPSystem.VIPConsequence> consequences) {
+        if (consequences == null || consequences.isEmpty()) return;
+
+        for (VIPSystem.VIPConsequence c : consequences) {
+            if (c == null) continue;
+            if (c.stage() == VIPArcStage.ADVOCATE) {
+                s.vipDemandBoostMultiplier = clamp(s.vipDemandBoostMultiplier * 1.05, 1.0, 1.35);
+                s.vipRumorShield = clamp(s.vipRumorShield + 0.02, 0.0, 0.20);
+                eco.applyRep(+4, "VIP advocate: " + c.vip().getName());
+            } else if (c.stage() == VIPArcStage.BACKLASH) {
+                s.vipRumorShield = clamp(s.vipRumorShield - 0.02, 0.0, 0.20);
+                eco.applyRep(-6, "VIP backlash: " + c.vip().getName());
+                addRumorHeat(Rumor.SLOW_SERVICE, 10, RumorSource.PUNTER);
+                s.baseSecurityLevel = Math.max(0, s.baseSecurityLevel - 1);
+            }
+
+            log.popup(c.popupTitle(), c.popupBody(), c.stage().name());
+            addVipWeeklyNote(c.weeklyLine());
+            s.vipObservationSnippet = c.observationLine();
+            s.vipObservationRoundsRemaining = Math.max(s.vipObservationRoundsRemaining, 6);
+        }
+    }
+
+    private void addVipWeeklyNote(String line) {
+        if (line == null || line.isBlank()) return;
+        s.vipWeeklyNotes.addFirst(line);
+        while (s.vipWeeklyNotes.size() > 8) s.vipWeeklyNotes.removeLast();
     }
 
     private String repMoodLabel() {
