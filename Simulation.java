@@ -233,7 +233,7 @@ public class Simulation {
     }
 
     public void shutdown() {
-        audioManager.setPubOpen(false);
+        audioManager.shutdown();
     }
 
     /** Re-apply upgrades that change hard caps / base stats. Call at boot + on buyUpgrade + on openNight. */

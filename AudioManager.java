@@ -5,6 +5,8 @@ import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,9 +37,11 @@ public class AudioManager {
 
     private int musicVolume = 80;
     private int chatterVolume = 80;
+    private int chatterEffectiveVolume = 0;
 
     private String indieAltChosenFileThisNight;
     private String highBandChosenFileThisNight;
+    private Timer chatterFadeTimer;
 
     public synchronized void setMusicProfile(String profileName) {
         if (profileName == null || profileName.isBlank()) return;
@@ -56,21 +60,17 @@ public class AudioManager {
         indieAltChosenFileThisNight = null;
         highBandChosenFileThisNight = null;
         currentChatterBand = null;
-        stopAndClose(chatterClip);
-        chatterClip = null;
-        currentChatterFileName = "None";
-        pubOpen = false;
     }
 
     public synchronized void setPubOpen(boolean isOpen) {
         pubOpen = isOpen;
-        if (!isOpen) {
-            currentChatterBand = null;
-            highBandChosenFileThisNight = null;
-            stopAndClose(chatterClip);
-            chatterClip = null;
-            currentChatterFileName = "None";
+        if (isOpen) {
+            startChatterFadeIn(1600);
+            return;
         }
+        currentChatterBand = null;
+        highBandChosenFileThisNight = null;
+        startChatterFadeOut(2200);
     }
 
     public synchronized void updateChatterOccupancy(int currentInBar, int barCapacity) {
@@ -90,6 +90,80 @@ public class AudioManager {
         swapChatter(target);
         currentChatterBand = targetBand;
         lastChatterSwapAtMs = now;
+    }
+
+    public synchronized void fadeChatterTo(int targetVolume, int durationMs) {
+        int clampedTarget = clampVolume(targetVolume);
+        int startVolume = chatterEffectiveVolume;
+        int safeDuration = Math.max(1, durationMs);
+        if (startVolume == clampedTarget || chatterClip == null) {
+            chatterEffectiveVolume = clampedTarget;
+            applyVolume(chatterClip, chatterEffectiveVolume);
+            if (chatterEffectiveVolume <= 0 && !pubOpen) {
+                stopAndClose(chatterClip);
+                chatterClip = null;
+                currentChatterFileName = "None";
+            }
+            return;
+        }
+
+        stopChatterFadeTimer();
+        runOnEdt(() -> {
+            stopChatterFadeTimer();
+            final int steps = Math.max(1, safeDuration / 50);
+            final double delta = (clampedTarget - startVolume) / (double) steps;
+            final int[] tick = {0};
+            chatterFadeTimer = new Timer(50, e -> {
+                synchronized (AudioManager.this) {
+                    tick[0]++;
+                    boolean done = tick[0] >= steps;
+                    int next = done ? clampedTarget : (int) Math.round(startVolume + (delta * tick[0]));
+                    chatterEffectiveVolume = clampVolume(next);
+                    applyVolume(chatterClip, chatterEffectiveVolume);
+                    if (done) {
+                        stopChatterFadeTimer();
+                        if (chatterEffectiveVolume <= 0 && !pubOpen) {
+                            stopAndClose(chatterClip);
+                            chatterClip = null;
+                            currentChatterFileName = "None";
+                        }
+                    }
+                }
+            });
+            chatterFadeTimer.setCoalesce(true);
+            chatterFadeTimer.start();
+        });
+    }
+
+    public synchronized void startChatterFadeIn(int durationMs) {
+        if (chatterClip == null) {
+            Path fallback = resolveChatterPath(ChatterBand.LOW);
+            if (fallback != null) {
+                swapChatter(fallback);
+                currentChatterBand = ChatterBand.LOW;
+            }
+        }
+        fadeChatterTo(chatterVolume, durationMs);
+    }
+
+    public synchronized void startChatterFadeOut(int durationMs) {
+        fadeChatterTo(0, durationMs);
+    }
+
+    public synchronized void shutdown() {
+        stopChatterFadeTimer();
+        stopAndClose(chatterClip);
+        chatterClip = null;
+        stopAndClose(musicClip);
+        musicClip = null;
+        pubOpen = false;
+        currentMusicKey = null;
+        currentMusicFileName = "None";
+        currentChatterBand = null;
+        currentChatterFileName = "None";
+        chatterEffectiveVolume = 0;
+        indieAltChosenFileThisNight = null;
+        highBandChosenFileThisNight = null;
     }
 
     public synchronized String currentMusicFileName() {
@@ -146,7 +220,7 @@ public class AudioManager {
         stopAndClose(chatterClip);
         chatterClip = next;
         currentChatterFileName = path.getFileName().toString();
-        applyVolume(chatterClip, chatterVolume);
+        applyVolume(chatterClip, chatterEffectiveVolume);
         playLoop(chatterClip);
     }
 
@@ -212,7 +286,12 @@ public class AudioManager {
 
     public synchronized void setChatterVolume(int volume) {
         chatterVolume = clampVolume(volume);
-        applyVolume(chatterClip, chatterVolume);
+        if (!pubOpen || chatterClip == null) {
+            chatterEffectiveVolume = pubOpen ? chatterVolume : 0;
+            applyVolume(chatterClip, chatterEffectiveVolume);
+            return;
+        }
+        fadeChatterTo(chatterVolume, 250);
     }
 
     public synchronized int getMusicVolume() { return musicVolume; }
@@ -234,6 +313,21 @@ public class AudioManager {
         float dB = (float) (20.0 * Math.log10(volume / 100.0));
         dB = Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), dB));
         gain.setValue(dB);
+    }
+
+    private void stopChatterFadeTimer() {
+        if (chatterFadeTimer != null) {
+            chatterFadeTimer.stop();
+            chatterFadeTimer = null;
+        }
+    }
+
+    private void runOnEdt(Runnable action) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            action.run();
+            return;
+        }
+        SwingUtilities.invokeLater(action);
     }
 
     private void warn(String message) {
