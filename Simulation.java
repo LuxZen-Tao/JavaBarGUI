@@ -4989,8 +4989,20 @@ public class Simulation {
         );
     }
 
+    private GameModifierSnapshot buildModifierSnapshot() {
+        return GameModifierSnapshot.from(s);
+    }
+
+    private void debugModifierSnapshot(String context, GameModifierSnapshot mods) {
+        if (!FeatureFlags.DEBUG_MODIFIER_LOGS || mods == null) return;
+        log.info("[DEBUG modifiers:" + context + "] season x" + fmt2(mods.seasonTrafficMultiplier())
+                + " -> rival x" + fmt2(mods.rivalTrafficMultiplier())
+                + " -> vip x" + fmt2(mods.vipTrafficMultiplier())
+                + " => final x" + fmt2(mods.finalTrafficMultiplier()));
+    }
+
     private double rivalTrafficMultiplier() {
-        return FeatureFlags.FEATURE_RIVALS ? s.rivalDemandTrafficMultiplier : 1.0;
+        return buildModifierSnapshot().rivalTrafficMultiplier();
     }
 
     private double baseTrafficMultiplier() {
@@ -5019,8 +5031,10 @@ public class Simulation {
         double identityMult = s.currentIdentity != null ? s.currentIdentity.getTrafficMultiplier() : 1.0;
         double levelMult = 1.0 + s.pubLevelTrafficBonusPct;
         double legacyMult = 1.0 + s.legacy.trafficMultiplierBonus;
-        double vipMult = FeatureFlags.FEATURE_VIPS ? s.vipDemandBoostMultiplier : 1.0;
-        return repMult * weekendMult * identityMult * levelMult * legacyMult * rivalTrafficMultiplier() * vipMult;
+
+        GameModifierSnapshot mods = buildModifierSnapshot();
+        debugModifierSnapshot("traffic", mods);
+        return repMult * weekendMult * identityMult * levelMult * legacyMult * mods.finalTrafficMultiplier();
     }
 
     private double identityTrafficMultiplier() {
