@@ -8,7 +8,6 @@ public enum VIPArcStage {
     BACKLASH
     NEWCOMER,
     CURIOUS,
-    LOYAL,
     DEVOTED,
     FADING
 }

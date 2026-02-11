@@ -2312,7 +2312,8 @@ public class Simulation {
         if (s.nightFights > 0) baseChance += 0.03;
         if (s.chaos > 55) baseChance += 0.03;
         if (s.chaos < 18 && s.nightUnserved == 0 && s.nightRefunds == 0) baseChance -= 0.03;
-        if (FeatureFlags.FEATURE_VIPS) baseChance -= s.vipRumorShield;
+        GameModifierSnapshot mods = buildModifierSnapshot();
+        baseChance -= mods.vipRumorShield();
         baseChance = Math.max(0.02, Math.min(0.25, baseChance));
 
         RumorTone tone = rumorToneFromMorale();
