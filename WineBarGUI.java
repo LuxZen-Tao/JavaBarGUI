@@ -1408,7 +1408,7 @@ public class WineBarGUI {
             supplierListPanel = new JPanel();
             supplierListPanel.setLayout(new BoxLayout(supplierListPanel, BoxLayout.Y_AXIS));
 
-            int[] qs = new int[]{1, 5, 10, 25, 50};
+            int[] qs = new int[]{1, 5, 10, 25, 50, 100, 300, 500};
             for (Wine w : state.supplier) {
                 JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
@@ -1499,11 +1499,24 @@ public class WineBarGUI {
                 b.setText("x" + q + " " + money0(total));
 
                 boolean okSlots = freeSlots >= q;
-                b.setEnabled(canBuy && okSlots);
+                boolean tierUnlocked = isBulkTierUnlocked(q);
+                b.setEnabled(canBuy && okSlots && tierUnlocked);
+                if (!tierUnlocked) {
+                    b.setToolTipText("Locked: Supplier bulk milestone required for x" + q);
+                } else {
+                    b.setToolTipText(null);
+                }
             }
         }
     }
 
+
+    private boolean isBulkTierUnlocked(int qty) {
+        if (qty <= 50) return true;
+        if (qty <= 100) return state.supplierBulkUnlockTier >= 1;
+        if (qty <= 300) return state.supplierBulkUnlockTier >= 2;
+        return state.supplierBulkUnlockTier >= 3;
+    }
     // -----------------------
     // Payday Window
     // -----------------------
@@ -1960,7 +1973,7 @@ public class WineBarGUI {
             kitchenSupplierListPanel = new JPanel();
             kitchenSupplierListPanel.setLayout(new BoxLayout(kitchenSupplierListPanel, BoxLayout.Y_AXIS));
 
-            int[] qs = new int[]{1, 5, 10, 25};
+            int[] qs = new int[]{1, 5, 10, 25, 100, 300, 500};
             for (Food f : state.foodSupplier) {
                 JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
@@ -2055,7 +2068,13 @@ public class WineBarGUI {
                 b.setText("x" + q + " " + money0(total));
 
                 boolean okSlots = freeSlots >= q;
-                b.setEnabled((!state.nightOpen || hasHeadChef) && okSlots);
+                boolean tierUnlocked = isBulkTierUnlocked(q);
+                b.setEnabled((!state.nightOpen || hasHeadChef) && okSlots && tierUnlocked);
+                if (!tierUnlocked) {
+                    b.setToolTipText("Locked: Supplier bulk milestone required for x" + q);
+                } else {
+                    b.setToolTipText(null);
+                }
             }
         }
     }

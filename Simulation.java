@@ -195,6 +195,7 @@ public class Simulation {
         this.vipSystem = new VIPSystem();
 
         markReportStartIfMissing();
+        s.creditScoreAtWeekStart = s.creditScore;
 
         // Apply persistent upgrade effects at boot
         applyPersistentUpgrades();
@@ -419,7 +420,7 @@ public class Simulation {
     }
 
     public int landlordActionTier() {
-        return clamp(s.pubLevel, 1, 5);
+        return clamp(s.unlockedLandlordActionTier, 1, 5);
     }
 
     public String pubLevelBadgeLine() {
@@ -847,6 +848,7 @@ public class Simulation {
                 + " for GBP " + String.format("%.2f", cost)
                 + bulkTag
                 + (s.supplierDeal != null && s.supplierDeal.appliesTo(w) ? " (DEAL applied)" : ""));
+        milestones.onSupplierOrder(added);
     }
 
     private boolean applySupplierTradeCredit(SupplierTradeCredit account, double amount, String label, CostTag tag) {
@@ -910,6 +912,7 @@ public class Simulation {
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
         log.pos(" Bought " + added + "x " + food.getName()
                 + " for GBP " + String.format("%.2f", cost) + bulkTag);
+        milestones.onSupplierOrder(added);
     }
 
     private double foodBulkDiscountPct(int qty) {
@@ -1071,6 +1074,7 @@ public class Simulation {
         }
         st.cashOutAccrued();
         s.fohStaff.remove(index);
+        s.staffDeparturesThisWeek++;
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
 
@@ -1089,6 +1093,7 @@ public class Simulation {
         }
         st.cashOutAccrued();
         s.bohStaff.remove(index);
+        s.staffDeparturesThisWeek++;
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
 
@@ -1107,6 +1112,7 @@ public class Simulation {
         }
         mgr.cashOutAccrued();
         s.generalManagers.remove(index);
+        s.staffDeparturesThisWeek++;
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
 
@@ -1265,6 +1271,7 @@ public class Simulation {
             s.activityTonight = s.scheduledActivity.activity();
             s.scheduledActivity = null;
             s.weekActivityNights++;
+            milestones.onActivityScheduled(s.activityTonight);
             eco.applyRep(s.activityTonight.getRepInstantDelta(), "Activity night: " + s.activityTonight.getLabel());
             log.pos(" Tonight's activity is live: " + s.activityTonight.getLabel());
             if (s.activityTonight.getTrafficBonusPct() >= 0.10) {
@@ -1748,6 +1755,33 @@ public class Simulation {
 
         showEndOfNightReport();
 
+        if (s.nightUnserved == 0 && s.nightFoodUnserved == 0) {
+            s.noStockoutStreakNights++;
+        } else {
+            s.noStockoutStreakNights = 0;
+        }
+        boolean calmNight = s.nightFights == 0;
+        if (calmNight) {
+            s.calmNightsStreak++;
+            if (s.activityTonight != null) s.calmNightsWithActivityStreak++;
+        } else {
+            s.calmNightsStreak = 0;
+            s.calmNightsWithActivityStreak = 0;
+        }
+        if (!s.chaosRecoveryPending && s.lastNightChaosPeak >= 60.0) {
+            s.chaosRecoveryPending = true;
+            s.chaosRecoveryNightsRemaining = 2;
+        } else if (s.chaosRecoveryPending) {
+            s.chaosRecoveryNightsRemaining--;
+            if (s.chaosRecoveryNightsRemaining <= 0 && s.chaos > 25.0) {
+                s.chaosRecoveryPending = false;
+            }
+        }
+        double nearCapacityTarget = s.maxBarOccupancy * s.closingRound * 0.65;
+        if (s.nightSales >= nearCapacityTarget && s.nightUnserved <= 2 && s.nightRefunds <= 1) {
+            s.nearCapacityServiceNightsThisWeek++;
+        }
+
         if (s.dayIndex == 0) {
             endOfWeek();
             s.weekCount++;
@@ -2145,6 +2179,37 @@ public class Simulation {
         runRivalDistrictWeek();
         endOfWeekReport();
         preparePaydayBills(wagesDue, tipsDue);
+        if (s.staffDeparturesThisWeek == 0) s.weeksNoStaffDepartures++;
+        else s.weeksNoStaffDepartures = 0;
+
+        if (!s.identityHistory.isEmpty()) {
+            PubIdentity latest = s.identityHistory.get(s.identityHistory.size() - 1);
+            if (latest != PubIdentity.NEUTRAL && s.identityHistory.size() >= 2
+                    && s.identityHistory.get(s.identityHistory.size() - 2) == latest) {
+                s.weeksDominantIdentityStreak++;
+            } else if (latest != PubIdentity.NEUTRAL) {
+                s.weeksDominantIdentityStreak = 1;
+            } else {
+                s.weeksDominantIdentityStreak = 0;
+            }
+        }
+
+        if (s.weekNegativeEvents > s.weekPositiveEvents) {
+            s.negativeRumorRecoveryPending = true;
+            s.negativeRumorRecoveryWeeksRemaining = 2;
+        } else if (s.negativeRumorRecoveryPending) {
+            s.negativeRumorRecoveryWeeksRemaining--;
+            if (s.negativeRumorRecoveryWeeksRemaining <= 0) s.negativeRumorRecoveryPending = false;
+        }
+
+        s.usedCreditThisWeek = s.creditLinesOpenedThisWeek > 0 || s.totalCreditBalance() > 0.01;
+        s.zeroDebtWeekStreak = s.totalCreditBalance() <= 0.01 ? s.zeroDebtWeekStreak + 1 : 0;
+        double weekProfit = s.weekRevenue - s.weekCosts;
+        double avgChaos = s.weekChaosRounds > 0 ? (s.weekChaosTotal / s.weekChaosRounds) : s.chaos;
+        boolean goldenWeek = weekProfit > 0 && s.wagesPaidLastWeek && s.rentAccruedThisWeek <= 0.01
+                && s.reputation >= 45 && avgChaos <= 35 && s.weekNegativeEvents <= 2;
+        s.goldenQuarterWeekStreak = goldenWeek ? s.goldenQuarterWeekStreak + 1 : 0;
+
         milestones.onWeekEnd();
         if (s.bankruptcyLockWeeksRemaining > 0) s.bankruptcyLockWeeksRemaining--;
         applyPersistentUpgrades();
@@ -2178,6 +2243,13 @@ public class Simulation {
         s.staffMisconductThisWeek = 0;
         s.creditLinesOpenedThisWeek = 0;
         s.weekActivityNights = 0;
+        s.staffDeparturesThisWeek = 0;
+        s.nearCapacityServiceNightsThisWeek = 0;
+        s.weekActivityIdentityCategories.clear();
+        s.weeklyDifferentActivityCategories = 0;
+        s.topTierActivityRanThisWeek = false;
+        s.creditScoreAtWeekStart = s.creditScore;
+        s.largeBulkOrdersCompleted = 0;
     }
 
     private void updatePubIdentityFromWeek() {
@@ -2778,6 +2850,7 @@ public class Simulation {
     public void applyPaydayPayments(List<PaydayBill> bills) {
         if (bills == null || bills.isEmpty()) {
             s.paydayReady = false;
+            milestones.onPaydayResolved();
             return;
         }
         double availableCash = s.cash;
@@ -2926,6 +2999,7 @@ public class Simulation {
         s.creditUtilization = totalLimit > 0.0 ? (s.creditLines.totalBalance() / totalLimit) : 0.0;
         bills.clear();
         s.paydayReady = false;
+        milestones.onPaydayResolved();
     }
 
     private void resolveWeeklyMinimums(double weeklyTotalDue, double weeklyTotalMinDue, boolean metMinThisWeek) {
@@ -4135,6 +4209,7 @@ public class Simulation {
             }
             if (lowest == null || source == null) break;
             source.remove(lowest);
+            s.staffDeparturesThisWeek++;
             removed++;
         }
         if (removed > 0) staff.updateTeamMorale();
@@ -4391,7 +4466,8 @@ public class Simulation {
         sb.append("Pub level: ").append(s.pubLevel).append("\n");
         sb.append("Weeks active: ").append(s.weekCount).append("\n");
         sb.append("Milestones achieved: ").append(s.achievedMilestones.size()).append("\n");
-        sb.append(pubLevelSystem.progressionSummary(s)).append("\n");
+        sb.append(pubLevelSystem.progressionSummary(s)).append("\n\n");
+        sb.append("Milestone ladder\n").append(milestones.milestoneProgressReport()).append("\n");
         if (FeatureFlags.FEATURE_RIVALS) {
             sb.append("\nDistrict update\n");
             sb.append(s.rivalDistrictUpdate).append("\n");

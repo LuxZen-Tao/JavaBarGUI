@@ -56,6 +56,9 @@ public class SupplierSystem {
         double base = w.getBaseCost() * repMult;
         double cost = (s.supplierDeal == null) ? base : s.supplierDeal.applyToCost(w, base);
         cost *= seasonalSupplierPriceMultiplier();
+        if (s.premiumSupplierCatalogUnlocked && w.getCategory() == WineCategory.PREMIUM_BOTTLE) {
+            cost *= 0.94;
+        }
         return cost * s.supplierPriceMultiplier();
     }
 

@@ -21,17 +21,17 @@ public class StarPrestigeTests {
         state.weekCount = 13;
         state.prestigeWeekStart = 1;
         state.pubLevel = PrestigeSystem.MAX_LEVEL;
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.KNOWN_VENUE);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.KITCHEN_LAUNCH);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.PROFIT_STREAK_4);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.REP_STAR);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.TEN_NIGHTS);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.REP_PEAK_90);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.ZERO_DEBT_WEEK);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.PERFECT_WEEK);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.LOCAL_FAVOURITE);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.ACTIVITY_UNLOCK);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M14_DEBT_DIET);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M12_BOOKED_OUT);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M19_HEADLINER_VENUE);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M13_BRIDGE_DONT_BLEED);
     }
 
     private static void testEligibility() {
@@ -111,7 +111,7 @@ public class StarPrestigeTests {
         state.legacy.baseSecurityBonus = 2;
         state.legacy.staffEfficiencyBonus = 0.03;
         state.ownedUpgrades.add(PubUpgrade.CCTV);
-        state.prestigeMilestones.add(MilestoneSystem.Milestone.FIVE_NIGHTS);
+        state.prestigeMilestones.add(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS);
 
         String saved = GameStatePersistence.serializePrestigeState(state);
         GameState loaded = GameFactory.newGame();
@@ -125,7 +125,7 @@ public class StarPrestigeTests {
         assert loaded.legacy.baseSecurityBonus == 2 : "Legacy security bonus should persist.";
         assert Math.abs(loaded.legacy.staffEfficiencyBonus - 0.03) < 0.0001 : "Legacy staff efficiency should persist.";
         assert loaded.ownedUpgrades.contains(PubUpgrade.CCTV) : "Owned upgrades should persist.";
-        assert loaded.prestigeMilestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS)
+        assert loaded.prestigeMilestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS)
                 : "Prestige milestones should persist.";
     }
 

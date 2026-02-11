@@ -255,6 +255,7 @@ public class StaffSystem {
                 st.cashOutAccrued();
 
                 s.fohStaff.remove(i);
+                s.staffDeparturesThisWeek++;
                 log.neg(" Staff quit after a rough week (" + fightsThisWeek + " fights).");
                 eco.applyRep(-1, "Staff quits (morale)");
             }
@@ -270,6 +271,7 @@ public class StaffSystem {
                 }
                 st.cashOutAccrued();
                 s.bohStaff.remove(i);
+                s.staffDeparturesThisWeek++;
                 log.popup(" Chef quits", "Kitchen staff quit after a rough week.", "Morale low");
                 eco.applyRep(-2, "Chef quits");
             }
@@ -286,6 +288,7 @@ public class StaffSystem {
                 }
                 manager.cashOutAccrued();
                 s.generalManagers.remove(i);
+                s.staffDeparturesThisWeek++;
                 log.neg(" Manager resigns. \"This place is chaos.\"");
                 eco.applyRep(-2, "Manager quits");
             }

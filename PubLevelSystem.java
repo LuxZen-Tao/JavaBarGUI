@@ -36,23 +36,23 @@ public class PubLevelSystem {
         int prestigeWeeks = s.weeksSincePrestige();
         EnumSet<MilestoneSystem.Milestone> milestones = s.prestigeMilestones;
         return switch (targetLevel) {
-            case 1 -> prestigeWeeks >= 2 && milestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS);
+            case 1 -> prestigeWeeks >= 2 && milestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS);
             case 2 -> prestigeWeeks >= 4
-                    && milestones.contains(MilestoneSystem.Milestone.KNOWN_VENUE)
-                    && milestones.contains(MilestoneSystem.Milestone.KITCHEN_LAUNCH);
+                    && milestones.contains(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING)
+                    && milestones.contains(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER);
             case 3 -> prestigeWeeks >= 6
-                    && milestones.contains(MilestoneSystem.Milestone.PROFIT_STREAK_4)
-                    && milestones.contains(MilestoneSystem.Milestone.REP_STAR);
+                    && milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET)
+                    && milestones.contains(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE);
             case 4 -> prestigeWeeks >= 8
-                    && milestones.contains(MilestoneSystem.Milestone.TEN_NIGHTS)
-                    && milestones.contains(MilestoneSystem.Milestone.REP_PEAK_90);
+                    && milestones.contains(MilestoneSystem.Milestone.M12_BOOKED_OUT)
+                    && milestones.contains(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE);
             case 5 -> prestigeWeeks >= 10
-                    && milestones.contains(MilestoneSystem.Milestone.ZERO_DEBT_WEEK)
-                    && milestones.contains(MilestoneSystem.Milestone.PERFECT_WEEK);
+                    && milestones.contains(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER)
+                    && milestones.contains(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR);
             case 6 -> prestigeWeeks >= 12
-                    && milestones.contains(MilestoneSystem.Milestone.LOCAL_FAVOURITE)
-                    && milestones.contains(MilestoneSystem.Milestone.ACTIVITY_UNLOCK)
-                    && milestones.contains(MilestoneSystem.Milestone.PROFIT_STREAK_4);
+                    && milestones.contains(MilestoneSystem.Milestone.M19_HEADLINER_VENUE)
+                    && milestones.contains(MilestoneSystem.Milestone.M13_BRIDGE_DONT_BLEED)
+                    && milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET);
             default -> false;
         };
     }
@@ -74,27 +74,27 @@ public class PubLevelSystem {
         return switch (level) {
             case 1 -> List.of(
                     formatRequirement("Week 2+ (since prestige)", prestigeWeeks >= 2),
-                    formatRequirement("Milestone: Five Nights", milestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS))
+                    formatRequirement("Milestone: Open For Business", milestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS))
             );
             case 2 -> List.of(
                     formatRequirement("Week 4+ (since prestige)", prestigeWeeks >= 4),
-                    formatRequirement("Milestone: Known Venue", milestones.contains(MilestoneSystem.Milestone.KNOWN_VENUE)),
-                    formatRequirement("Milestone: Kitchen Launch", milestones.contains(MilestoneSystem.Milestone.KITCHEN_LAUNCH))
+                    formatRequirement("Milestone: Known For Something", milestones.contains(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING)),
+                    formatRequirement("Milestone: Mixed Crowd Whisperer", milestones.contains(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER))
             );
             case 3 -> List.of(
                     formatRequirement("Week 6+ (since prestige)", prestigeWeeks >= 6),
-                    formatRequirement("Milestone: Profit Streak (4 weeks)", milestones.contains(MilestoneSystem.Milestone.PROFIT_STREAK_4)),
-                    formatRequirement("Milestone: Reputation Star", milestones.contains(MilestoneSystem.Milestone.REP_STAR))
+                    formatRequirement("Milestone: Debt Diet", milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET)),
+                    formatRequirement("Milestone: Balanced Books", milestones.contains(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE))
             );
             case 4 -> List.of(
                     formatRequirement("Week 8+ (since prestige)", prestigeWeeks >= 8),
-                    formatRequirement("Milestone: Ten Nights", milestones.contains(MilestoneSystem.Milestone.TEN_NIGHTS)),
-                    formatRequirement("Milestone: Reputation Peak 90", milestones.contains(MilestoneSystem.Milestone.REP_PEAK_90))
+                    formatRequirement("Milestone: Booked Out", milestones.contains(MilestoneSystem.Milestone.M12_BOOKED_OUT)),
+                    formatRequirement("Milestone: Supplier's Favourite", milestones.contains(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE))
             );
             case 5 -> List.of(
                     formatRequirement("Week 10+ (since prestige)", prestigeWeeks >= 10),
-                    formatRequirement("Milestone: Zero Debt Week", milestones.contains(MilestoneSystem.Milestone.ZERO_DEBT_WEEK)),
-                    formatRequirement("Milestone: Perfect Week", milestones.contains(MilestoneSystem.Milestone.PERFECT_WEEK))
+                    formatRequirement("Milestone: Golden Quarter", milestones.contains(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER)),
+                    formatRequirement("Milestone: Stormproof Operator", milestones.contains(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR))
             );
             default -> List.of("No further requirements.");
         };
@@ -122,44 +122,44 @@ public class PubLevelSystem {
         switch (level) {
             case 1 -> {
                 if (prestigeWeeks < 2) unmet.add("Week 2+ (" + prestigeWeeks + "/2 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.FIVE_NIGHTS)) {
-                    unmet.add("Milestone: Five Nights");
+                if (!milestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS)) {
+                    unmet.add("Milestone: Open For Business");
                 }
             }
             case 2 -> {
                 if (prestigeWeeks < 4) unmet.add("Week 4+ (" + prestigeWeeks + "/4 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.KNOWN_VENUE)) {
-                    unmet.add("Milestone: Known Venue");
+                if (!milestones.contains(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING)) {
+                    unmet.add("Milestone: Known For Something");
                 }
-                if (!milestones.contains(MilestoneSystem.Milestone.KITCHEN_LAUNCH)) {
-                    unmet.add("Milestone: Kitchen Launch");
+                if (!milestones.contains(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER)) {
+                    unmet.add("Milestone: Mixed Crowd Whisperer");
                 }
             }
             case 3 -> {
                 if (prestigeWeeks < 6) unmet.add("Week 6+ (" + prestigeWeeks + "/6 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.PROFIT_STREAK_4)) {
-                    unmet.add("Milestone: Profit Streak");
+                if (!milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET)) {
+                    unmet.add("Milestone: Debt Diet");
                 }
-                if (!milestones.contains(MilestoneSystem.Milestone.REP_STAR)) {
-                    unmet.add("Milestone: Reputation Star");
+                if (!milestones.contains(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE)) {
+                    unmet.add("Milestone: Balanced Books");
                 }
             }
             case 4 -> {
                 if (prestigeWeeks < 8) unmet.add("Week 8+ (" + prestigeWeeks + "/8 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.TEN_NIGHTS)) {
-                    unmet.add("Milestone: Ten Nights");
+                if (!milestones.contains(MilestoneSystem.Milestone.M12_BOOKED_OUT)) {
+                    unmet.add("Milestone: Booked Out");
                 }
-                if (!milestones.contains(MilestoneSystem.Milestone.REP_PEAK_90)) {
-                    unmet.add("Milestone: Rep Peak 90");
+                if (!milestones.contains(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE)) {
+                    unmet.add("Milestone: Supplier's Favourite");
                 }
             }
             case 5 -> {
                 if (prestigeWeeks < 10) unmet.add("Week 10+ (" + prestigeWeeks + "/10 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.ZERO_DEBT_WEEK)) {
-                    unmet.add("Milestone: Zero Debt Week");
+                if (!milestones.contains(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER)) {
+                    unmet.add("Milestone: Golden Quarter");
                 }
-                if (!milestones.contains(MilestoneSystem.Milestone.PERFECT_WEEK)) {
-                    unmet.add("Milestone: Perfect Week");
+                if (!milestones.contains(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR)) {
+                    unmet.add("Milestone: Stormproof Operator");
                 }
             }
             default -> {
