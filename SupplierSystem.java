@@ -55,6 +55,7 @@ public class SupplierSystem {
     public double supplierBuyCost(Wine w, double repMult) {
         double base = w.getBaseCost() * repMult;
         double cost = (s.supplierDeal == null) ? base : s.supplierDeal.applyToCost(w, base);
+        cost *= seasonalSupplierPriceMultiplier();
         return cost * s.supplierPriceMultiplier();
     }
 
@@ -67,6 +68,25 @@ public class SupplierSystem {
         double disc = bulkDiscountPct(qty);
         double total = each * qty;
         return total * (1.0 - disc);
+    }
+
+
+    double seasonalSupplierPriceMultiplier() {
+        if (!FeatureFlags.FEATURE_SEASONS) return 1.0;
+
+        List<SeasonTag> tags = new SeasonCalendar(s).getActiveSeasonTags();
+        if (tags.isEmpty()) return 1.0;
+
+        double mult = 1.0;
+        for (SeasonTag tag : tags) {
+            switch (tag) {
+                case TOURIST_WAVE -> mult *= 1.02;
+                case EXAM_SEASON -> mult *= 1.01;
+                case WINTER_SLUMP -> mult *= 0.98;
+                case DERBY_WEEK -> mult *= 1.01;
+            }
+        }
+        return mult;
     }
 
     public double bulkDiscountPct(int qty) {
