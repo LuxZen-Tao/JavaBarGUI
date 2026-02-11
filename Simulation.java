@@ -156,6 +156,7 @@ public class Simulation {
     private final EventSystem events;
     private final PunterSystem punters;
     private final SupplierSystem supplierSystem;
+    private final RivalSystem rivalSystem;
     private final MilestoneSystem milestones;
     private final PubIdentitySystem identitySystem;
     private final RumorSystem rumors;
@@ -180,6 +181,7 @@ public class Simulation {
         this.rumors = new RumorSystem(s, log);
         this.punters = new PunterSystem(s, eco, inv, events, rumors, log);
         this.supplierSystem = new SupplierSystem(s);
+        this.rivalSystem = new RivalSystem();
         this.milestones = new MilestoneSystem(s, log);
         this.eco.setMilestones(milestones);
         this.identitySystem = new PubIdentitySystem(s, log);
@@ -2085,6 +2087,7 @@ public class Simulation {
         applyDebtSpiralMoraleDecay();
         identitySystem.updateWeeklyIdentity();
         rumors.updateWeeklyRumors();
+        runRivalDistrictWeek();
         endOfWeekReport();
         preparePaydayBills(wagesDue, tipsDue);
         milestones.onWeekEnd();
@@ -2321,8 +2324,12 @@ public class Simulation {
     }
 
     private RumorTone rumorToneFromMorale() {
-        if (s.teamMorale <= 40) return RumorTone.NEGATIVE;
-        if (s.teamMorale >= 70) return RumorTone.POSITIVE;
+        double morale = s.teamMorale;
+        if (FeatureFlags.FEATURE_RIVALS) {
+            morale -= (s.rivalRumorSentimentBias * 10.0);
+        }
+        if (morale <= 40) return RumorTone.NEGATIVE;
+        if (morale >= 70) return RumorTone.POSITIVE;
         return RumorTone.MIXED;
     }
 
@@ -3196,7 +3203,8 @@ public class Simulation {
         double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier()
                 * activities.trafficMultiplier() * securityPolicyTrafficMultiplier()
                 * securityTaskTrafficMultiplier()
-                * (1.0 + s.landlordTrafficBonusPct);
+                * (1.0 + s.landlordTrafficBonusPct)
+                * rivalTrafficMultiplier();
         double creditBalance = s.totalCreditBalance()
                 + (s.loanShark.isOpen() ? s.loanShark.getBalance() : 0.0);
         double creditWeeklyDue = s.totalCreditWeeklyPaymentDue();
@@ -4341,6 +4349,11 @@ public class Simulation {
         sb.append("Weeks active: ").append(s.weekCount).append("\n");
         sb.append("Milestones achieved: ").append(s.achievedMilestones.size()).append("\n");
         sb.append(pubLevelSystem.progressionSummary(s)).append("\n");
+        if (FeatureFlags.FEATURE_RIVALS) {
+            sb.append("\nDistrict update\n");
+            sb.append(s.rivalDistrictUpdate).append("\n");
+            sb.append("Dominant rival stance: ").append(s.latestMarketPressure.dominantStance()).append("\n");
+        }
         return sb.toString();
     }
 
@@ -4909,6 +4922,67 @@ public class Simulation {
         return false;
     }
 
+    void runRivalDistrictWeekForTests(java.util.Random rng) {
+        applyRivalMarketPressure(rivalSystem.runWeekly(defaultDistrictRivals(), rng));
+    }
+
+    private void runRivalDistrictWeek() {
+        if (!FeatureFlags.FEATURE_RIVALS) {
+            applyRivalMarketPressure(MarketPressure.empty());
+            return;
+        }
+        applyRivalMarketPressure(rivalSystem.runWeekly(defaultDistrictRivals(), s.random));
+    }
+
+    private void applyRivalMarketPressure(MarketPressure pressure) {
+        s.latestMarketPressure = pressure == null ? MarketPressure.empty() : pressure;
+        if (!FeatureFlags.FEATURE_RIVALS || s.latestMarketPressure.totalRivals() <= 0) {
+            s.rivalDemandTrafficMultiplier = 1.0;
+            s.rivalPunterMixBias = 0.0;
+            s.rivalRumorSentimentBias = 0.0;
+            s.rivalDistrictUpdate = "District update: quiet week.";
+            return;
+        }
+
+        int priceWar = s.latestMarketPressure.countFor(RivalStance.PRICE_WAR);
+        int qualityPush = s.latestMarketPressure.countFor(RivalStance.QUALITY_PUSH);
+        int eventSpam = s.latestMarketPressure.countFor(RivalStance.EVENT_SPAM);
+        int layLow = s.latestMarketPressure.countFor(RivalStance.LAY_LOW);
+        int recovery = s.latestMarketPressure.countFor(RivalStance.CHAOS_RECOVERY);
+
+        s.rivalDemandTrafficMultiplier = clamp(1.0
+                - (priceWar * 0.03)
+                - (eventSpam * 0.02)
+                + (layLow * 0.01)
+                + (recovery * 0.01), 0.90, 1.06);
+
+        s.rivalPunterMixBias = clamp((qualityPush * 0.06) - (priceWar * 0.05) - (eventSpam * 0.03), -0.20, 0.20);
+        s.rivalRumorSentimentBias = clamp((priceWar * 0.18) + (eventSpam * 0.14) - (qualityPush * 0.12) - (layLow * 0.08), -0.50, 0.60);
+
+        s.rivalDistrictUpdate = buildRivalDistrictUpdate(s.latestMarketPressure);
+    }
+
+    private String buildRivalDistrictUpdate(MarketPressure pressure) {
+        RivalStance dominant = pressure.dominantStance();
+        String line1 = "District: rivals leaned " + dominant.name().replace('_', ' ').toLowerCase() + " this week.";
+        String line2 = "Pressure: traffic x" + fmt2(s.rivalDemandTrafficMultiplier)
+                + " | mix bias " + fmt2(s.rivalPunterMixBias)
+                + " | rumor bias " + fmt2(s.rivalRumorSentimentBias);
+        return line1 + "\n" + line2;
+    }
+
+    private List<RivalPub> defaultDistrictRivals() {
+        return List.of(
+                new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
+                new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
+                new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
+        );
+    }
+
+    private double rivalTrafficMultiplier() {
+        return FeatureFlags.FEATURE_RIVALS ? s.rivalDemandTrafficMultiplier : 1.0;
+    }
+
     private double baseTrafficMultiplier() {
         double repMult =
                 (s.reputation >= 70) ? 1.28 :
@@ -4935,7 +5009,7 @@ public class Simulation {
         double identityMult = s.currentIdentity != null ? s.currentIdentity.getTrafficMultiplier() : 1.0;
         double levelMult = 1.0 + s.pubLevelTrafficBonusPct;
         double legacyMult = 1.0 + s.legacy.trafficMultiplierBonus;
-        return repMult * weekendMult * identityMult * levelMult * legacyMult;
+        return repMult * weekendMult * identityMult * levelMult * legacyMult * rivalTrafficMultiplier();
     }
 
     private double identityTrafficMultiplier() {

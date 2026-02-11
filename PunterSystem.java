@@ -785,6 +785,7 @@ public class PunterSystem {
         bias += rumorHeat(Rumor.BEST_SUNDAY_ROAST) * 0.002;
         if (s.currentIdentity != null) bias += s.currentIdentity.getWealthBias();
         if (rumors != null) bias += rumors.wealthBias();
+        if (FeatureFlags.FEATURE_RIVALS) bias += s.rivalPunterMixBias;
         bias += s.pubLevel * 0.06;
 
         if (bias > 0.15 && s.random.nextInt(100) < 35) {

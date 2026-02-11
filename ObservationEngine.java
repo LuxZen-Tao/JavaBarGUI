@@ -146,6 +146,12 @@ public class ObservationEngine {
             "Entry control felt firm without killing the vibe."
     );
 
+    private static final List<String> RIVAL_LINES = List.of(
+            "Competitor undercut prices across the district tonight.",
+            "A rival pub pushed hard on events this week.",
+            "Nearby venues leaned premium, shifting tonight's crowd."
+    );
+
     private static final List<String> BOUNCER_PRESENCE_LINES = List.of(
             "Door staff kept things under control.",
             "Bouncers kept the room calm without fuss.",
@@ -225,6 +231,10 @@ public class ObservationEngine {
         addIf(candidates, Category.STAFF_CHANGE, ctx.staffChangeRecent);
         addIf(candidates, Category.REP_HIGH, s.reputation >= 60);
         addIf(candidates, Category.REP_LOW, s.reputation <= -20);
+        addIf(candidates, Category.RIVAL, FeatureFlags.FEATURE_RIVALS
+                && s.latestMarketPressure != null
+                && s.latestMarketPressure.totalRivals() > 0
+                && !majorEvent && s.random.nextInt(100) < 14);
         addIf(candidates, Category.SEASON, FeatureFlags.FEATURE_SEASONS
                 && !new SeasonCalendar(s).getActiveSeasonTags().isEmpty()
                 && !majorEvent && s.random.nextInt(100) < 16);
@@ -268,6 +278,7 @@ public class ObservationEngine {
             case REP_HIGH -> pick(REP_HIGH_LINES, s);
             case REP_LOW -> pick(REP_LOW_LINES, s);
             case SEASON -> pick(SEASON_LINES, s);
+            case RIVAL -> pick(RIVAL_LINES, s);
             case POLICY_STRICT -> pick(POLICY_STRICT_LINES, s);
             case POLICY_FRIENDLY -> pick(POLICY_FRIENDLY_LINES, s);
             case TASK -> pick(TASK_LINES, s);
@@ -333,6 +344,7 @@ public class ObservationEngine {
         REP_HIGH,
         REP_LOW,
         SEASON,
+        RIVAL,
         POLICY_STRICT,
         POLICY_FRIENDLY,
         TASK,
