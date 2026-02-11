@@ -1,4 +1,4 @@
-public class LegacyBonuses {
+public class LegacyBonuses  implements java.io.Serializable {
 
     public int inventoryCapBonus = 0;
     public int innRoomBonus = 0;

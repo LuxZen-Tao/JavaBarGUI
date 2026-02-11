@@ -166,6 +166,7 @@ public class Simulation {
     private final MusicSystem musicSystem;
     private final AudioManager audioManager;
     private final VIPSystem vipSystem;
+    private java.util.function.IntConsumer weekStartHook;
 
     public Simulation(GameState state, UILogger log) {
 
@@ -209,6 +210,30 @@ public class Simulation {
         log.popup(" Supplier deal", "Available between nights: " + supplierSystem.dealLabel(), "");
 
         audioManager.setMusicProfile(s.currentMusicProfile != null ? s.currentMusicProfile.name() : MusicProfileType.ACOUSTIC_CHILL.name());
+    }
+
+    public void setWeekStartHook(java.util.function.IntConsumer weekStartHook) {
+        this.weekStartHook = weekStartHook;
+    }
+
+    public void setMusicVolume(int volume) {
+        audioManager.setMusicVolume(volume);
+    }
+
+    public void setChatterVolume(int volume) {
+        audioManager.setChatterVolume(volume);
+    }
+
+    public int getMusicVolume() {
+        return audioManager.getMusicVolume();
+    }
+
+    public int getChatterVolume() {
+        return audioManager.getChatterVolume();
+    }
+
+    public void shutdown() {
+        audioManager.setPubOpen(false);
     }
 
     /** Re-apply upgrades that change hard caps / base stats. Call at boot + on buyUpgrade + on openNight. */
@@ -1710,6 +1735,7 @@ public class Simulation {
         if (s.dayIndex == 0) {
             endOfWeek();
             s.weekCount++;
+            if (weekStartHook != null) weekStartHook.accept(s.weekCount);
         }
 
         milestones.onNightEnd();

@@ -1,7 +1,7 @@
 // Staff.java
 import java.util.Random;
 
-public class Staff {
+public class Staff  implements java.io.Serializable {
 
     public enum Type {
         TRAINEE,

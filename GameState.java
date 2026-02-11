@@ -12,7 +12,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
-public class GameState {
+public class GameState implements java.io.Serializable {
 
     // time
     public int weekCount = 1;
@@ -37,7 +37,7 @@ public class GameState {
     public String supplierTrustStatus = "Neutral";
     public final SupplierTradeCredit supplierWineCredit = new SupplierTradeCredit();
     public final SupplierTradeCredit supplierFoodCredit = new SupplierTradeCredit();
-    public CreditLineSelector creditLineSelector = null;
+    public transient CreditLineSelector creditLineSelector = null;
     public int sharkThreatTier = 0;
     public int sharkConsecutiveMisses = 0;
     public int sharkCleanWeeks = 0;

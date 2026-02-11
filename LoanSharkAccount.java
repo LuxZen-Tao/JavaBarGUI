@@ -1,4 +1,4 @@
-public class LoanSharkAccount {
+public class LoanSharkAccount  implements java.io.Serializable {
     private boolean open;
     private double balance;
     private double apr;

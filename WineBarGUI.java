@@ -5,6 +5,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
@@ -194,6 +195,13 @@ public class WineBarGUI {
     private JTextArea weeklyReportArea;
     private JDialog fourWeekReportDialog;
     private JTextArea fourWeekReportArea;
+    private JDialog optionsDialog;
+    private JLabel optionsSaveStatusLabel;
+    private JSlider musicVolumeSlider;
+    private JSlider chatterVolumeSlider;
+    private JSlider sfxVolumeSlider;
+    private boolean optionsOpenPausedAuto;
+    private int lastAutosavedWeek = -1;
     private final Preferences prefs = Preferences.userNodeForPackage(WineBarGUI.class);
     private boolean bootSequenceShown = false;
     private boolean randomMusicChosenOnBoot = false;
@@ -233,12 +241,14 @@ public class WineBarGUI {
         this.log = new UILogger(logPane);
         this.sim = new Simulation(state, log);
         this.state.creditLineSelector = this::selectCreditLineForPayment;
+        this.sim.setWeekStartHook(this::handleFreshWeekAutosave);
 
         buildUI();
         eventFeedDialog = new EventFeedDialog(frame);
         log.setEventSink(this::appendEventToFeeds);
         log.setPopupSink(this::showPopup);
         wireEvents();
+        applySavedAudioPreferences();
 
         refreshAll();
         log.header("READY");
@@ -250,7 +260,7 @@ public class WineBarGUI {
         frame.setVisible(true);
         if (!bootSequenceShown) {
             bootSequenceShown = true;
-            frame.setContentPane(new BootSequencePanel(this::finishBootSequence));
+            frame.setContentPane(new BootSequencePanel(this::finishBootSequence, SaveManager.hasSave()));
             frame.revalidate();
             frame.repaint();
         }
@@ -273,8 +283,48 @@ public class WineBarGUI {
     }
 
     private void startLoadGameOrFallback() {
-        log.info("Load Game not implemented yet. Starting a new game run.");
-        startNewGameFromMenu();
+        if (!SaveManager.hasSave()) {
+            JOptionPane.showMessageDialog(frame, "No save found.", "Load Game", JOptionPane.INFORMATION_MESSAGE);
+            startNewGameFromMenu();
+            return;
+        }
+        try {
+            GameState loaded = SaveManager.load();
+            launchReplacementGame(loaded);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "Failed to load save: " + ex.getMessage(), "Load Game", JOptionPane.ERROR_MESSAGE);
+            startNewGameFromMenu();
+        }
+    }
+
+    private void launchReplacementGame(GameState newState) {
+        shutdownForMenuTransition();
+        frame.dispose();
+        SwingUtilities.invokeLater(() -> new WineBarGUI(newState).show());
+    }
+
+    private void applySavedAudioPreferences() {
+        int music = prefs.getInt("audio.music", 80);
+        int chatter = prefs.getInt("audio.chatter", 80);
+        sim.setMusicVolume(music);
+        sim.setChatterVolume(chatter);
+    }
+
+    private void handleFreshWeekAutosave(int week) {
+        if (week <= lastAutosavedWeek) return;
+        if (state.dayIndex != 0 || state.nightOpen || state.paydayReady) return;
+        if (optionsDialog != null && optionsDialog.isShowing()) return;
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> handleFreshWeekAutosave(week));
+            return;
+        }
+        try {
+            SaveManager.save(state);
+            lastAutosavedWeek = week;
+            log.info("Autosaved at fresh week start (Week " + week + ").");
+        } catch (IOException ex) {
+            log.neg("Autosave failed: " + ex.getMessage());
+        }
     }
 
     private void chooseRandomMusicProfileOnBoot() {
@@ -711,8 +761,14 @@ public class WineBarGUI {
         JLabel title = new JLabel("Reports (Live)");
         JButton missionControlBtn = new JButton("Mission Control");
         missionControlBtn.addActionListener(e -> openMissionControlDialog());
+        JButton optionsBtn = new JButton("Options");
+        optionsBtn.addActionListener(e -> openOptionsDialog());
+        JPanel rightButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        rightButtons.setOpaque(false);
+        rightButtons.add(missionControlBtn);
+        rightButtons.add(optionsBtn);
         header.add(title, BorderLayout.WEST);
-        header.add(missionControlBtn, BorderLayout.EAST);
+        header.add(rightButtons, BorderLayout.EAST);
 
         reportArea = new JTextArea(14, 36);
         reportArea.setEditable(false);
@@ -726,6 +782,172 @@ public class WineBarGUI {
         p.add(header, BorderLayout.NORTH);
         p.add(reportScroll, BorderLayout.CENTER);
         return p;
+    }
+
+
+    private void openOptionsDialog() {
+        if (optionsDialog != null && optionsDialog.isShowing()) {
+            optionsDialog.toFront();
+            optionsDialog.requestFocusInWindow();
+            return;
+        }
+        if (optionsDialog == null) {
+            optionsDialog = buildOptionsDialog();
+        }
+        optionsOpenPausedAuto = autoBtn.isSelected();
+        if (optionsOpenPausedAuto) stopAutoTimer(null);
+        optionsDialog.setLocationRelativeTo(frame);
+        optionsDialog.setVisible(true);
+    }
+
+    private JDialog buildOptionsDialog() {
+        JDialog dialog = new JDialog(frame, "Options", true);
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JPanel navigation = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        navigation.setBorder(BorderFactory.createTitledBorder("Navigation"));
+        JButton mainMenuButton = new JButton("Main Menu");
+        mainMenuButton.addActionListener(e -> confirmReturnToMainMenu(dialog));
+        navigation.add(mainMenuButton);
+
+        JPanel sound = new JPanel();
+        sound.setLayout(new BoxLayout(sound, BoxLayout.Y_AXIS));
+        sound.setBorder(BorderFactory.createTitledBorder("Sound"));
+        musicVolumeSlider = createVolumeSlider(sim.getMusicVolume(), v -> {
+            sim.setMusicVolume(v);
+            prefs.putInt("audio.music", v);
+        });
+        chatterVolumeSlider = createVolumeSlider(sim.getChatterVolume(), v -> {
+            sim.setChatterVolume(v);
+            prefs.putInt("audio.chatter", v);
+        });
+        sfxVolumeSlider = createVolumeSlider(prefs.getInt("audio.sfx", 70), v -> prefs.putInt("audio.sfx", v));
+        sfxVolumeSlider.setEnabled(false);
+        sound.add(labeledSlider("Music Volume", musicVolumeSlider));
+        sound.add(labeledSlider("Chatter Volume", chatterVolumeSlider));
+        sound.add(labeledSlider("SFX Volume (Coming soon)", sfxVolumeSlider));
+
+        JPanel save = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        save.setBorder(BorderFactory.createTitledBorder("Save"));
+        JButton saveButton = new JButton("Save Game");
+        optionsSaveStatusLabel = new JLabel(" ");
+        saveButton.addActionListener(e -> saveFromOptions());
+        save.add(saveButton);
+        save.add(optionsSaveStatusLabel);
+
+        JPanel quit = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        quit.setBorder(BorderFactory.createTitledBorder("Quit"));
+        JButton quitButton = new JButton("Quit Game");
+        quitButton.addActionListener(e -> confirmQuitGame());
+        quit.add(quitButton);
+
+        content.add(navigation);
+        content.add(sound);
+        content.add(save);
+        content.add(quit);
+
+        dialog.setContentPane(new JScrollPane(content));
+        dialog.setSize(480, 420);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override public void windowClosed(WindowEvent e) { resumeAutoAfterOptionsIfNeeded(); }
+            @Override public void windowClosing(WindowEvent e) { resumeAutoAfterOptionsIfNeeded(); }
+        });
+        return dialog;
+    }
+
+    private JPanel labeledSlider(String label, JSlider slider) {
+        JPanel p = new JPanel(new BorderLayout(8, 2));
+        p.add(new JLabel(label), BorderLayout.WEST);
+        p.add(slider, BorderLayout.CENTER);
+        return p;
+    }
+
+    private JSlider createVolumeSlider(int initial, java.util.function.IntConsumer onChange) {
+        JSlider slider = new JSlider(0, 100, Math.max(0, Math.min(100, initial)));
+        slider.addChangeListener(e -> onChange.accept(slider.getValue()));
+        return slider;
+    }
+
+    private void saveFromOptions() {
+        if (state.paydayReady) {
+            optionsSaveStatusLabel.setText("Wait for weekly processing to finish.");
+            return;
+        }
+        try {
+            SaveManager.save(state);
+            optionsSaveStatusLabel.setText("Game saved.");
+        } catch (IOException ex) {
+            optionsSaveStatusLabel.setText("Save failed.");
+            log.neg("Save failed: " + ex.getMessage());
+        }
+    }
+
+    private void confirmReturnToMainMenu(JDialog dialog) {
+        Object[] options = {"Cancel", "Return"};
+        int choice = JOptionPane.showOptionDialog(dialog,
+                "Return to main menu? Unsaved progress will be lost.",
+                "Return to Main Menu",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+                null,
+                options,
+                options[0]);
+        if (choice != 1) return;
+        dialog.dispose();
+        launchReplacementGame(GameFactory.newGame());
+    }
+
+    private void confirmQuitGame() {
+        Object[] options = {"Cancel", "Quit"};
+        int choice = JOptionPane.showOptionDialog(frame,
+                "Quit the game now?",
+                "Quit Game",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+                null,
+                options,
+                options[0]);
+        if (choice != 1) return;
+        shutdownForMenuTransition();
+        try { prefs.flush(); } catch (Exception ignored) {}
+        System.exit(0);
+    }
+
+    private void resumeAutoAfterOptionsIfNeeded() {
+        if (optionsOpenPausedAuto && autoTimer == null) {
+            autoBtn.setSelected(true);
+            toggleAuto();
+        }
+        optionsOpenPausedAuto = false;
+    }
+
+    private void shutdownForMenuTransition() {
+        stopAutoTimer(null);
+        if (nightPulseTimer != null) nightPulseTimer.stop();
+        if (cashFlashTimer != null) cashFlashTimer.stop();
+        if (debtFlashTimer != null) debtFlashTimer.stop();
+        closeDialogIfShowing(optionsDialog);
+        closeDialogIfShowing(missionControlDialog);
+        closeDialogIfShowing(reportsDialog);
+        closeDialogIfShowing(supplierDialog);
+        closeDialogIfShowing(kitchenSupplierDialog);
+        closeDialogIfShowing(staffDialog);
+        closeDialogIfShowing(loanDialog);
+        closeDialogIfShowing(upgradesDialog);
+        closeDialogIfShowing(activitiesDialog);
+        closeDialogIfShowing(actionsDialog);
+        closeDialogIfShowing(innDialog);
+        closeDialogIfShowing(prestigeDialog);
+        closeDialogIfShowing(weeklyReportDialog);
+        closeDialogIfShowing(fourWeekReportDialog);
+        closeDialogIfShowing(paydayDialog);
+        sim.shutdown();
+    }
+
+    private void closeDialogIfShowing(JDialog dialog) {
+        if (dialog != null && dialog.isDisplayable()) dialog.dispose();
     }
 
     private void openReportsDialog() {
@@ -1071,7 +1293,7 @@ public class WineBarGUI {
     private void stopAutoTimer(String reason) {
         autoBtn.setText("Auto: OFF");
         autoBtn.setSelected(false);
-        if (autoTimer != null) autoTimer.stop();
+        if (autoTimer != null) { autoTimer.stop(); autoTimer = null; }
         if (reason != null && !reason.isBlank()) log.neg(reason);
     }
 

@@ -1,7 +1,7 @@
 import java.util.*;
 import java.util.function.Consumer;
 
-public class WineRack {
+public class WineRack  implements java.io.Serializable {
 
     /** Each bottle carries the day it was added (for spoilage). */
     public static class Bottle {

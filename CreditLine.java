@@ -1,4 +1,4 @@
-public class CreditLine {
+public class CreditLine  implements java.io.Serializable {
     private final String id;
     private final String lenderName;
     private final double limit;

@@ -1,4 +1,4 @@
-public class SupplierTradeCredit {
+public class SupplierTradeCredit  implements java.io.Serializable {
     private double balance;
     private double penaltyAddOnApr;
     private int consecutiveFullPays;
