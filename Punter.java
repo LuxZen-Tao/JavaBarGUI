@@ -1,6 +1,8 @@
 import java.util.Random;
 
-public class Punter {
+public class Punter implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     public enum State { CHILL, ROWDY, MENACE }
     public enum Tier { LOWLIFE, REGULAR, DECENT, BIG_SPENDER }
     public enum DescriptorCategory { PERSONALITY, SOCIAL, PHYSICAL }
