@@ -212,6 +212,7 @@ public class Simulation {
 
         audioManager.setMusicProfile(s.currentMusicProfile != null ? s.currentMusicProfile.name() : MusicProfileType.ACOUSTIC_CHILL.name());
         recomputeActivityAvailability();
+        milestones.recomputeUpgradeAvailability();
     }
 
     public void setWeekStartHook(java.util.function.IntConsumer weekStartHook) {
@@ -250,29 +251,30 @@ public class Simulation {
         s.rack.setSpoilAfterDays(s.spoilDays);
 
         // Security baseline bonus from upgrades (kept as separate field to avoid rewriting SecuritySystem)
-        s.upgradeSecurityBonus = upgrades.securityBonus();
-        s.fohStaffCap = Math.max(1, s.baseStaffCap + s.pubLevelStaffCapBonus + upgrades.staffCapBonus());
-        s.bouncerCap = Math.max(1, s.baseBouncerCap + s.pubLevelBouncerCapBonus + upgrades.bouncerCapBonus());
-        s.managerCap = Math.max(1, s.baseManagerCap + s.pubLevelManagerCapBonus + upgrades.managerCapBonus());
-        s.kitchenChefCap = Math.max(1, s.baseKitchenChefCap + s.pubLevelChefCapBonus + upgrades.chefCapBonus());
+        UpgradeSystem.UpgradeModifierSnapshot upgradeMods = upgrades.buildModifierSnapshot();
+        s.upgradeSecurityBonus = upgradeMods.securityBonus();
+        s.fohStaffCap = Math.max(1, s.baseStaffCap + s.pubLevelStaffCapBonus + upgradeMods.staffCapBonus());
+        s.bouncerCap = Math.max(1, s.baseBouncerCap + s.pubLevelBouncerCapBonus + upgradeMods.bouncerCapBonus());
+        s.managerCap = Math.max(1, s.baseManagerCap + s.pubLevelManagerCapBonus + upgradeMods.managerCapBonus());
+        s.kitchenChefCap = Math.max(1, s.baseKitchenChefCap + s.pubLevelChefCapBonus + upgradeMods.chefCapBonus());
         s.marshallCap = Math.max(0, s.baseMarshallCap + marshallCapBonusFromUpgrades());
-        s.kitchenQualityBonus = upgrades.kitchenQualityBonus();
-        s.refundRiskReductionPct = upgrades.refundRiskReductionPct();
-        s.staffMisconductReductionPct = upgrades.staffMisconductReductionPct();
+        s.kitchenQualityBonus = upgradeMods.kitchenQualityBonus();
+        s.refundRiskReductionPct = upgradeMods.refundRiskReductionPct();
+        s.staffMisconductReductionPct = upgradeMods.staffMisconductReductionPct();
 
         // Bar cap bonus is applied per-night (because base pool changes with rep/weekend)
         // We store it so openNight can add it.
-        s.upgradeBarCapBonus = upgrades.barCapBonus();
+        s.upgradeBarCapBonus = upgradeMods.barCapBonus();
 
-        s.upgradeServeCapBonus = upgrades.serveCapBonus();
-        s.upgradeTipBonusPct = upgrades.tipBonusPct();
-        s.upgradeEventDamageReductionPct = upgrades.eventDamageReductionPct();
-        s.upgradeRiskReductionPct = upgrades.riskReductionPct();
-        s.upgradeFoodRackCapBonus = upgrades.foodRackCapBonus();
-        s.upgradeIncidentChanceMultiplier = s.computeUpgradeIncidentChanceMultiplier();
-        s.upgradeMoraleStabilityPct = s.computeUpgradeMoraleStabilityPct();
-        s.upgradeRepMitigationPct = s.computeUpgradeRepMitigationPct();
-        s.upgradeLossSeverityMultiplier = s.computeUpgradeLossSeverityMultiplier();
+        s.upgradeServeCapBonus = upgradeMods.serveCapBonus();
+        s.upgradeTipBonusPct = upgradeMods.tipBonusPct();
+        s.upgradeEventDamageReductionPct = upgradeMods.eventDamageReductionPct();
+        s.upgradeRiskReductionPct = upgradeMods.riskReductionPct();
+        s.upgradeFoodRackCapBonus = upgradeMods.foodRackCapBonus();
+        s.upgradeIncidentChanceMultiplier = upgradeMods.incidentChanceMultiplier();
+        s.upgradeMoraleStabilityPct = upgradeMods.moraleStabilityPct();
+        s.upgradeRepMitigationPct = upgradeMods.repMitigationPct();
+        s.upgradeLossSeverityMultiplier = upgradeMods.lossSeverityMultiplier();
 
         applyInnUpgradeState();
 
@@ -309,6 +311,7 @@ public class Simulation {
         int headChefs = s.staffCountOfType(Staff.Type.HEAD_CHEF);
         s.foodRack.setCapacity(s.baseFoodRackCapacity + s.upgradeFoodRackCapBonus
                 + s.legacy.inventoryCapBonus + (headChefs * 5));
+        milestones.recomputeUpgradeAvailability();
     }
 
     private void resetUpgradeStateForPrestige() {
@@ -742,7 +745,23 @@ public class Simulation {
     }
 
     public String upgradeRequirementText(PubUpgrade up) {
-        return milestones.upgradeRequirementText(up);
+        return milestones.upgradeRequirementText(up, s.cash);
+    }
+
+    public MilestoneSystem.UpgradeAvailability getUpgradeAvailability(PubUpgrade up) {
+        return milestones.getUpgradeAvailability(up, s.cash);
+    }
+
+    public String upgradeEffectPreview(PubUpgrade up) {
+        return upgrades.effectSummary(up);
+    }
+
+    public String upgradeBottleneckHint() {
+        if (s.unservedThisWeek >= 10) return "Hint: throughput upgrades likely pay off (serve/bar/staff cap).";
+        if (s.weekRefundTotal >= 80 || s.nightRefunds >= 3) return "Hint: quality/discipline upgrades can cut refunds and incidents.";
+        if (s.chaos >= 55 || s.nightFights >= 2) return "Hint: security upgrades can stabilize chaos and incident pressure.";
+        if (s.cash < 200 && s.wagesAccruedThisWeek > 0) return "Hint: finance upgrades can smooth weekly bills pressure.";
+        return "Hint: pick upgrades aligned to your current weak point.";
     }
 
     public String activityRequirementText(PubActivity activity) {
@@ -755,6 +774,7 @@ public class Simulation {
 
     public void recomputeActivityAvailability() {
         milestones.recomputeActivityAvailability();
+        milestones.recomputeUpgradeAvailability();
     }
 
     public String activityCategoryHint(PubActivity activity) {
@@ -926,12 +946,17 @@ public class Simulation {
         if (s.nightOpen) { log.neg("Upgrades can only be bought between nights."); return; }
         if (s.ownedUpgrades.contains(up)) { log.info("Already owned."); return; }
         if (isUpgradeInstalling(up)) { log.info("Upgrade already installing."); return; }
-        if (!milestones.canBuyUpgrade(up)) { log.neg("Upgrade locked. Hit a milestone first."); return; }
+        MilestoneSystem.UpgradeAvailability availability = milestones.getUpgradeAvailability(up, s.cash);
+        if (!availability.unlocked()) {
+            log.neg("Upgrade locked: " + String.join(", ", availability.missingRequirements()));
+            return;
+        }
 
         if (!eco.tryPay(up.getCost(), TransactionType.UPGRADE, "Upgrade: " + up.getLabel(), CostTag.UPGRADE)) return;
 
         int nights = 1 + s.random.nextInt(4);
         s.pendingUpgradeInstalls.add(new PendingUpgradeInstall(up, nights, nights));
+        milestones.recomputeUpgradeAvailability();
         log.upgrade(" Upgrade ordered: ", up.getLabel(), " (ETA " + nights + " night(s)).", UILogger.Tone.POS);
         eco.applyRep(+2, "Upgrade hype");
 
@@ -1124,7 +1149,7 @@ public class Simulation {
     public void upgradeSecurity() { security.upgradeBaseSecurity(); }
     public double peekSecurityUpgradeCost() { return security.nextUpgradeCost(); }
 
-    public boolean canBuyUpgrade(PubUpgrade up) { return milestones.canBuyUpgrade(up); }
+    public boolean canBuyUpgrade(PubUpgrade up) { return milestones.getUpgradeAvailability(up, s.cash).unlocked(); }
     public boolean isActivityUnlocked(PubActivity a) { return milestones.isActivityUnlocked(a); }
 
     // --------------------
@@ -3566,16 +3591,17 @@ public class Simulation {
         StringBuilder sb = new StringBuilder();
         for (PubUpgrade up : PubUpgrade.values()) {
             boolean owned = s.ownedUpgrades.contains(up);
-            String requirement = milestones.upgradeRequirementText(up);
+            MilestoneSystem.UpgradeAvailability availability = milestones.getUpgradeAvailability(up, s.cash);
             String status;
             if (owned) {
                 status = "Unlocked";
-            } else if (requirement == null) {
+            } else if (availability.unlocked()) {
                 status = "Available";
             } else {
-                status = "Locked (" + requirement + ")";
+                status = "Locked (" + String.join(", ", availability.missingRequirements()) + ")";
             }
-            sb.append("- ").append(up.getLabel()).append(": ").append(status).append("\n");
+            sb.append("- ").append(up.getLabel()).append(": ").append(status)
+                    .append(" | ").append(upgrades.effectSummary(up)).append("\n");
         }
         return trimTrailingNewline(sb);
     }
