@@ -131,7 +131,7 @@ public class BootSequencePanel extends JPanel {
         newGameButton.setPreferredSize(buttonSize);
         loadGameButton.setPreferredSize(buttonSize);
 
-        newGameButton.addActionListener(e -> beginMenuExit(StartAction.NEW_GAME));
+        newGameButton.addActionListener(e -> handleNewGameClick());
         loadGameButton.addActionListener(e -> beginMenuExit(StartAction.LOAD_GAME));
         loadGameButton.setEnabled(loadEnabled);
         loadGameButton.setToolTipText(loadEnabled ? null : "No save found.");
@@ -152,6 +152,26 @@ public class BootSequencePanel extends JPanel {
         loadGameButton.setEnabled(false);
         setStage(Stage.MENU_FADE_OUT);
         repaint();
+    }
+
+    private void handleNewGameClick() {
+        if (SaveManager.hasSave()) {
+            Object[] options = {"Cancel", "Continue"};
+            int choice = JOptionPane.showOptionDialog(
+                    this,
+                    "A saved game already exists. Starting a new game won’t load it, but saving later will overwrite it. Continue?",
+                    "Start New Game?",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+            if (choice != 1) {
+                return;
+            }
+        }
+        beginMenuExit(StartAction.NEW_GAME);
     }
 
     private void loadAssets() {
