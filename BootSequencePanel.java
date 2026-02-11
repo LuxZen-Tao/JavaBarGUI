@@ -31,6 +31,7 @@ public class BootSequencePanel extends JPanel {
     private static final double MENU_FADE_OUT_SECONDS = 0.8;
 
     private static final String COVER_PHRASE = "Where it all started... Barva, Jan '89 XOXO";
+    private static final double[] RANDOM_ROTATION_DEGREES = {-8.0, -4.0, 0.0, 4.0, 8.0};
 
     private enum Stage {
         GAME_BOOT_HOLD,
@@ -176,7 +177,7 @@ public class BootSequencePanel extends JPanel {
         }
 
         if (coverImage != null) {
-            coverPhoto = new BootPhoto(coverImage, COVER_PHRASE, pickFontDeterministic(), -18.0, 0.40, 0.88);
+            coverPhoto = new BootPhoto(coverImage, COVER_PHRASE, pickFontDeterministic(), -8.0, 0.40, 0.72);
         }
 
         loadRandomPhotos(root.resolve("Photos"));
@@ -269,9 +270,9 @@ public class BootSequencePanel extends JPanel {
                     image,
                     phrases.get(random.nextInt(phrases.size())),
                     loadedFonts.get(random.nextInt(loadedFonts.size())),
-                    -10.0 + (20.0 * random.nextDouble()),
-                    0.18 + (0.64 * random.nextDouble()),
-                    0.62 + (0.28 * random.nextDouble())
+                    RANDOM_ROTATION_DEGREES[random.nextInt(RANDOM_ROTATION_DEGREES.length)],
+                    0.22 + (0.56 * random.nextDouble()),
+                    0.48 + (0.20 * random.nextDouble())
             ));
         }
     }
@@ -561,13 +562,13 @@ public class BootSequencePanel extends JPanel {
                                      boolean coverStyle) {
         if (phrase == null || phrase.isEmpty()) return;
 
-        float size = Math.max(27f, (float) (rect.width * 42.0 / 1080.0));
-        Font sized = font.deriveFont(Font.PLAIN, size);
+        float size = Math.max(40.5f, (float) (rect.width * 63.0 / 1080.0));
+        Font sized = font.deriveFont(Font.BOLD, size);
         g2.setFont(sized);
         g2.setColor(Color.BLACK);
 
         int maxTextWidth = (int) (rect.width * (coverStyle ? 0.72 : 0.85));
-        int marginX = Math.max(10, (int) (rect.width * 0.06));
+        int marginX = Math.max(16, (int) (rect.width * 0.08));
 
         List<String> lines = wrapText(phrase, sized, g2.getFontRenderContext(), maxTextWidth);
         FontMetrics fm = g2.getFontMetrics(sized);

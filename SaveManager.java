@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +26,7 @@ public final class SaveManager {
         Files.createDirectories(path.getParent());
         Path tmp = path.resolveSibling(path.getFileName().toString() + ".tmp");
         try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(tmp))) {
-            out.writeObject(state);
+            out.writeObject(SaveData.fromState(state));
             out.flush();
         }
         try {
@@ -38,10 +39,32 @@ public final class SaveManager {
     public static GameState load() throws IOException, ClassNotFoundException {
         try (ObjectInputStream in = new ObjectInputStream(Files.newInputStream(savePath()))) {
             Object loaded = in.readObject();
+            if (loaded instanceof SaveData data) {
+                return data.toState();
+            }
+            // Legacy fallback for existing save files written before SaveData wrapper.
             if (loaded instanceof GameState state) {
                 return state;
             }
             throw new IOException("Unexpected save payload type: " + loaded.getClass().getName());
+        }
+    }
+
+    public static final class SaveData implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final GameState state;
+
+        private SaveData(GameState state) {
+            this.state = state;
+        }
+
+        public static SaveData fromState(GameState state) {
+            return new SaveData(state);
+        }
+
+        public GameState toState() {
+            return state;
         }
     }
 }
