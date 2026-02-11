@@ -20,10 +20,33 @@ public class MilestoneSystem {
     private final GameState s;
     private final UILogger log;
     private boolean applyingReward = false;
+    private final java.util.EnumMap<PubActivity, Milestone> activityMilestoneRequirements = new java.util.EnumMap<>(PubActivity.class);
+    private final java.util.EnumMap<PubActivity, ActivityAvailability> activityAvailability = new java.util.EnumMap<>(PubActivity.class);
+
+    public static final class ActivityAvailability {
+        private final boolean unlocked;
+        private final java.util.List<String> missingRequirements;
+
+        public ActivityAvailability(boolean unlocked, java.util.List<String> missingRequirements) {
+            this.unlocked = unlocked;
+            this.missingRequirements = missingRequirements == null ? java.util.List.of() : java.util.List.copyOf(missingRequirements);
+        }
+
+        public boolean unlocked() { return unlocked; }
+        public java.util.List<String> missingRequirements() { return missingRequirements; }
+    }
 
     public MilestoneSystem(GameState s, UILogger log) {
         this.s = s;
         this.log = log;
+        activityMilestoneRequirements.put(PubActivity.QUIZ_NIGHT, Milestone.LOCAL_FAVOURITE);
+        activityMilestoneRequirements.put(PubActivity.OPEN_MIC, Milestone.KNOWN_VENUE);
+        activityMilestoneRequirements.put(PubActivity.BREWERY_TAKEOVER, Milestone.ACTIVITY_UNLOCK);
+        activityMilestoneRequirements.put(PubActivity.KARAOKE, Milestone.FIVE_NIGHTS);
+        activityMilestoneRequirements.put(PubActivity.CHARITY_NIGHT, Milestone.TEN_NIGHTS);
+        activityMilestoneRequirements.put(PubActivity.COCKTAIL_PROMO, Milestone.CASH_STACK);
+        activityMilestoneRequirements.put(PubActivity.FAMILY_LUNCH, Milestone.KITCHEN_LAUNCH);
+        recomputeActivityAvailability();
     }
 
     public void onRepChanged() {
@@ -149,8 +172,8 @@ public class MilestoneSystem {
                                 String title,
                                 String requirementText,
                                 String rewardText) {
-        if (s.unlockedActivities.contains(activity)) return;
-        grantMilestone(milestone, title, requirementText, rewardText, () -> s.unlockedActivities.add(activity));
+        if (s.achievedMilestones.contains(milestone)) return;
+        grantMilestone(milestone, title, requirementText, rewardText, null);
     }
 
     private void grantMilestone(Milestone milestone,
@@ -172,6 +195,58 @@ public class MilestoneSystem {
         s.milestonePopups.add(msg);
         log.event(" Milestone: " + title + " - " + rewardText);
         recordMilestoneReward(title, requirementText, rewardText);
+        recomputeActivityAvailability();
+    }
+
+    public void recomputeActivityAvailability() {
+        activityAvailability.clear();
+        s.unlockedActivities.clear();
+        for (PubActivity activity : PubActivity.values()) {
+            java.util.List<String> missing = new java.util.ArrayList<>();
+
+            if (activity.getRequiredUpgrade() != null && !hasUpgradeOrPending(activity.getRequiredUpgrade())) {
+                missing.add("Upgrade: " + activity.getRequiredUpgrade().getLabel());
+            }
+
+            Milestone reqMilestone = requiredMilestone(activity);
+            if (reqMilestone != null && !s.achievedMilestones.contains(reqMilestone)) {
+                missing.add("Milestone: " + milestoneLabel(reqMilestone));
+            }
+
+            boolean unlocked = missing.isEmpty();
+            if (unlocked) {
+                s.unlockedActivities.add(activity);
+            }
+            activityAvailability.put(activity, new ActivityAvailability(unlocked, missing));
+        }
+    }
+
+    private Milestone requiredMilestone(PubActivity activity) {
+        if (activityMilestoneRequirements.containsKey(activity)) {
+            return activityMilestoneRequirements.get(activity);
+        }
+        return activity.requiresUnlock() ? Milestone.ACTIVITY_UNLOCK : null;
+    }
+
+    private String milestoneLabel(Milestone milestone) {
+        return switch (milestone) {
+            case LOCAL_FAVOURITE -> "Local favourite";
+            case KNOWN_VENUE -> "Known venue";
+            case ACTIVITY_UNLOCK -> "Community darling";
+            case FIVE_NIGHTS -> "Five nights open";
+            case TEN_NIGHTS -> "Ten nights open";
+            case CASH_STACK -> "Cash flow milestone";
+            case KITCHEN_LAUNCH -> "Kitchen launch";
+            default -> milestone.name().replace('_', ' ');
+        };
+    }
+
+    private boolean hasUpgradeOrPending(PubUpgrade upgrade) {
+        if (s.ownedUpgrades.contains(upgrade)) return true;
+        for (PendingUpgradeInstall pending : s.pendingUpgradeInstalls) {
+            if (pending.upgrade() == upgrade) return true;
+        }
+        return false;
     }
 
     public boolean canBuyUpgrade(PubUpgrade upgrade) {
@@ -263,23 +338,22 @@ public class MilestoneSystem {
     }
 
     public String activityRequirementText(PubActivity activity) {
-        if (activity.getRequiredUpgrade() != null && !s.ownedUpgrades.contains(activity.getRequiredUpgrade())) {
-            return "Requires " + activity.getRequiredUpgrade().getLabel();
-        }
-        if (activity.requiresUnlock() && !s.unlockedActivities.contains(activity)) {
-            return "Requires milestone unlock";
-        }
-        if (activity.getRequiredLevel() > 0 && s.pubLevel < activity.getRequiredLevel()) {
-            return "Requires pub level " + activity.getRequiredLevel();
-        }
-        if (activity.getRequiredIdentity() != null && s.currentIdentity != activity.getRequiredIdentity()) {
-            return "Requires identity " + activity.getRequiredIdentity().name();
-        }
-        return null;
+        ActivityAvailability availability = getActivityAvailability(activity);
+        if (availability.unlocked()) return null;
+        return "Missing: " + String.join(", ", availability.missingRequirements());
     }
 
     public boolean isActivityUnlocked(PubActivity activity) {
-        return !activity.requiresUnlock() || s.unlockedActivities.contains(activity);
+        return getActivityAvailability(activity).unlocked();
+    }
+
+    public ActivityAvailability getActivityAvailability(PubActivity activity) {
+        ActivityAvailability availability = activityAvailability.get(activity);
+        if (availability == null) {
+            recomputeActivityAvailability();
+            availability = activityAvailability.get(activity);
+        }
+        return availability;
     }
 
     private void recordMilestoneReward(String title, String requirement, String rewardText) {
