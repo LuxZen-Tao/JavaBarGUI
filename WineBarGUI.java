@@ -250,15 +250,31 @@ public class WineBarGUI {
         frame.setVisible(true);
         if (!bootSequenceShown) {
             bootSequenceShown = true;
-            frame.setContentPane(new BootSequencePanel(() -> {
-                frame.setContentPane(root);
-                frame.revalidate();
-                frame.repaint();
-                frame.requestFocusInWindow();
-            }));
+            frame.setContentPane(new BootSequencePanel(this::finishBootSequence));
             frame.revalidate();
             frame.repaint();
         }
+    }
+
+    private void finishBootSequence(BootSequencePanel.StartAction action) {
+        frame.setContentPane(root);
+        frame.revalidate();
+        frame.repaint();
+        frame.requestFocusInWindow();
+        if (action == BootSequencePanel.StartAction.LOAD_GAME) {
+            startLoadGameOrFallback();
+        } else {
+            startNewGameFromMenu();
+        }
+    }
+
+    private void startNewGameFromMenu() {
+        log.info("Starting new game.");
+    }
+
+    private void startLoadGameOrFallback() {
+        log.info("Load Game not implemented yet. Starting a new game run.");
+        startNewGameFromMenu();
     }
 
     private void chooseRandomMusicProfileOnBoot() {

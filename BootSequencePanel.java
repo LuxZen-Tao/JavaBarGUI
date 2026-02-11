@@ -1,5 +1,6 @@
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.AffineTransform;
@@ -19,7 +20,7 @@ public class BootSequencePanel extends JPanel {
     private static final double MAX_WRITE_SECONDS = 5.0;
     private static final double CHARACTERS_PER_SECOND = 14.0;
 
-    private static final double GAME_BOOT_HOLD_SECONDS = 2.5;
+    private static final double GAME_BOOT_HOLD_SECONDS = 3.0;
     private static final double LOGO_FADE_IN_SECONDS = 0.9;
     private static final double LOGO_HOLD_SECONDS = 2.5;
     private static final double LOGO_FADE_OUT_SECONDS = 0.9;
@@ -27,6 +28,7 @@ public class BootSequencePanel extends JPanel {
     private static final double RANDOM_HOLD_SECONDS = 3.0;
     private static final double COVER_FADE_OUT_SECONDS = 1.0;
     private static final double RANDOM_FADE_OUT_SECONDS = 1.0;
+    private static final double MENU_FADE_OUT_SECONDS = 0.8;
 
     private static final String COVER_PHRASE = "Where it all started... Barva, Jan '89 XOXO";
 
@@ -34,6 +36,7 @@ public class BootSequencePanel extends JPanel {
         GAME_BOOT_HOLD,
         LOGO_FADE_IN, LOGO_HOLD, LOGO_FADE_OUT,
         COVER_WRITE, COVER_HOLD, COVER_FADE_OUT,
+        MENU_HOLD, MENU_FADE_OUT,
         RANDOM_WRITE, RANDOM_HOLD, RANDOM_FADE_OUT,
         DONE
     }
@@ -75,7 +78,12 @@ public class BootSequencePanel extends JPanel {
         }
     }
 
-    private final Runnable onComplete;
+    public enum StartAction {
+        NEW_GAME,
+        LOAD_GAME
+    }
+
+    private final java.util.function.Consumer<StartAction> onComplete;
     private final Timer timer;
     private final Random random = new Random();
 
@@ -91,15 +99,67 @@ public class BootSequencePanel extends JPanel {
     private int randomIndex = 0;
     private Stage stage;
     private long stageStartNanos;
+    private StartAction selectedAction = StartAction.NEW_GAME;
+    private final JButton newGameButton = new JButton("New Game");
+    private final JButton loadGameButton = new JButton("Load Game");
+    private final JPanel menuPanel = new JPanel();
 
-    public BootSequencePanel(Runnable onComplete) {
+    public BootSequencePanel(java.util.function.Consumer<StartAction> onComplete) {
         this.onComplete = onComplete;
         setBackground(Color.BLACK);
+        setLayout(new GridBagLayout());
+        buildMainMenu();
         loadAssets();
         chooseFlowStart();
         this.timer = new Timer(16, e -> tick());
         this.timer.setCoalesce(true);
         this.timer.start();
+    }
+
+    private void buildMainMenu() {
+        menuPanel.setOpaque(false);
+        menuPanel.setBorder(new EmptyBorder(24, 24, 24, 24));
+        menuPanel.setLayout(new BoxLayout(menuPanel, BoxLayout.Y_AXIS));
+
+        JLabel title = new JLabel("Pub Landlord Idle");
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        title.setForeground(new Color(240, 240, 240));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 36f));
+
+        JLabel subtitle = new JLabel("GameBootScreen2");
+        subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        subtitle.setForeground(new Color(200, 200, 200));
+        subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 18f));
+
+        Dimension buttonSize = new Dimension(220, 48);
+        newGameButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        newGameButton.setMaximumSize(buttonSize);
+        newGameButton.setPreferredSize(buttonSize);
+        loadGameButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        loadGameButton.setMaximumSize(buttonSize);
+        loadGameButton.setPreferredSize(buttonSize);
+
+        newGameButton.addActionListener(e -> beginMenuExit(StartAction.NEW_GAME));
+        loadGameButton.addActionListener(e -> beginMenuExit(StartAction.LOAD_GAME));
+
+        menuPanel.add(title);
+        menuPanel.add(Box.createVerticalStrut(10));
+        menuPanel.add(subtitle);
+        menuPanel.add(Box.createVerticalStrut(28));
+        menuPanel.add(newGameButton);
+        menuPanel.add(Box.createVerticalStrut(12));
+        menuPanel.add(loadGameButton);
+
+        add(menuPanel, new GridBagConstraints());
+        menuPanel.setVisible(false);
+    }
+
+    private void beginMenuExit(StartAction action) {
+        selectedAction = action;
+        newGameButton.setEnabled(false);
+        loadGameButton.setEnabled(false);
+        setStage(Stage.MENU_FADE_OUT);
+        repaint();
     }
 
     private void loadAssets() {
@@ -137,10 +197,8 @@ public class BootSequencePanel extends JPanel {
             setStage(Stage.LOGO_FADE_IN);
         } else if (coverPhoto != null) {
             setStage(Stage.COVER_WRITE);
-        } else if (!randomPhotos.isEmpty()) {
-            setStage(Stage.RANDOM_WRITE);
         } else {
-            setStage(Stage.DONE);
+            setStage(Stage.MENU_HOLD);
         }
     }
 
@@ -227,7 +285,14 @@ public class BootSequencePanel extends JPanel {
     private boolean isReservedBootPhotoName(String fileName) {
         if (fileName == null || fileName.isBlank()) return false;
         String lower = fileName.toLowerCase(Locale.ROOT);
-        return lower.startsWith("gamecoverv1") || lower.startsWith("gamebootscreen");
+        boolean excluded = lower.startsWith("gamecoverv1")
+                || lower.startsWith("gamebootscreen")
+                || lower.startsWith("gamebootscreen2")
+                || lower.contains("logo");
+        if (excluded) {
+            System.out.println("[BootSequence] Excluding boot-only photo from loading rotation: " + fileName);
+        }
+        return excluded;
     }
 
     private BufferedImage loadGameBootImage(Path photosDir) {
@@ -268,7 +333,7 @@ public class BootSequencePanel extends JPanel {
     private void tick() {
         if (stage == Stage.DONE) {
             timer.stop();
-            SwingUtilities.invokeLater(onComplete);
+            SwingUtilities.invokeLater(() -> onComplete.accept(selectedAction));
             return;
         }
 
@@ -280,10 +345,8 @@ public class BootSequencePanel extends JPanel {
                         setStage(Stage.LOGO_FADE_IN);
                     } else if (coverPhoto != null) {
                         setStage(Stage.COVER_WRITE);
-                    } else if (!randomPhotos.isEmpty()) {
-                        setStage(Stage.RANDOM_WRITE);
                     } else {
-                        setStage(Stage.DONE);
+                        setStage(Stage.MENU_HOLD);
                     }
                 }
             }
@@ -297,10 +360,8 @@ public class BootSequencePanel extends JPanel {
                 if (elapsedSeconds >= LOGO_FADE_OUT_SECONDS) {
                     if (coverPhoto != null) {
                         setStage(Stage.COVER_WRITE);
-                    } else if (!randomPhotos.isEmpty()) {
-                        setStage(Stage.RANDOM_WRITE);
                     } else {
-                        setStage(Stage.DONE);
+                        setStage(Stage.MENU_HOLD);
                     }
                 }
             }
@@ -314,6 +375,13 @@ public class BootSequencePanel extends JPanel {
             }
             case COVER_FADE_OUT -> {
                 if (elapsedSeconds >= COVER_FADE_OUT_SECONDS) {
+                    setStage(Stage.MENU_HOLD);
+                }
+            }
+            case MENU_HOLD -> {
+            }
+            case MENU_FADE_OUT -> {
+                if (elapsedSeconds >= MENU_FADE_OUT_SECONDS) {
                     if (!randomPhotos.isEmpty()) {
                         randomIndex = 0;
                         setStage(Stage.RANDOM_WRITE);
@@ -368,9 +436,17 @@ public class BootSequencePanel extends JPanel {
         return clamp(computed, MIN_WRITE_SECONDS, MAX_WRITE_SECONDS);
     }
 
+    private void setMenuVisible(boolean visible) {
+        if (menuPanel.isVisible() == visible) return;
+        menuPanel.setVisible(visible);
+        newGameButton.setEnabled(visible);
+        loadGameButton.setEnabled(visible);
+    }
+
     private void setStage(Stage next) {
         this.stage = next;
         this.stageStartNanos = System.nanoTime();
+        setMenuVisible(next == Stage.MENU_HOLD || next == Stage.MENU_FADE_OUT);
     }
 
     private double elapsedSeconds() {
@@ -394,6 +470,20 @@ public class BootSequencePanel extends JPanel {
             drawCover(g2, elapsedSeconds());
         } else if (stage == Stage.RANDOM_WRITE || stage == Stage.RANDOM_HOLD || stage == Stage.RANDOM_FADE_OUT) {
             drawRandom(g2, elapsedSeconds());
+        } else if (stage == Stage.MENU_HOLD || stage == Stage.MENU_FADE_OUT) {
+            double alpha = stage == Stage.MENU_FADE_OUT
+                    ? clamp(elapsedSeconds() / MENU_FADE_OUT_SECONDS, 0.0, 1.0)
+                    : 0.0;
+            if (gameBootImage != null) {
+                drawImageWithFade(g2, gameBootImage, null, alpha);
+            } else {
+                g2.setColor(new Color(18, 18, 18));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                if (alpha > 0.0) {
+                    g2.setColor(new Color(0, 0, 0, (int) Math.round(255 * alpha)));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
+            }
         }
 
         g2.dispose();
