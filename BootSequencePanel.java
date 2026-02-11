@@ -272,7 +272,7 @@ public class BootSequencePanel extends JPanel {
                     loadedFonts.get(random.nextInt(loadedFonts.size())),
                     RANDOM_ROTATION_DEGREES[random.nextInt(RANDOM_ROTATION_DEGREES.length)],
                     0.22 + (0.56 * random.nextDouble()),
-                    0.88 + (0.05 * random.nextDouble())
+                    0.48 + (0.20 * random.nextDouble())
             ));
         }
     }
