@@ -273,40 +273,50 @@ public class WineBarGUI {
         }
     }
 
-    private void finishBootSequence(BootSequencePanel.StartAction action) {
+    private void showWithoutBootSequence() {
+        chooseRandomMusicProfileOnBoot();
         frame.setContentPane(root);
         frame.revalidate();
         frame.repaint();
+        frame.setVisible(true);
         frame.requestFocusInWindow();
+        bootSequenceShown = true;
+    }
+
+    private void finishBootSequence(BootSequencePanel.StartAction action) {
         if (action == BootSequencePanel.StartAction.LOAD_GAME) {
-            startLoadGameOrFallback();
+            startLoadGame();
         } else {
-            startNewGameFromMenu();
+            startNewGameFresh();
         }
     }
 
-    private void startNewGameFromMenu() {
-        log.info("Starting new game.");
+    private void startNewGameFresh() {
+        GameState freshState = GameFactory.newGame();
+        launchReplacementGame(freshState);
     }
 
-    private void startLoadGameOrFallback() {
+    private void startLoadGame() {
+        System.out.println("LOAD: begin");
         if (!SaveManager.hasSave()) {
             JOptionPane.showMessageDialog(frame, "No save found.", "Load Game", JOptionPane.INFORMATION_MESSAGE);
-            startNewGameFromMenu();
+            System.out.println("LOAD: no save file");
+            resetToMainMenu();
             return;
         }
         try {
-            System.out.println("[Load] step 1 read file start");
+            System.out.println("LOAD: file found");
             GameState loaded = SaveManager.load();
-            System.out.println("[Load] step 2 deserialized ok");
+            System.out.println("LOAD: deserialized SaveData");
             prepareLoadedState(loaded);
-            System.out.println("[Load] step 3 applied state ok");
+            System.out.println("LOAD: rebuilt Simulation/GameState");
             launchReplacementGame(loaded);
-            System.out.println("[Load] step 4 ui transitioned ok");
+            System.out.println("LOAD: UI attached");
+            System.out.println("LOAD: complete");
         } catch (Exception ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(frame, "Failed to load save: " + ex.getMessage(), "Load Game", JOptionPane.ERROR_MESSAGE);
-            startNewGameFromMenu();
+            JOptionPane.showMessageDialog(frame, "Load failed: " + ex.getMessage(), "Load Game", JOptionPane.ERROR_MESSAGE);
+            resetToMainMenu();
         }
     }
 
@@ -325,7 +335,10 @@ public class WineBarGUI {
     private void launchReplacementGame(GameState newState) {
         shutdownForMenuTransition();
         frame.dispose();
-        SwingUtilities.invokeLater(() -> new WineBarGUI(newState).show());
+        SwingUtilities.invokeLater(() -> {
+            WineBarGUI loadedGui = new WineBarGUI(newState);
+            loadedGui.showWithoutBootSequence();
+        });
     }
 
     private void resetToMainMenu() {
