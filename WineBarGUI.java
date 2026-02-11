@@ -8,14 +8,21 @@ import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
-import java.util.concurrent.ThreadLocalRandom;
 
 @SuppressWarnings({"unused", "FieldCanBeLocal", "DuplicatedCode"})
 public class WineBarGUI {
+    private static final DateTimeFormatter SAVE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final MusicProfileType[] BOOT_MUSIC_POOL = {
+            MusicProfileType.JAZZ_LOUNGE,
+            MusicProfileType.INDIE_ALT,
+            MusicProfileType.POP_PARTY
+    };
     private static final Color CASH_BG = new Color(36, 130, 92);
     private static final Color DEBT_BG = new Color(170, 60, 72);
     private static final Color REP_BG = new Color(88, 92, 200);
@@ -289,11 +296,29 @@ public class WineBarGUI {
             return;
         }
         try {
+            System.out.println("[Load] step 1 read file start");
             GameState loaded = SaveManager.load();
+            System.out.println("[Load] step 2 deserialized ok");
+            prepareLoadedState(loaded);
+            System.out.println("[Load] step 3 applied state ok");
             launchReplacementGame(loaded);
+            System.out.println("[Load] step 4 ui transitioned ok");
         } catch (Exception ex) {
+            ex.printStackTrace();
             JOptionPane.showMessageDialog(frame, "Failed to load save: " + ex.getMessage(), "Load Game", JOptionPane.ERROR_MESSAGE);
             startNewGameFromMenu();
+        }
+    }
+
+    private void prepareLoadedState(GameState loaded) {
+        if (loaded == null) return;
+        for (PubActivity activity : PubActivity.values()) {
+            if (!activity.requiresUnlock()) {
+                loaded.unlockedActivities.add(activity);
+            }
+        }
+        if (loaded.pubName == null || loaded.pubName.isBlank()) {
+            loaded.pubName = PubNameGenerator.randomName(loaded.random);
         }
     }
 
@@ -342,12 +367,16 @@ public class WineBarGUI {
 
     private void chooseRandomMusicProfileOnBoot() {
         if (randomMusicChosenOnBoot) return;
-        MusicProfileType[] profiles = MusicProfileType.values();
-        if (profiles.length == 0) return;
-        MusicProfileType chosen = profiles[ThreadLocalRandom.current().nextInt(profiles.length)];
+        MusicProfileType chosen = BOOT_MUSIC_POOL[(int) (Math.random() * BOOT_MUSIC_POOL.length)];
         randomMusicChosenOnBoot = true;
-        sim.setMusicProfile(chosen);
-        musicProfileBox.setSelectedItem(chosen);
+        MusicProfileType applied = chosen;
+        try {
+            sim.setMusicProfile(chosen);
+        } catch (Exception ex) {
+            applied = MusicProfileType.JAZZ_LOUNGE;
+            sim.setMusicProfile(applied);
+        }
+        musicProfileBox.setSelectedItem(applied);
         musicProfileBox.setToolTipText(sim.currentMusicTooltip());
     }
 
@@ -511,6 +540,7 @@ public class WineBarGUI {
         int minHeight = Math.max(frame.getPreferredSize().height, 740);
         frame.setMinimumSize(new Dimension(minBottomWidth, minHeight));
         frame.setSize(Math.max(1320, minBottomWidth), Math.max(760, minHeight));
+        frame.setExtendedState(frame.getExtendedState() | JFrame.MAXIMIZED_BOTH);
         frame.setLocationRelativeTo(null);
         frame.setTitle("Pub Landlord Idle - " + state.pubName);
 
@@ -890,7 +920,7 @@ public class WineBarGUI {
         }
         try {
             SaveManager.save(state);
-            optionsSaveStatusLabel.setText("Game saved.");
+            optionsSaveStatusLabel.setText("Saved (" + LocalTime.now().format(SAVE_TIME_FORMAT) + ")");
         } catch (Exception ex) {
             ex.printStackTrace();
             optionsSaveStatusLabel.setText("Saving failed: " + ex.getMessage());

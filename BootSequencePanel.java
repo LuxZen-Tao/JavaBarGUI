@@ -31,6 +31,7 @@ public class BootSequencePanel extends JPanel {
     private static final double MENU_FADE_OUT_SECONDS = 0.8;
 
     private static final String COVER_PHRASE = "Where it all started... Barva, Jan '89 XOXO";
+    private static final double[] RANDOM_ROTATION_DEGREES = {-8.0, -4.0, 0.0, 4.0, 8.0};
 
     private enum Stage {
         GAME_BOOT_HOLD,
@@ -176,7 +177,7 @@ public class BootSequencePanel extends JPanel {
         }
 
         if (coverImage != null) {
-            coverPhoto = new BootPhoto(coverImage, COVER_PHRASE, pickFontDeterministic(), -18.0, 0.40, 0.88);
+            coverPhoto = new BootPhoto(coverImage, COVER_PHRASE, pickFontDeterministic(), -8.0, 0.40, 0.72);
         }
 
         loadRandomPhotos(root.resolve("Photos"));
@@ -269,9 +270,9 @@ public class BootSequencePanel extends JPanel {
                     image,
                     phrases.get(random.nextInt(phrases.size())),
                     loadedFonts.get(random.nextInt(loadedFonts.size())),
-                    -10.0 + (20.0 * random.nextDouble()),
-                    0.18 + (0.64 * random.nextDouble()),
-                    0.62 + (0.28 * random.nextDouble())
+                    RANDOM_ROTATION_DEGREES[random.nextInt(RANDOM_ROTATION_DEGREES.length)],
+                    0.22 + (0.56 * random.nextDouble()),
+                    0.88 + (0.05 * random.nextDouble())
             ));
         }
     }
@@ -509,7 +510,7 @@ public class BootSequencePanel extends JPanel {
             int anchorX = rect.x + (int) (rect.width * coverPhoto.anchorXRatio);
             int anchorY = rect.y + (int) (rect.height * coverPhoto.anchorYRatio);
             drawHandwrittenText(tg, rect, text, coverPhoto.font, anchorX, anchorY, coverPhoto.rotationDeg, true);
-        }, fadeAlpha);
+        }, fadeAlpha, 1.25);
     }
 
     private void drawRandom(Graphics2D g2, double elapsedSeconds) {
@@ -533,8 +534,16 @@ public class BootSequencePanel extends JPanel {
     }
 
     private void drawImageWithFade(Graphics2D g2, BufferedImage image, TextDrawer textDrawer, double fadeAlpha) {
+        drawImageWithFade(g2, image, textDrawer, fadeAlpha, 1.0);
+    }
+
+    private void drawImageWithFade(Graphics2D g2,
+                                   BufferedImage image,
+                                   TextDrawer textDrawer,
+                                   double fadeAlpha,
+                                   double scaleMultiplier) {
         if (image == null) return;
-        DrawRect rect = computeFitRect(image.getWidth(), image.getHeight(), getWidth(), getHeight());
+        DrawRect rect = computeFitRect(image.getWidth(), image.getHeight(), getWidth(), getHeight(), scaleMultiplier);
         g2.drawImage(image, rect.x, rect.y, rect.width, rect.height, null);
         if (textDrawer != null) {
             Graphics2D textGraphics = (Graphics2D) g2.create();
@@ -561,15 +570,19 @@ public class BootSequencePanel extends JPanel {
                                      boolean coverStyle) {
         if (phrase == null || phrase.isEmpty()) return;
 
-        float size = Math.max(27f, (float) (rect.width * 42.0 / 1080.0));
-        Font sized = font.deriveFont(Font.PLAIN, size);
+        float baseSize = Math.max(40.5f, (float) (rect.width * 63.0 / 1080.0));
+        float size = coverStyle ? (baseSize * 0.85f) : baseSize;
+        Font sized = font.deriveFont(Font.BOLD, size);
         g2.setFont(sized);
         g2.setColor(Color.BLACK);
 
         int maxTextWidth = (int) (rect.width * (coverStyle ? 0.72 : 0.85));
-        int marginX = Math.max(10, (int) (rect.width * 0.06));
+        int marginX = Math.max(16, (int) (rect.width * 0.08));
 
         List<String> lines = wrapText(phrase, sized, g2.getFontRenderContext(), maxTextWidth);
+        if (!coverStyle) {
+            lines = clampRandomLines(lines, 2);
+        }
         FontMetrics fm = g2.getFontMetrics(sized);
         int lineHeight = fm.getHeight();
 
@@ -631,12 +644,33 @@ public class BootSequencePanel extends JPanel {
         return lines;
     }
 
+    private List<String> clampRandomLines(List<String> lines, int maxLines) {
+        if (lines == null || lines.isEmpty() || lines.size() <= maxLines) {
+            return lines;
+        }
+        List<String> clamped = new ArrayList<>(lines.subList(0, Math.max(1, maxLines)));
+        if (maxLines >= 1) {
+            String tail = String.join(" ", lines.subList(maxLines - 1, lines.size())).trim();
+            if (tail.length() > 72) {
+                tail = tail.substring(0, 69).trim() + "...";
+            }
+            clamped.set(maxLines - 1, tail);
+        }
+        return clamped;
+    }
+
     private DrawRect computeFitRect(int srcW, int srcH, int dstW, int dstH) {
+        return computeFitRect(srcW, srcH, dstW, dstH, 1.0);
+    }
+
+    private DrawRect computeFitRect(int srcW, int srcH, int dstW, int dstH, double scaleMultiplier) {
         if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
             return new DrawRect(0, 0, Math.max(0, dstW), Math.max(0, dstH));
         }
-        double scale = Math.min((double) dstW / srcW, (double) dstH / srcH);
-        scale = Math.min(scale, 1.0) * 0.92;
+        double fitScale = Math.min((double) dstW / srcW, (double) dstH / srcH);
+        double baseScale = Math.min(fitScale, 1.0) * 0.92;
+        double boostedScale = baseScale * Math.max(0.1, scaleMultiplier);
+        double scale = Math.min(boostedScale, fitScale);
         int w = Math.max(1, (int) Math.round(srcW * scale));
         int h = Math.max(1, (int) Math.round(srcH * scale));
         int x = (dstW - w) / 2;
