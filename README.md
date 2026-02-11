@@ -546,49 +546,51 @@ Major system files (non-exhaustive):
 
 ---
 
-## 11) Suggested future systems/hooks to keep players engaged
+## 11) Implemented meta-systems: Seasons, Rivals, VIPs
 
-If you want to extend replayability without bloating complexity, these hooks fit the current architecture well:
+These systems are now implemented and feature-gated from a single place:
+- `FeatureFlags.FEATURE_SEASONS`
+- `FeatureFlags.FEATURE_RIVALS`
+- `FeatureFlags.FEATURE_VIPS`
+- `FeatureFlags.DEBUG_MODIFIER_LOGS` (optional debug output)
 
-### Seasonal calendar + rotating demand modifiers
-- Add monthly/seasonal periods (holidays, sports seasons, tourist waves).
-- Shift punter mix, supplier prices, and event probabilities by season.
-- **System interaction:** ties directly into `EventSystem`, `PunterSystem`, `SupplierSystem`, and pricing strategy.
+### Seasons (calendar tags)
+- `SeasonCalendar` exposes active `SeasonTag` values for the current date.
+- Tags are used to nudge:
+  - punter tier mix
+  - supplier pricing
+  - event weighting
+- A season line is surfaced in reports and lightweight season flavor can appear in observations.
 
-### Rival pubs and district competition
-- Simulate 2–4 nearby venues competing for similar audience segments.
-- Rival quality/price/activity choices can steal or return your demand.
-- **System interaction:** extends `PubIdentitySystem`, reputation loops, and weekly reports with market-share context.
+### Rivals (district pressure)
+- `RivalSystem.runWeekly(...)` simulates district rivals and assigns each one a stance (`PRICE_WAR`, `QUALITY_PUSH`, `EVENT_SPAM`, `LAY_LOW`, `CHAOS_RECOVERY`).
+- Results aggregate into `MarketPressure`, then `Simulation` converts that into three live pressures:
+  - `rivalDemandTrafficMultiplier`
+  - `rivalPunterMixBias`
+  - `rivalRumorSentimentBias`
+- These are applied to demand, punter mix tendency, and rumor tone pressure.
+- Mission Control progression text includes a district update + dominant rival stance.
 
-### VIP regulars and relationship arcs
-- Introduce named regulars with preferences, tolerance thresholds, and loyalty perks.
-- Good nights build personal loyalty; repeated failures can create high-impact backlash.
-- **System interaction:** couples with staffing quality, music profile, security outcomes, and rumor sentiment.
+### VIPs (named regular arcs)
+- `VIPSystem` builds a small roster from real punter names seen in service.
+- VIP loyalty maps into arc stages:
+  - Positive track: `NEUTRAL -> WARMING -> LOYAL -> ADVOCATE`
+  - Negative track: `NEUTRAL -> ANNOYED -> DISGRUNTLED -> BACKLASH`
+- On first entry to terminal stages, one-time consequences fire:
+  - `ADVOCATE`: demand boost, rumor shielding, reputation bonus
+  - `BACKLASH`: reputation hit, negative-rumor pressure, civic/security pressure
+- Narrative delivery is text-only:
+  - popup text
+  - weekly report `VIP arcs` lines
+  - observation feed snippets
 
-### Dynamic staff development trees
-- Let staff specialize over time (speed, upselling, de-escalation, cleanliness leadership).
-- Add optional training costs and temporary productivity dips during training windows.
-- **System interaction:** deepens `StaffSystem`, `EconomySystem`, and long-run upgrade planning.
+### Modifier order (integration)
+Modifier flow is explicit and centralized through `GameModifierSnapshot`:
+1. Season modifiers
+2. Rival market pressure
+3. VIP consequences
 
-### Black-market / premium supply channel
-- High-margin, high-risk supply options with legality/reputation tradeoffs.
-- Rare stock can boost premium identity at the cost of event/security exposure.
-- **System interaction:** links inventory, security incidents, rumor-truth pressure, and pricing power.
-
-### Neighborhood influence and civic pressure
-- Add local council/community pressure meter affected by noise, incidents, and charity events.
-- High pressure can trigger fines/restrictions; strong civic standing unlocks bonuses.
-- **System interaction:** bridges activities, security policy, events, and landlord actions.
-
-### Live-ops challenge modes
-- Weekly/biweekly challenge seeds (e.g., “Inflation Week”, “No-Loan Run”, “Festival Rush”).
-- Post run summaries with scorecards for replay motivation.
-- **System interaction:** uses existing report and milestone infrastructure with minimal gameplay rewrite.
-
-### Meta-progression contracts
-- Offer optional long-term contracts (brewery partnership, sports rights, jazz residency).
-- Each contract adds persistent modifiers plus a commitment cost.
-- **System interaction:** naturally complements identity, supplier economics, activity scheduling, and prestige goals.
+This ordering is used to reduce balancing friction and keep composition consistent.
 
 ---
 
