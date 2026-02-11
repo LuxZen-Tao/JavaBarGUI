@@ -384,8 +384,6 @@ public class WineBarGUI {
 
     private void handleFreshWeekAutosave(int week) {
         if (week <= lastAutosavedWeek) return;
-        if (state.dayIndex != 0 || state.nightOpen) return;
-        if (optionsDialog != null && optionsDialog.isShowing()) return;
         if (!SwingUtilities.isEventDispatchThread()) {
             SwingUtilities.invokeLater(() -> handleFreshWeekAutosave(week));
             return;
@@ -2515,7 +2513,7 @@ public class WineBarGUI {
             upgradesDialog = new JDialog(frame, "Upgrades (One-time)", false);
             upgradesDialog.setLayout(new BorderLayout(10, 10));
 
-            JLabel top = new JLabel("One-time purchases. Installed between nights.");
+            JLabel top = new JLabel("One-time purchases. Installed between nights. " + sim.upgradeBottleneckHint());
             top.setBorder(new EmptyBorder(8, 10, 0, 10));
             upgradesDialog.add(top, BorderLayout.NORTH);
 
@@ -2565,7 +2563,8 @@ public class WineBarGUI {
             if (up == null) continue;
 
             boolean owned = state.ownedUpgrades.contains(up);
-            boolean unlocked = sim.canBuyUpgrade(up);
+            MilestoneSystem.UpgradeAvailability availability = sim.getUpgradeAvailability(up);
+            boolean unlocked = availability.unlocked();
             PendingUpgradeInstall installing = findUpgradeInstall(up);
             String prefix;
             if (owned) {
@@ -2576,10 +2575,12 @@ public class WineBarGUI {
                 String requirement = sim.upgradeRequirementText(up);
                 prefix = unlocked ? "" : (" LOCKED  " + (requirement != null ? "(" + requirement + ")  " : ""));
             }
-            b.setText(prefix + up.toString());
+            String details = "[Tier " + up.getTier() + " | GBP " + String.format("%.0f", up.getCost()) + "] "
+                    + up.getLabel() + " | " + sim.upgradeEffectPreview(up);
+            b.setText(prefix + details);
             boolean enabled = !state.nightOpen && !owned && unlocked && installing == null;
             b.setEnabled(enabled);
-            b.setToolTipText(!unlocked && !owned ? sim.upgradeRequirementText(up) : null);
+            b.setToolTipText(!unlocked && !owned ? String.join(", ", availability.missingRequirements()) : sim.upgradeEffectPreview(up));
             if (installing != null) {
                 b.setOpaque(true);
                 b.setBackground(INSTALLING_BG);

@@ -46,6 +46,7 @@ public class MilestoneSystem {
     private final UILogger log;
     private final EnumMap<PubActivity, Milestone> activityMilestoneRequirements = new EnumMap<>(PubActivity.class);
     private final EnumMap<PubActivity, ActivityAvailability> activityAvailability = new EnumMap<>(PubActivity.class);
+    private final EnumMap<PubUpgrade, UpgradeAvailability> upgradeAvailability = new EnumMap<>(PubUpgrade.class);
     private final List<MilestoneDefinition> definitions = new ArrayList<>();
 
     private record MilestoneDefinition(Milestone id, int tier, String title, String description, String rewardText) {}
@@ -63,6 +64,20 @@ public class MilestoneSystem {
         public List<String> missingRequirements() { return missingRequirements; }
     }
 
+
+    public static final class UpgradeAvailability {
+        private final boolean unlocked;
+        private final List<String> missingRequirements;
+
+        public UpgradeAvailability(boolean unlocked, List<String> missingRequirements) {
+            this.unlocked = unlocked;
+            this.missingRequirements = missingRequirements == null ? List.of() : List.copyOf(missingRequirements);
+        }
+
+        public boolean unlocked() { return unlocked; }
+        public List<String> missingRequirements() { return missingRequirements; }
+    }
+
     public MilestoneSystem(GameState s, UILogger log) {
         this.s = s;
         this.log = log;
@@ -72,6 +87,7 @@ public class MilestoneSystem {
             s.achievedMilestones.addAll(s.prestigeMilestones);
         }
         recomputeActivityAvailability();
+        recomputeUpgradeAvailability();
     }
 
     private void buildDefinitions() {
@@ -131,6 +147,7 @@ public class MilestoneSystem {
             }
         }
         recomputeActivityAvailability();
+        recomputeUpgradeAvailability();
     }
 
     private boolean isMet(Milestone id) {
@@ -231,11 +248,30 @@ public class MilestoneSystem {
     }
 
     public boolean canBuyUpgrade(PubUpgrade upgrade) {
-        if (upgrade.isKitchenRelated() && upgrade != PubUpgrade.KITCHEN_SETUP && !s.kitchenUnlocked) return false;
-        if (upgrade == PubUpgrade.KITCHEN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN_SETUP)) return false;
-        if (upgrade == PubUpgrade.NEW_KITCHEN_PLAN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN)) return false;
-        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) return false;
-        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) return false;
+        return getUpgradeAvailability(upgrade, s.cash).unlocked();
+    }
+
+    public UpgradeAvailability getUpgradeAvailability(PubUpgrade upgrade, double availableCash) {
+        if (upgrade == null) return new UpgradeAvailability(false, List.of("Unknown upgrade"));
+        List<String> missing = new ArrayList<>();
+        if (s.ownedUpgrades.contains(upgrade)) {
+            return new UpgradeAvailability(false, List.of("Already owned"));
+        }
+        if (upgrade.isKitchenRelated() && upgrade != PubUpgrade.KITCHEN_SETUP && !s.kitchenUnlocked) {
+            missing.add("Kitchen not unlocked");
+        }
+        if (upgrade == PubUpgrade.KITCHEN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN_SETUP)) {
+            missing.add("Requires Kitchen Base");
+        }
+        if (upgrade == PubUpgrade.NEW_KITCHEN_PLAN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN)) {
+            missing.add("Requires Kitchen Upgrade I");
+        }
+        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) {
+            missing.add("Requires Kitchen Upgrade II");
+        }
+        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
+            missing.add("Requires pub level " + (upgrade.getTier() - 1));
+        }
         if (upgrade.getChainKey() != null && upgrade.getTier() > 1) {
             boolean hasPrev = false;
             for (PubUpgrade owned : s.ownedUpgrades) {
@@ -244,30 +280,40 @@ public class MilestoneSystem {
                     break;
                 }
             }
-            if (!hasPrev) return false;
+            if (!hasPrev) {
+                missing.add("Requires tier " + (upgrade.getTier() - 1) + " in chain");
+            }
         }
-        if (upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE) {
-            return s.achievedMilestones.contains(Milestone.M6_MARGIN_WITH_MANNERS);
+        if ((upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE)
+                && !s.achievedMilestones.contains(Milestone.M6_MARGIN_WITH_MANNERS)) {
+            missing.add("Requires milestone: Margin With Manners");
         }
-        if (upgrade == PubUpgrade.DOOR_TEAM_II) {
-            return s.achievedMilestones.contains(Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE);
+        if (upgrade == PubUpgrade.DOOR_TEAM_II && !s.achievedMilestones.contains(Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE)) {
+            missing.add("Requires milestone: Balanced Books, Busy House");
         }
-        if (upgrade == PubUpgrade.DOOR_TEAM_III) {
-            return s.achievedMilestones.contains(Milestone.M18_STORMPROOF_OPERATOR);
+        if (upgrade == PubUpgrade.DOOR_TEAM_III && !s.achievedMilestones.contains(Milestone.M18_STORMPROOF_OPERATOR)) {
+            missing.add("Requires milestone: Stormproof Operator");
         }
-        if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) {
-            return s.achievedMilestones.contains(Milestone.M7_CREW_THAT_STAYS) || s.achievedMilestones.contains(Milestone.M3_NO_ONE_LEAVES_ANGRY);
+        if ((upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III)
+                && !(s.achievedMilestones.contains(Milestone.M7_CREW_THAT_STAYS)
+                || s.achievedMilestones.contains(Milestone.M3_NO_ONE_LEAVES_ANGRY))) {
+            missing.add("Requires milestone: Crew That Stays");
         }
-        return true;
+        return new UpgradeAvailability(missing.isEmpty(), missing);
     }
 
-    public String upgradeRequirementText(PubUpgrade upgrade) {
-        if (s.ownedUpgrades.contains(upgrade)) return "Unlocked";
-        if (upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE) return "Requires milestone: Margin With Manners";
-        if (upgrade == PubUpgrade.DOOR_TEAM_II) return "Requires milestone: Balanced Books, Busy House";
-        if (upgrade == PubUpgrade.DOOR_TEAM_III) return "Requires milestone: Stormproof Operator";
-        if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) return "Requires milestone: Crew That Stays";
-        return null;
+    public void recomputeUpgradeAvailability() {
+        upgradeAvailability.clear();
+        for (PubUpgrade up : PubUpgrade.values()) {
+            upgradeAvailability.put(up, getUpgradeAvailability(up, s.cash));
+        }
+    }
+
+    public String upgradeRequirementText(PubUpgrade upgrade, double availableCash) {
+        UpgradeAvailability availability = getUpgradeAvailability(upgrade, availableCash);
+        if (availability.unlocked()) return null;
+        if (availability.missingRequirements().isEmpty()) return null;
+        return String.join(", ", availability.missingRequirements());
     }
 
     public String activityRequirementText(PubActivity activity) {

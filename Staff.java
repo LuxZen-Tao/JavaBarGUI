@@ -82,8 +82,14 @@ public class Staff  implements java.io.Serializable {
     public Type getType() { return type; }
     public int getId() { return id; }
     public String getName() { return name; }
-    public int getServeCapacity() { return baseServeCapacity + (level / 3); }
-    public int getSkill() { return baseSkill + level; }
+    public int getServeCapacity() {
+        int levelBonus = Math.min(4, level / 4);
+        return Math.max(0, baseServeCapacity + levelBonus);
+    }
+    public int getSkill() {
+        int levelBonus = Math.min(6, (int)Math.floor(level * 0.6));
+        return Math.max(1, baseSkill + levelBonus);
+    }
 
     public int getRepMin() { return repMin; }
     public int getRepMax() { return repMax; }
