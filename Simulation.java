@@ -961,7 +961,7 @@ public class Simulation {
                 log.info("Manager cap reached (" + s.managerCap + ").");
                 return;
             }
-            Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random);
+            Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random, s.weekCount, s.reputation);
             s.generalManagers.add(hire);
             staff.updateTeamMorale();
             log.pos(" Hired " + t.name().replace("_", " ") + ": " + hire);
@@ -981,7 +981,7 @@ public class Simulation {
                 log.neg("FOH staff cap reached (" + s.fohStaffCap + ").");
                 return;
             }
-            Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random);
+            Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random, s.weekCount, s.reputation);
             s.fohStaff.add(hire);
             staff.updateTeamMorale();
             log.pos(" Hired " + t.name().replace("_", " ") + ": " + hire);
@@ -1004,7 +1004,7 @@ public class Simulation {
                 log.neg("Kitchen staff cap reached (" + s.kitchenChefCap + ").");
                 return;
             }
-            Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random);
+            Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random, s.weekCount, s.reputation);
             s.bohStaff.add(hire);
             staff.updateTeamMorale();
             updateKitchenInventoryCap();
@@ -1034,7 +1034,7 @@ public class Simulation {
                 return;
             }
         }
-        Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random);
+        Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random, s.weekCount, s.reputation);
         s.fohStaff.add(hire);
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
@@ -1508,6 +1508,7 @@ public class Simulation {
 
         // 4) Capacity this round
         int serveCap = staff.totalServeCapacity();
+        StaffSystem.WorkloadProfile workloadProfile = null;
 
         double trafficMult = modifiers.trafficMultiplier();
         if (s.wageTrafficPenaltyRounds > 0 && s.wageTrafficPenaltyMultiplier < 1.0) {
@@ -1575,9 +1576,14 @@ public class Simulation {
         int demand = Math.max(1, (int)Math.round(barCount * trafficMult));
         demand = Math.min(demand, barCount);
 
-        int servedCount = Math.min(serveCap, demand);
+        workloadProfile = staff.workloadProfile(demand, serveCap);
+        int servedCount = Math.min(workloadProfile.effectiveCapacity(), demand);
         int unserved = Math.max(0, demand - servedCount);
         s.unservedThisWeek += unserved;
+        s.lastServiceDrivers = workloadProfile.serviceDriverLine();
+        s.lastStabilityDrivers = workloadProfile.stabilityDriverLine();
+        s.lastRoundWorkload = workloadProfile.workload();
+        s.lastRoundWorkloadPenalty = workloadProfile.penalty();
 
         if (demand > serveCap) log.neg(" Overwhelmed: demand " + demand + " > serve cap " + serveCap);
 
@@ -1607,16 +1613,19 @@ public class Simulation {
                 + " | traffic x" + String.format("%.2f", trafficMult)
                 + " | price x" + String.format("%.2f", effectiveMult)
                 + " | security " + sec);
+        log.info("Drivers -> " + s.lastServiceDrivers);
+        log.info("Drivers -> " + s.lastStabilityDrivers);
         int fightsThisRound = Math.max(0, s.nightFights - fightsBefore);
         int refundsThisRound = Math.max(0, s.nightRefunds - refundsBefore);
         updateObservationLine(barCount, unserved, fightsThisRound, eventsThisRound, refundsThisRound, modifiers);
         punters.refreshChaosContributions();
-        s.chaos = recomputeChaos(barCount, demand, serveCap, unserved, fightsThisRound, refundsThisRound, eventsThisRound) + modifiers.chaosDelta();
+        s.chaos = recomputeChaos(barCount, demand, serveCap, unserved, fightsThisRound, refundsThisRound, eventsThisRound)
+                + staff.chaosPressureDelta(workloadProfile) + modifiers.chaosDelta();
         s.chaos = Math.max(0.0, Math.min(100.0, s.chaos));
 
         checkHighRepScandal();
 
-        handleStaffMisconduct(sec);
+        handleStaffMisconduct(sec, workloadProfile);
         updateChaosFromRound(unserved, eventsThisRound, fightsThisRound, refundsThisRound, s.foodDisappointmentThisRound);
         s.weekChaosTotal += s.chaos;
         s.weekChaosRounds++;
@@ -3827,7 +3836,7 @@ public class Simulation {
         }
     }
 
-    private void handleStaffMisconduct(int security) {
+    private void handleStaffMisconduct(int security, StaffSystem.WorkloadProfile workloadProfile) {
         List<Staff> eligible = new java.util.ArrayList<>();
         eligible.addAll(s.fohStaff);
         eligible.addAll(s.bohStaff);
@@ -3838,7 +3847,7 @@ public class Simulation {
             minMorale = Math.min(minMorale, st.getMorale());
         }
 
-        double chance = computeMisconductChance(security, minMorale);
+        double chance = computeMisconductChance(security, minMorale, workloadProfile);
         if (s.random.nextDouble() > chance) return;
 
         Staff offender = pickMisconductOffender(eligible);
@@ -3850,7 +3859,7 @@ public class Simulation {
         s.staffIncidentThisNight = true;
         s.staffIncidentThisRound = true;
 
-        String driverLine = buildMisconductDriverLine(security, minMorale, chance);
+        String driverLine = buildMisconductDriverLine(security, minMorale, chance, workloadProfile);
         String dept = boh ? "BOH" : "FOH";
         switch (type) {
             case FREE_DRINKS -> {
@@ -3983,7 +3992,7 @@ public class Simulation {
         s.lastStaffIncidentDrivers = driverLine;
     }
 
-    private double computeMisconductChance(int security, int minMorale) {
+    private double computeMisconductChance(int security, int minMorale, StaffSystem.WorkloadProfile workloadProfile) {
         double chance = 0.04;
         if (s.teamMorale < 55) {
             chance += (55 - s.teamMorale) * 0.002;
@@ -4001,6 +4010,7 @@ public class Simulation {
         double securityReduction = Math.min(0.45, security * 0.04);
         chance *= (1.0 - securityReduction);
         chance *= (1.0 - s.staffMisconductReductionPct);
+        chance *= staff.misconductPressureMultiplier(workloadProfile);
         chance *= s.debtSpiralMisconductChanceMultiplier;
         return Math.max(0.01, Math.min(0.30, chance));
     }
@@ -4056,7 +4066,7 @@ public class Simulation {
         return loss;
     }
 
-    private String buildMisconductDriverLine(int security, int minMorale, double chance) {
+    private String buildMisconductDriverLine(int security, int minMorale, double chance, StaffSystem.WorkloadProfile workloadProfile) {
         StringBuilder sb = new StringBuilder();
         sb.append("Chance ").append(String.format("%.1f%%", chance * 100));
         if (s.teamMorale < 55) sb.append(" | morale low");
@@ -4064,6 +4074,7 @@ public class Simulation {
         if (s.chaos >= 35) sb.append(" | chaos high");
         if (security > 0) sb.append(" | security mitigated");
         if (s.staffMisconductReductionPct > 0.001) sb.append(" | upgrades mitigated");
+        if (workloadProfile != null && workloadProfile.workload() > 1.0) sb.append(" | overloaded floor");
         if (s.activeRumors.containsKey(Rumor.STAFF_STEALING) || s.activeRumors.containsKey(Rumor.SLOW_SERVICE)) {
             sb.append(" | staff rumor pressure");
         }
@@ -5470,7 +5481,8 @@ public class Simulation {
             refundChance *= (1.0 - Math.min(0.25, s.kitchenQualityBonus * 0.03));
             refundChance *= (1.0 - Math.min(0.25, sec * 0.03));
             refundChance *= (1.0 - Math.min(0.25, headChefs * 0.08));
-            refundChance = Math.max(0.04, Math.min(0.45, refundChance));
+            refundChance *= staff.refundPressureMultiplier(s.lastRoundWorkloadPenalty);
+            refundChance = Math.max(0.04, Math.min(0.75, refundChance));
 
             if (s.random.nextInt(10000) < (int)Math.round(refundChance * 10000)) {
                 double refundPct = 0.25 + (s.random.nextDouble() * 0.75);
@@ -5560,7 +5572,9 @@ public class Simulation {
                 .append(" | Kicked out: ").append(s.nightKickedOut)
                 .append(" | Refunds GBP ").append(String.format("%.0f", s.nightRefundTotal))
                 .append(" | Food misses: ").append(s.nightFoodUnserved)
-                .append(" | Refund count: ").append(s.nightRefunds);
+                .append(" | Refund count: ").append(s.nightRefunds)
+                .append("\n").append(s.lastServiceDrivers == null ? "Service: n/a" : s.lastServiceDrivers)
+                .append("\n").append(s.lastStabilityDrivers == null ? "Stability: n/a" : s.lastStabilityDrivers);
 
         log.popup(" End of Night Report", body.toString().replace("\n", "<br/>"), "");
     }

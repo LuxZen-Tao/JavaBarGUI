@@ -2,6 +2,13 @@ import java.util.Random;
 
 public class StaffSystem {
 
+    // Centralized staff scaling knobs (single source for staffing pressure curve).
+    public static final double WORKLOAD_EXPONENT = 1.6;
+    private static final double WORKLOAD_UNSERVED_SCALE = 0.85;
+    private static final double WORKLOAD_REFUND_SCALE = 0.60;
+    private static final double WORKLOAD_CHAOS_SCALE = 7.5;
+    private static final double WORKLOAD_INCIDENT_SCALE = 0.55;
+
     private final GameState s;
     private final EconomySystem eco;
     private final UpgradeSystem upgrades;
@@ -14,6 +21,24 @@ public class StaffSystem {
 
     /** Landlord baseline service (so you can still sell something with zero staff). */
     private static final int LANDLORD_BASE_SERVICE = 1;
+
+    public record StaffPerformanceProfile(
+            int headcount,
+            double avgSpeed,
+            double avgQuality,
+            double avgReliability,
+            double avgComposure
+    ) {}
+
+    public record WorkloadProfile(
+            int demand,
+            int capacity,
+            double workload,
+            double penalty,
+            int effectiveCapacity,
+            String serviceDriverLine,
+            String stabilityDriverLine
+    ) {}
 
     public int baseServeCapacity() {
         int cap = LANDLORD_BASE_SERVICE;
@@ -40,6 +65,94 @@ public class StaffSystem {
         double legacyEff = 1.0 + Math.max(0.0, s.legacy.staffEfficiencyBonus);
         cap = Math.max(1, (int)Math.floor(cap * legacyEff));
         return cap;
+    }
+
+    public StaffPerformanceProfile performanceProfile() {
+        java.util.ArrayList<Staff> roster = new java.util.ArrayList<>();
+        roster.addAll(s.fohStaff);
+        roster.addAll(s.bohStaff);
+        roster.addAll(s.generalManagers);
+        if (roster.isEmpty()) {
+            return new StaffPerformanceProfile(0, 40.0, 40.0, 40.0, 40.0);
+        }
+
+        double speed = 0.0;
+        double quality = 0.0;
+        double reliability = 0.0;
+        double composure = 0.0;
+        for (Staff st : roster) {
+            speed += clamp(20.0 + (st.getServeCapacity() * 8.0) + (st.getSkill() * 2.0), 20.0, 100.0);
+            quality += clamp(28.0 + (st.getSkill() * 5.0) + (Math.max(0, st.getRepMax()) * 2.0), 20.0, 100.0);
+            reliability += clamp(25.0 + (st.getMorale() * 0.55) + (st.getSecurityBonus() * 8.0), 20.0, 100.0);
+            composure += clamp(20.0 + (st.getChaosTolerance() * 0.9) + (st.getSkill() * 2.0), 20.0, 100.0);
+        }
+        double count = roster.size();
+        return new StaffPerformanceProfile(
+                roster.size(),
+                speed / count,
+                quality / count,
+                reliability / count,
+                composure / count
+        );
+    }
+
+    public WorkloadProfile workloadProfile(int demand, int capacity) {
+        int safeDemand = Math.max(0, demand);
+        int safeCapacity = Math.max(1, capacity);
+        double workload = safeDemand / (double) safeCapacity;
+        double penalty = Math.pow(Math.max(0.0, workload - 1.0), WORKLOAD_EXPONENT);
+        int effectiveCapacity = Math.max(1, (int) Math.floor(safeCapacity / (1.0 + penalty * WORKLOAD_UNSERVED_SCALE)));
+        StaffPerformanceProfile perf = performanceProfile();
+
+        String serviceLine = String.format(
+                "Service: workload %.2f (%s), avgSpeed %.0f (%s), quality %.0f (%s)",
+                workload,
+                workload > 1.0 ? "+" : "-",
+                perf.avgSpeed,
+                perf.avgSpeed >= 60.0 ? "-" : "+",
+                perf.avgQuality,
+                perf.avgQuality >= 60.0 ? "-" : "+"
+        );
+        String stabilityLine = String.format(
+                "Stability: workload %.2f (%s), composure %.0f (%s), reliability %.0f (%s)",
+                workload,
+                workload > 1.0 ? "+" : "-",
+                perf.avgComposure,
+                perf.avgComposure >= 60.0 ? "-" : "+",
+                perf.avgReliability,
+                perf.avgReliability >= 60.0 ? "-" : "+"
+        );
+
+        return new WorkloadProfile(safeDemand, safeCapacity, workload, penalty, effectiveCapacity, serviceLine, stabilityLine);
+    }
+
+    public double refundPressureMultiplier(double workloadPenalty) {
+        WorkloadProfile profile = new WorkloadProfile(1, 1, 1.0 + Math.max(0.0, workloadPenalty), Math.max(0.0, workloadPenalty), 1, "", "");
+        return refundPressureMultiplier(profile);
+    }
+
+    public double refundPressureMultiplier(WorkloadProfile profile) {
+        if (profile == null) return 1.0;
+        StaffPerformanceProfile perf = performanceProfile();
+        double qualityRelief = clamp((perf.avgQuality - 50.0) / 100.0, -0.20, 0.30);
+        double multiplier = (1.0 + profile.penalty * WORKLOAD_REFUND_SCALE) * (1.0 - qualityRelief);
+        return clamp(multiplier, 0.75, 2.25);
+    }
+
+    public double chaosPressureDelta(WorkloadProfile profile) {
+        if (profile == null) return 0.0;
+        StaffPerformanceProfile perf = performanceProfile();
+        double composureRelief = clamp((perf.avgComposure - 50.0) / 100.0, -0.25, 0.35);
+        double delta = (profile.penalty * WORKLOAD_CHAOS_SCALE) * (1.0 - composureRelief);
+        return clamp(delta, 0.0, 15.0);
+    }
+
+    public double misconductPressureMultiplier(WorkloadProfile profile) {
+        if (profile == null) return 1.0;
+        StaffPerformanceProfile perf = performanceProfile();
+        double reliabilityRelief = clamp((perf.avgReliability - 50.0) / 100.0, -0.20, 0.30);
+        double multiplier = (1.0 + profile.penalty * WORKLOAD_INCIDENT_SCALE) * (1.0 - reliabilityRelief);
+        return clamp(multiplier, 0.75, 2.0);
     }
 
     public double tipRate() {
