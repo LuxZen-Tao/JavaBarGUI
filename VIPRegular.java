@@ -1,3 +1,4 @@
+import java.util.EnumSet;
 import java.util.List;
 
 public final class VIPRegular {
@@ -7,6 +8,7 @@ public final class VIPRegular {
     private final int toleranceThreshold;
     private int loyalty;
     private VIPArcStage arcStage;
+    private final EnumSet<VIPArcStage> consequenceTriggered = EnumSet.noneOf(VIPArcStage.class);
 
     public VIPRegular(String name,
                       VIPArchetype archetype,
@@ -29,12 +31,28 @@ public final class VIPRegular {
     public int getLoyalty() { return loyalty; }
     public VIPArcStage getArcStage() { return arcStage; }
 
-    void adjustLoyalty(int delta) {
+    public boolean isConsequenceTriggered(VIPArcStage stage) {
+        return consequenceTriggered.contains(stage);
+    }
+
+    public void markConsequenceTriggered(VIPArcStage stage) {
+        consequenceTriggered.add(stage);
+    }
+
+    VIPArcStage adjustLoyalty(int delta) {
+        VIPArcStage previous = arcStage;
         loyalty = Math.max(0, Math.min(100, loyalty + delta));
-        if (loyalty >= 85) arcStage = VIPArcStage.DEVOTED;
-        else if (loyalty >= 65) arcStage = VIPArcStage.LOYAL;
-        else if (loyalty >= 45) arcStage = VIPArcStage.CURIOUS;
-        else if (loyalty <= 25) arcStage = VIPArcStage.FADING;
-        else arcStage = VIPArcStage.NEWCOMER;
+        arcStage = stageFromLoyalty(loyalty);
+        return previous;
+    }
+
+    private VIPArcStage stageFromLoyalty(int value) {
+        if (value >= 85) return VIPArcStage.ADVOCATE;
+        if (value >= 65) return VIPArcStage.LOYAL;
+        if (value >= 50) return VIPArcStage.WARMING;
+        if (value <= 15) return VIPArcStage.BACKLASH;
+        if (value <= 30) return VIPArcStage.DISGRUNTLED;
+        if (value <= 45) return VIPArcStage.ANNOYED;
+        return VIPArcStage.NEUTRAL;
     }
 }

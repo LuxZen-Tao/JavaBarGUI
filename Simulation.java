@@ -1671,7 +1671,7 @@ public class Simulation {
         runInnNightly();
 
         if (FeatureFlags.FEATURE_VIPS) {
-            vipSystem.evaluateNight(buildVipNightOutcome());
+            applyVipConsequences(vipSystem.evaluateNightWithConsequences(buildVipNightOutcome()));
         }
 
         if (!s.sickStaffTonight.isEmpty()) {
@@ -2312,7 +2312,8 @@ public class Simulation {
         if (s.nightFights > 0) baseChance += 0.03;
         if (s.chaos > 55) baseChance += 0.03;
         if (s.chaos < 18 && s.nightUnserved == 0 && s.nightRefunds == 0) baseChance -= 0.03;
-        baseChance = Math.max(0.04, Math.min(0.25, baseChance));
+        if (FeatureFlags.FEATURE_VIPS) baseChance -= s.vipRumorShield;
+        baseChance = Math.max(0.02, Math.min(0.25, baseChance));
 
         RumorTone tone = rumorToneFromMorale();
         s.lastRumorDrivers = buildRumorDriverLine(baseChance, tone);
@@ -5018,7 +5019,8 @@ public class Simulation {
         double identityMult = s.currentIdentity != null ? s.currentIdentity.getTrafficMultiplier() : 1.0;
         double levelMult = 1.0 + s.pubLevelTrafficBonusPct;
         double legacyMult = 1.0 + s.legacy.trafficMultiplierBonus;
-        return repMult * weekendMult * identityMult * levelMult * legacyMult * rivalTrafficMultiplier();
+        double vipMult = FeatureFlags.FEATURE_VIPS ? s.vipDemandBoostMultiplier : 1.0;
+        return repMult * weekendMult * identityMult * levelMult * legacyMult * rivalTrafficMultiplier() * vipMult;
     }
 
     private double identityTrafficMultiplier() {
@@ -5083,6 +5085,35 @@ public class Simulation {
                 s.priceMultiplier,
                 foodQualitySignal
         );
+    }
+
+    private void applyVipConsequences(List<VIPSystem.VIPConsequence> consequences) {
+        if (consequences == null || consequences.isEmpty()) return;
+
+        for (VIPSystem.VIPConsequence c : consequences) {
+            if (c == null) continue;
+            if (c.stage() == VIPArcStage.ADVOCATE) {
+                s.vipDemandBoostMultiplier = clamp(s.vipDemandBoostMultiplier * 1.05, 1.0, 1.35);
+                s.vipRumorShield = clamp(s.vipRumorShield + 0.02, 0.0, 0.20);
+                eco.applyRep(+4, "VIP advocate: " + c.vip().getName());
+            } else if (c.stage() == VIPArcStage.BACKLASH) {
+                s.vipRumorShield = clamp(s.vipRumorShield - 0.02, 0.0, 0.20);
+                eco.applyRep(-6, "VIP backlash: " + c.vip().getName());
+                addRumorHeat(Rumor.SLOW_SERVICE, 10, RumorSource.PUNTER);
+                s.baseSecurityLevel = Math.max(0, s.baseSecurityLevel - 1);
+            }
+
+            log.popup(c.popupTitle(), c.popupBody(), c.stage().name());
+            addVipWeeklyNote(c.weeklyLine());
+            s.vipObservationSnippet = c.observationLine();
+            s.vipObservationRoundsRemaining = Math.max(s.vipObservationRoundsRemaining, 6);
+        }
+    }
+
+    private void addVipWeeklyNote(String line) {
+        if (line == null || line.isBlank()) return;
+        s.vipWeeklyNotes.addFirst(line);
+        while (s.vipWeeklyNotes.size() > 8) s.vipWeeklyNotes.removeLast();
     }
 
     private String repMoodLabel() {

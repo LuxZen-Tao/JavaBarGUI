@@ -348,6 +348,11 @@ public class GameState {
     public double rivalPunterMixBias = 0.0;
     public double rivalRumorSentimentBias = 0.0;
     public String rivalDistrictUpdate = "District update: quiet week.";
+    public double vipDemandBoostMultiplier = 1.0;
+    public double vipRumorShield = 0.0;
+    public final Deque<String> vipWeeklyNotes = new ArrayDeque<>();
+    public String vipObservationSnippet = "";
+    public int vipObservationRoundsRemaining = 0;
 
     // temp perks
     public int nextNightServeCapBonus = 0;

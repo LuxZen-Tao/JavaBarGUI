@@ -144,6 +144,19 @@ public class ReportSystem {
         for (String line : summarizeRumors(s, 4)) {
             sb.append("  - ").append(line).append("\n");
         }
+        if (FeatureFlags.FEATURE_VIPS) {
+            sb.append("VIP arcs:\n");
+            if (s.vipWeeklyNotes.isEmpty()) {
+                sb.append("  - No major VIP arc movement this week.\n");
+            } else {
+                int shown = 0;
+                for (String note : s.vipWeeklyNotes) {
+                    sb.append("  - ").append(note).append("\n");
+                    shown++;
+                    if (shown >= 2) break;
+                }
+            }
+        }
         sb.append("\n");
         sb.append("INN SUMMARY\n");
         if (!s.innUnlocked) {

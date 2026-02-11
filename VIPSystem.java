@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Random;
 
 public final class VIPSystem {
+    public record VIPConsequence(VIPRegular vip, VIPArcStage stage, String popupTitle, String popupBody, String weeklyLine, String observationLine) {}
+
     private static final int TARGET_VIPS = 3;
     private final List<VIPRegular> roster = new ArrayList<>();
 
@@ -33,13 +35,46 @@ public final class VIPSystem {
     }
 
     public void evaluateNight(VIPNightOutcome outcome) {
-        if (!FeatureFlags.FEATURE_VIPS) return;
-        if (outcome == null) return;
+        evaluateNightWithConsequences(outcome);
+    }
 
+    public List<VIPConsequence> evaluateNightWithConsequences(VIPNightOutcome outcome) {
+        if (!FeatureFlags.FEATURE_VIPS || outcome == null) return List.of();
+
+        List<VIPConsequence> consequences = new ArrayList<>();
         for (VIPRegular vip : roster) {
             int delta = loyaltyDelta(vip, outcome);
-            vip.adjustLoyalty(delta);
+            VIPArcStage previous = vip.adjustLoyalty(delta);
+            VIPArcStage current = vip.getArcStage();
+
+            if (current != previous && (current == VIPArcStage.ADVOCATE || current == VIPArcStage.BACKLASH)
+                    && !vip.isConsequenceTriggered(current)) {
+                vip.markConsequenceTriggered(current);
+                consequences.add(buildConsequence(vip, current));
+            }
         }
+        return consequences;
+    }
+
+    private VIPConsequence buildConsequence(VIPRegular vip, VIPArcStage stage) {
+        if (stage == VIPArcStage.ADVOCATE) {
+            return new VIPConsequence(
+                    vip,
+                    stage,
+                    "VIP Advocate",
+                    vip.getName() + " became an advocate and is championing your bar.",
+                    "VIP " + vip.getName() + " is now an advocate, drawing friend groups and positive chatter.",
+                    vip.getName() + " is hyping your venue around the district."
+            );
+        }
+        return new VIPConsequence(
+                vip,
+                stage,
+                "VIP Backlash",
+                vip.getName() + " turned against the bar and is spreading backlash.",
+                "VIP " + vip.getName() + " entered backlash; word-of-mouth turned hostile.",
+                vip.getName() + " was openly critical of tonight's experience."
+        );
     }
 
     int loyaltyDelta(VIPRegular vip, VIPNightOutcome outcome) {
@@ -67,7 +102,7 @@ public final class VIPSystem {
             case NIGHT_OWL -> 40;
         };
         int baseLoyalty = 40 + (random.nextInt(11));
-        return new VIPRegular(name, archetype, tags, tolerance, baseLoyalty, VIPArcStage.NEWCOMER);
+        return new VIPRegular(name, archetype, tags, tolerance, baseLoyalty, VIPArcStage.NEUTRAL);
     }
 
     private List<VIPPreferenceTag> preferenceFor(VIPArchetype archetype) {
