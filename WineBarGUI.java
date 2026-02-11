@@ -384,8 +384,6 @@ public class WineBarGUI {
 
     private void handleFreshWeekAutosave(int week) {
         if (week <= lastAutosavedWeek) return;
-        if (state.dayIndex != 0 || state.nightOpen) return;
-        if (optionsDialog != null && optionsDialog.isShowing()) return;
         if (!SwingUtilities.isEventDispatchThread()) {
             SwingUtilities.invokeLater(() -> handleFreshWeekAutosave(week));
             return;
