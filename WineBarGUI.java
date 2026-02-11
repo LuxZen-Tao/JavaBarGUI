@@ -285,21 +285,40 @@ public class WineBarGUI {
 
     private void finishBootSequence(BootSequencePanel.StartAction action) {
         if (action == BootSequencePanel.StartAction.LOAD_GAME) {
-            startLoadGameFromMenu();
+            startLoadGame();
         } else {
-            frame.setContentPane(root);
-            frame.revalidate();
-            frame.repaint();
-            frame.requestFocusInWindow();
-            startNewGameFromMenu();
+            startNewGameFresh();
         }
     }
 
-    private void startNewGameFromMenu() {
-        log.info("Starting new game.");
+    private void startNewGameFresh() {
+        if (!confirmNewGameWhenSaveExists()) {
+            resetToMainMenu();
+            return;
+        }
+        GameState freshState = GameFactory.newGame();
+        launchReplacementGame(freshState);
     }
 
-    private void startLoadGameFromMenu() {
+    private boolean confirmNewGameWhenSaveExists() {
+        if (!SaveManager.hasSave()) {
+            return true;
+        }
+        Object[] options = {"Cancel", "Continue"};
+        int choice = JOptionPane.showOptionDialog(
+                frame,
+                "A saved game already exists. Starting a new game won’t load it, but saving later will overwrite it. Continue?",
+                "Start New Game?",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+        return choice == 1;
+    }
+
+    private void startLoadGame() {
         System.out.println("LOAD: begin");
         if (!SaveManager.hasSave()) {
             JOptionPane.showMessageDialog(frame, "No save found.", "Load Game", JOptionPane.INFORMATION_MESSAGE);
