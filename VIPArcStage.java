@@ -6,4 +6,8 @@ public enum VIPArcStage {
     ANNOYED,
     DISGRUNTLED,
     BACKLASH
+    NEWCOMER,
+    CURIOUS,
+    DEVOTED,
+    FADING
 }

@@ -3214,7 +3214,8 @@ public class Simulation {
         double trafficMult = baseTrafficMultiplier() * identityTrafficMultiplier() * rumorTrafficMultiplier()
                 * activities.trafficMultiplier() * securityPolicyTrafficMultiplier()
                 * securityTaskTrafficMultiplier()
-                * (1.0 + s.landlordTrafficBonusPct);
+                * (1.0 + s.landlordTrafficBonusPct)
+                * rivalTrafficMultiplier();
         double creditBalance = s.totalCreditBalance()
                 + (s.loanShark.isOpen() ? s.loanShark.getBalance() : 0.0);
         double creditWeeklyDue = s.totalCreditWeeklyPaymentDue();
