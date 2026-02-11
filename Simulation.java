@@ -952,7 +952,19 @@ public class Simulation {
             return;
         }
 
-        if (!eco.tryPay(up.getCost(), TransactionType.UPGRADE, "Upgrade: " + up.getLabel(), CostTag.UPGRADE)) return;
+        double cost = up.getCost();
+        if (s.cash < cost) {
+            double shortfall = cost - s.cash;
+            if (!s.creditLines.hasAvailableCredit(shortfall)) {
+                log.neg("Upgrade purchase failed: credit limit exceeded for GBP " + String.format("%.2f", shortfall) + ".");
+                return;
+            }
+        }
+
+        if (!eco.tryPay(cost, TransactionType.UPGRADE, "Upgrade: " + up.getLabel(), CostTag.UPGRADE)) {
+            log.neg("Upgrade purchase failed: unable to fund purchase from cash/credit.");
+            return;
+        }
 
         int nights = 1 + s.random.nextInt(4);
         s.pendingUpgradeInstalls.add(new PendingUpgradeInstall(up, nights, nights));

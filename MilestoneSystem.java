@@ -299,9 +299,6 @@ public class MilestoneSystem {
                 || s.achievedMilestones.contains(Milestone.M3_NO_ONE_LEAVES_ANGRY))) {
             missing.add("Requires milestone: Crew That Stays");
         }
-        if (availableCash + 0.0001 < upgrade.getCost()) {
-            missing.add("Insufficient funds");
-        }
         return new UpgradeAvailability(missing.isEmpty(), missing);
     }
 

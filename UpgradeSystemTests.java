@@ -33,8 +33,11 @@ public class UpgradeSystemTests {
         assert !cctv.unlocked() : "CCTV should be locked without milestone.";
         assert cctv.missingRequirements().stream().anyMatch(s -> s.contains("Margin With Manners"))
                 : "CCTV lock reason should mention required milestone.";
-        assert cctv.missingRequirements().stream().anyMatch(s -> s.contains("Insufficient"))
-                : "Lock reason should include insufficient funds when cash is low.";
+        assert cctv.missingRequirements().stream().noneMatch(s -> s.toLowerCase().contains("insufficient"))
+                : "Cash should not be part of upgrade availability lock reasons.";
+
+        MilestoneSystem.UpgradeAvailability dartsLowCash = milestones.getUpgradeAvailability(PubUpgrade.DARTS, 0.0);
+        assert dartsLowCash.unlocked() : "Affordable cash is not required for upgrade availability.";
     }
 
     private static void buyingUpgradeChargesCashAndQueuesInstall() {
