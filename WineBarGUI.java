@@ -324,7 +324,7 @@ public class WineBarGUI {
 
     private void handleFreshWeekAutosave(int week) {
         if (week <= lastAutosavedWeek) return;
-        if (state.dayIndex != 0 || state.nightOpen || state.paydayReady) return;
+        if (state.dayIndex != 0 || state.nightOpen) return;
         if (optionsDialog != null && optionsDialog.isShowing()) return;
         if (!SwingUtilities.isEventDispatchThread()) {
             SwingUtilities.invokeLater(() -> handleFreshWeekAutosave(week));
@@ -884,8 +884,8 @@ public class WineBarGUI {
     }
 
     private void saveFromOptions() {
-        if (state.paydayReady) {
-            optionsSaveStatusLabel.setText("Wait for weekly processing to finish.");
+        if (state.nightOpen) {
+            optionsSaveStatusLabel.setText("Service must be closed before saving.");
             return;
         }
         try {
@@ -2727,6 +2727,7 @@ public class WineBarGUI {
 
     private void refreshActivitiesButtons() {
         if (activitiesDialog == null || activitiesListPanel == null) return;
+        sim.recomputeActivityAvailability();
 
         for (Component c : activitiesListPanel.getComponents()) {
             if (!(c instanceof JButton b)) continue;
@@ -2734,15 +2735,17 @@ public class WineBarGUI {
             PubActivity a = (PubActivity) b.getClientProperty("activity");
             if (a == null) continue;
 
+            MilestoneSystem.ActivityAvailability availability = sim.getActivityAvailability(a);
             String requirement = sim.activityRequirementText(a);
-            boolean unlocked = state.unlockedActivities.contains(a);
-            boolean enabled = requirement == null && unlocked && !state.nightOpen && state.scheduledActivity == null;
+            boolean unlocked = availability.unlocked();
+            boolean enabled = unlocked && !state.nightOpen && state.scheduledActivity == null;
             b.setEnabled(enabled);
 
             String txt = a.toString();
-            if (!unlocked || requirement != null) {
-                String reqText = requirement != null ? (" (" + requirement + ")") : "";
-                txt = " LOCKED" + reqText + "  " + txt;
+            if (!unlocked) {
+                txt = " LOCKED (" + requirement + ")  " + txt;
+            } else {
+                txt = " UNLOCKED  " + txt;
             }
             if (state.activityTonight == a) txt = " RUNNING  " + txt;
             if (state.scheduledActivity != null) {
@@ -2751,7 +2754,17 @@ public class WineBarGUI {
                 b.setEnabled(false);
             }
             b.setText(txt);
-            b.setToolTipText(requirement);
+            String tooltip = "Unlocked: " + unlocked;
+            if (!unlocked) {
+                tooltip += " | " + requirement;
+            } else {
+                tooltip += " | " + sim.activityEffectPreview(a);
+            }
+            String categoryHint = sim.activityCategoryHint(a);
+            if (!categoryHint.isBlank()) {
+                tooltip += " | " + categoryHint;
+            }
+            b.setToolTipText(tooltip);
         }
     }
 

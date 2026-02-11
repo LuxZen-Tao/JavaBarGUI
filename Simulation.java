@@ -210,6 +210,7 @@ public class Simulation {
         log.popup(" Supplier deal", "Available between nights: " + supplierSystem.dealLabel(), "");
 
         audioManager.setMusicProfile(s.currentMusicProfile != null ? s.currentMusicProfile.name() : MusicProfileType.ACOUSTIC_CHILL.name());
+        recomputeActivityAvailability();
     }
 
     public void setWeekStartHook(java.util.function.IntConsumer weekStartHook) {
@@ -747,6 +748,28 @@ public class Simulation {
         return milestones.activityRequirementText(activity);
     }
 
+    public MilestoneSystem.ActivityAvailability getActivityAvailability(PubActivity activity) {
+        return milestones.getActivityAvailability(activity);
+    }
+
+    public void recomputeActivityAvailability() {
+        milestones.recomputeActivityAvailability();
+    }
+
+    public String activityCategoryHint(PubActivity activity) {
+        if (activity == null || activity.getRequiredIdentity() == null) return "";
+        return "Category: " + activity.getRequiredIdentity().name().replace('_', ' ')
+                + " — best with matching identity (slightly weaker if not).";
+    }
+
+    public String activityEffectPreview(PubActivity activity) {
+        double trafficPct = activities.effectiveTrafficBonusPct(activity) * 100.0;
+        double idPct = (activities.identityMultiplier(activity) - 1.0) * 100.0;
+        String idLabel = idPct >= 0 ? "match" : "mismatch";
+        return "Traffic +" + (int)Math.round(trafficPct) + "% (Identity " + idLabel + ": "
+                + (idPct >= 0 ? "+" : "") + (int)Math.round(idPct) + "%)";
+    }
+
     public void toggleHappyHour(boolean on) {
         if (!s.nightOpen && on) { log.neg(" Happy Hour can only be toggled while the pub is OPEN."); return; }
         s.happyHour = on;
@@ -755,21 +778,13 @@ public class Simulation {
 
     public void startActivity(PubActivity a) {
         if (s.nightOpen) { log.neg("Activities can only be scheduled between nights."); return; }
-        if (!milestones.isActivityUnlocked(a)) { log.neg("That activity is not unlocked yet."); return; }
-        if (!s.unlockedActivities.contains(a)) { log.neg("That activity is not unlocked yet."); return; }
+        recomputeActivityAvailability();
+        MilestoneSystem.ActivityAvailability availability = milestones.getActivityAvailability(a);
+        if (!availability.unlocked()) {
+            log.neg("That activity is locked: " + String.join(", ", availability.missingRequirements()) + ".");
+            return;
+        }
         if (s.scheduledActivity != null) { log.info("Activity already scheduled."); return; }
-        if (a.getRequiredLevel() > 0 && s.pubLevel < a.getRequiredLevel()) {
-            log.neg("That activity requires pub level " + a.getRequiredLevel() + ".");
-            return;
-        }
-        if (a.getRequiredIdentity() != null && s.currentIdentity != a.getRequiredIdentity()) {
-            log.neg("That activity requires identity: " + a.getRequiredIdentity() + ".");
-            return;
-        }
-        if (a.getRequiredUpgrade() != null && !s.ownedUpgrades.contains(a.getRequiredUpgrade())) {
-            log.neg("That activity requires upgrade: " + a.getRequiredUpgrade().getLabel() + ".");
-            return;
-        }
         if (s.activityTonight != null) { log.info("Activity already running tonight."); return; }
 
         if (!eco.tryPay(a.getCost(), TransactionType.ACTIVITY, "Activity: " + a.getLabel(), CostTag.ACTIVITY)) return;
@@ -919,6 +934,7 @@ public class Simulation {
 
         if (s.ownedUpgrades.size() == 3) log.event(" Milestone: 3 upgrades owned - your pub is becoming a 'place'.");
         if (s.ownedUpgrades.size() == 6) log.event(" Milestone: 6 upgrades - locals start calling it 'their' pub. Dangerous.");
+        recomputeActivityAvailability();
     }
 
     private boolean isUpgradeInstalling(PubUpgrade up) {
@@ -1735,10 +1751,12 @@ public class Simulation {
         if (s.dayIndex == 0) {
             endOfWeek();
             s.weekCount++;
+            recomputeActivityAvailability();
             if (weekStartHook != null) weekStartHook.accept(s.weekCount);
         }
 
         milestones.onNightEnd();
+        recomputeActivityAvailability();
         audioManager.onNightEnd();
     }
 
@@ -1925,6 +1943,7 @@ public class Simulation {
         if (showPopup) {
             log.popupUpgrade(" Upgrade installed", up.getLabel(), " is now active.", "");
         }
+        recomputeActivityAvailability();
     }
 
     private void applyInnEvent(String headline, double innRepDelta, int pubRepDelta, double extraMaintenance, boolean hasDutyManager) {
@@ -2121,6 +2140,7 @@ public class Simulation {
         staff.handleWeeklyLevelUps(s.random, log, s.chaos);
         applyDebtSpiralMoraleDecay();
         identitySystem.updateWeeklyIdentity();
+        recomputeActivityAvailability();
         rumors.updateWeeklyRumors();
         runRivalDistrictWeek();
         endOfWeekReport();
@@ -3498,26 +3518,12 @@ public class Simulation {
     private String buildUnlockedActivityInfoText() {
         StringBuilder sb = new StringBuilder();
         for (PubActivity activity : PubActivity.values()) {
-            if (!milestones.isActivityUnlocked(activity)) continue;
-            List<String> requirements = new java.util.ArrayList<>();
-            if (activity.requiresUnlock()) requirements.add("Milestone unlock");
-            if (activity.getRequiredUpgrade() != null) {
-                requirements.add(activity.getRequiredUpgrade().getLabel() + " installed");
-            }
-            if (activity.getRequiredLevel() > 0) {
-                requirements.add("Level " + activity.getRequiredLevel() + "+");
-            }
-            if (activity.getRequiredIdentity() != null) {
-                requirements.add("Identity " + activity.getRequiredIdentity().name());
-            }
-            String requirementMet = requirements.isEmpty()
-                    ? "No requirement"
-                    : String.join(", ", requirements);
-            String effects = "traffic +" + (int)Math.round(activity.getTrafficBonusPct() * 100) + "%"
-                    + ", cap +" + activity.getCapacityBonus()
+            MilestoneSystem.ActivityAvailability availability = milestones.getActivityAvailability(activity);
+            if (!availability.unlocked()) continue;
+            String effects = "traffic +" + (int)Math.round(activities.effectiveTrafficBonusPct(activity) * 100) + "%"
                     + ", rep " + (activity.getRepInstantDelta() >= 0 ? "+" : "") + activity.getRepInstantDelta();
             sb.append("- ").append(activity.getLabel())
-                    .append(" | ").append(requirementMet)
+                    .append(" | ").append(activityCategoryHint(activity))
                     .append(" | ").append(effects)
                     .append("\n");
         }

@@ -1,7 +1,7 @@
 public enum PubActivity {
 
     // label, cost, trafficBonusPct, capacityBonus, repInstantDelta, eventBonusChance, riskBonusPct, tipBonusPct, priceMultiplierPct,
-    // requiresUnlock, requiredIdentity, requiredLevel, requiredUpgrade, identitySignal
+    // requiresUnlock(milestone), categoryIdentity, levelBaseline, requiredUpgrade, identitySignal
     LIVE_BAND_NIGHT("Live Band Night", 120, 0.18, 6, +1, 10, 0.10, 0.02, 0.00,
             false, PubIdentity.ROWDY, 1, null, 1.2),
     QUIZ_NIGHT("Quiz Night", 60, 0.08, 4, +3, 2, -0.04, 0.01, 0.00,
@@ -114,8 +114,8 @@ public enum PubActivity {
         String tipTag = tipBonusPct > 0 ? " | tips +" + (int)Math.round(tipBonusPct * 100) + "%" : "";
         String riskTag = riskBonusPct != 0 ? " | risk " + (riskBonusPct > 0 ? "+" : "")
                 + (int)Math.round(riskBonusPct * 100) + "%" : "";
-        String identityTag = requiredIdentity != null ? " | identity " + requiredIdentity.name() : "";
-        String levelTag = requiredLevel > 0 ? " | level " + requiredLevel + "+" : "";
+        String identityTag = requiredIdentity != null ? " | category " + requiredIdentity.name() : "";
+        String levelTag = " | scales with pub level";
 
         return label
                 + " | " + String.format("%.0f", cost)
