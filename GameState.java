@@ -165,6 +165,24 @@ public class GameState implements java.io.Serializable {
     public double lastChaosMoraleNegMult = 1.0;
     public double lastChaosMoralePosMult = 1.0;
     public final Deque<String> milestoneRewardLog = new ArrayDeque<>();
+    public int noStockoutStreakNights = 0;
+    public int calmNightsStreak = 0;
+    public int calmNightsWithActivityStreak = 0;
+    public int weeksNoStaffDepartures = 0;
+    public int staffDeparturesThisWeek = 0;
+    public int chaosRecoveryNightsRemaining = 0;
+    public boolean chaosRecoveryPending = false;
+    public int weeksDominantIdentityStreak = 0;
+    public int weeklyDifferentActivityCategories = 0;
+    public int nearCapacityServiceNightsThisWeek = 0;
+    public boolean usedCreditThisWeek = false;
+    public int creditScoreAtWeekStart = 540;
+    public int zeroDebtWeekStreak = 0;
+    public int goldenQuarterWeekStreak = 0;
+    public int negativeRumorRecoveryWeeksRemaining = 0;
+    public boolean negativeRumorRecoveryPending = false;
+    public int largeBulkOrdersCompleted = 0;
+    public boolean topTierActivityRanThisWeek = false;
     public int weekActivityNights = 0;
     public EnumMap<PubIdentity, Double> weekIdentitySignals = new EnumMap<>(PubIdentity.class);
     public int roundsSinceLastEvent = 0;
@@ -329,6 +347,10 @@ public class GameState implements java.io.Serializable {
     // milestone tracking + popups
     public final EnumSet<MilestoneSystem.Milestone> achievedMilestones = EnumSet.noneOf(MilestoneSystem.Milestone.class);
     public final Deque<String> milestonePopups = new ArrayDeque<>();
+    public int unlockedLandlordActionTier = 1;
+    public int supplierBulkUnlockTier = 0;
+    public boolean premiumSupplierCatalogUnlocked = false;
+    public final EnumSet<PubIdentity> weekActivityIdentityCategories = EnumSet.noneOf(PubIdentity.class);
 
     // reputation event tracking
     public int consecutiveHighRepRounds = 0;

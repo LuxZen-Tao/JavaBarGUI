@@ -1,244 +1,225 @@
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+
 public class MilestoneSystem {
 
     public enum Milestone {
-        FIRST_NIGHT,
-        FIVE_NIGHTS,
-        TEN_NIGHTS,
-        CASH_STACK,
-        REP_STAR,
-        LOCAL_FAVOURITE,
-        KNOWN_VENUE,
-        REP_PEAK_90,
-        ZERO_DEBT_WEEK,
-        PERFECT_WEEK,
-        PROFIT_STREAK_2,
-        PROFIT_STREAK_4,
-        KITCHEN_LAUNCH,
-        ACTIVITY_UNLOCK
+        M1_OPEN_FOR_BUSINESS,
+        M2_NO_EMPTY_SHELVES,
+        M3_NO_ONE_LEAVES_ANGRY,
+        M4_PAYROLL_GUARDIAN,
+        M5_CALM_HOUSE,
+        M6_MARGIN_WITH_MANNERS,
+        M7_CREW_THAT_STAYS,
+        M8_ORDER_RESTORED,
+        M9_KNOWN_FOR_SOMETHING,
+        M10_MIXED_CROWD_WHISPERER,
+        M11_NARRATIVE_RECOVERY,
+        M12_BOOKED_OUT,
+        M13_BRIDGE_DONT_BLEED,
+        M14_DEBT_DIET,
+        M15_BALANCED_BOOKS_BUSY_HOUSE,
+        M16_SUPPLIERS_FAVOURITE,
+        M17_GOLDEN_QUARTER,
+        M18_STORMPROOF_OPERATOR,
+        M19_HEADLINER_VENUE
     }
+
+    public enum EvaluationReason {
+        NIGHT_END,
+        WEEK_END,
+        REPUTATION_CHANGE,
+        PAYDAY,
+        ACTIVITY,
+        SUPPLIER
+    }
+
+    private static final double CHAOS_HIGH_THRESHOLD = 60.0;
+    private static final double CHAOS_SAFE_THRESHOLD = 25.0;
+    private static final double CREW_MORALE_THRESHOLD = 65.0;
+    private static final double BOOKED_OUT_SALES_FACTOR = 0.65;
+    private static final double GOLDEN_QUARTER_REP_TARGET = 45.0;
+    private static final int STORMPROOF_NEGATIVE_EVENTS = 3;
 
     private final GameState s;
     private final UILogger log;
-    private boolean applyingReward = false;
-    private final java.util.EnumMap<PubActivity, Milestone> activityMilestoneRequirements = new java.util.EnumMap<>(PubActivity.class);
-    private final java.util.EnumMap<PubActivity, ActivityAvailability> activityAvailability = new java.util.EnumMap<>(PubActivity.class);
+    private final EnumMap<PubActivity, Milestone> activityMilestoneRequirements = new EnumMap<>(PubActivity.class);
+    private final EnumMap<PubActivity, ActivityAvailability> activityAvailability = new EnumMap<>(PubActivity.class);
+    private final List<MilestoneDefinition> definitions = new ArrayList<>();
+
+    private record MilestoneDefinition(Milestone id, int tier, String title, String description, String rewardText) {}
 
     public static final class ActivityAvailability {
         private final boolean unlocked;
-        private final java.util.List<String> missingRequirements;
+        private final List<String> missingRequirements;
 
-        public ActivityAvailability(boolean unlocked, java.util.List<String> missingRequirements) {
+        public ActivityAvailability(boolean unlocked, List<String> missingRequirements) {
             this.unlocked = unlocked;
-            this.missingRequirements = missingRequirements == null ? java.util.List.of() : java.util.List.copyOf(missingRequirements);
+            this.missingRequirements = missingRequirements == null ? List.of() : List.copyOf(missingRequirements);
         }
 
         public boolean unlocked() { return unlocked; }
-        public java.util.List<String> missingRequirements() { return missingRequirements; }
+        public List<String> missingRequirements() { return missingRequirements; }
     }
 
     public MilestoneSystem(GameState s, UILogger log) {
         this.s = s;
         this.log = log;
-        activityMilestoneRequirements.put(PubActivity.QUIZ_NIGHT, Milestone.LOCAL_FAVOURITE);
-        activityMilestoneRequirements.put(PubActivity.OPEN_MIC, Milestone.KNOWN_VENUE);
-        activityMilestoneRequirements.put(PubActivity.BREWERY_TAKEOVER, Milestone.ACTIVITY_UNLOCK);
-        activityMilestoneRequirements.put(PubActivity.KARAOKE, Milestone.FIVE_NIGHTS);
-        activityMilestoneRequirements.put(PubActivity.CHARITY_NIGHT, Milestone.TEN_NIGHTS);
-        activityMilestoneRequirements.put(PubActivity.COCKTAIL_PROMO, Milestone.CASH_STACK);
-        activityMilestoneRequirements.put(PubActivity.FAMILY_LUNCH, Milestone.KITCHEN_LAUNCH);
+        buildDefinitions();
+        wireActivityRequirements();
+        if (!s.prestigeMilestones.isEmpty() && s.achievedMilestones.isEmpty()) {
+            s.achievedMilestones.addAll(s.prestigeMilestones);
+        }
         recomputeActivityAvailability();
     }
 
-    public void onRepChanged() {
-        if (applyingReward) return;
-        if (s.reputation >= 50) {
-            unlockActivity(PubActivity.QUIZ_NIGHT,
-                    Milestone.LOCAL_FAVOURITE,
-                    "Local favourite",
-                    "Reputation 50+",
-                    "Unlocked activity: Quiz Night.");
-        }
-        if (s.reputation >= 65) {
-            unlockActivity(PubActivity.OPEN_MIC,
-                    Milestone.KNOWN_VENUE,
-                    "Known venue",
-                    "Reputation 65+",
-                    "Unlocked activity: Open Mic.");
-        }
-        if (s.reputation >= 70) {
-            unlockActivity(PubActivity.BREWERY_TAKEOVER,
-                    Milestone.ACTIVITY_UNLOCK,
-                    "Community darling",
-                    "Reputation 70+",
-                    "Unlocked activity: Brewery Takeover.");
-        }
-        if (s.reputation >= 80) {
-            grantMilestone(Milestone.REP_STAR,
-                    "Reputation star",
-                    "Reputation 80+",
-                    "Reward: cash bonus +150.",
-                    () -> grantCashBonus(150, "Reputation star"));
-        }
+    private void buildDefinitions() {
+        definitions.add(new MilestoneDefinition(Milestone.M1_OPEN_FOR_BUSINESS, 1, "Open For Business", "Survive 3 services without bankruptcy.", "Unlocks: Karaoke"));
+        definitions.add(new MilestoneDefinition(Milestone.M2_NO_EMPTY_SHELVES, 1, "No Empty Shelves", "Two consecutive nights with zero stockouts.", "Unlocks: Cocktail Promo"));
+        definitions.add(new MilestoneDefinition(Milestone.M3_NO_ONE_LEAVES_ANGRY, 1, "No One Leaves Angry", "One perfect service night (0 refunds, 0 unserved).", "Unlocks: Staff Room II upgrades"));
+        definitions.add(new MilestoneDefinition(Milestone.M4_PAYROLL_GUARDIAN, 1, "Payroll Guardian", "Pay wages and rent on payday.", "Unlocks: Quiz Night"));
+        definitions.add(new MilestoneDefinition(Milestone.M5_CALM_HOUSE, 2, "Calm House", "3 calm nights in a row while running activity.", "Unlocks: Open Mic"));
+        definitions.add(new MilestoneDefinition(Milestone.M6_MARGIN_WITH_MANNERS, 2, "Margin With Manners", "Weekly avg price >=1.15 and positive rep delta.", "Unlocks: CCTV"));
+        definitions.add(new MilestoneDefinition(Milestone.M7_CREW_THAT_STAYS, 2, "Crew That Stays", "2 weeks no staff departures and morale stable.", "Unlocks: Staff Room III"));
+        definitions.add(new MilestoneDefinition(Milestone.M8_ORDER_RESTORED, 2, "Order Restored", "Recover from high chaos to safe chaos within 2 nights.", "Unlocks: Landlord actions tier 2"));
+        definitions.add(new MilestoneDefinition(Milestone.M9_KNOWN_FOR_SOMETHING, 3, "Known For Something", "Hold one dominant identity for 2 weeks.", "Unlocks: Charity Night"));
+        definitions.add(new MilestoneDefinition(Milestone.M10_MIXED_CROWD_WHISPERER, 3, "Mixed Crowd Whisperer", "Run 3 different activity categories without collapse.", "Unlocks: Family Lunch"));
+        definitions.add(new MilestoneDefinition(Milestone.M11_NARRATIVE_RECOVERY, 3, "Narrative Recovery", "Recover from a negative rumor week in 2 weeks.", "Unlocks: Brewery Takeover"));
+        definitions.add(new MilestoneDefinition(Milestone.M12_BOOKED_OUT, 3, "Booked Out", "Three near-capacity quality nights in one week.", "Unlocks: Landlord actions tier 3"));
+        definitions.add(new MilestoneDefinition(Milestone.M13_BRIDGE_DONT_BLEED, 4, "Bridge, Don't Bleed", "Use credit and clear it same week without misses.", "Unlocks: Supplier bulk tier x100"));
+        definitions.add(new MilestoneDefinition(Milestone.M14_DEBT_DIET, 4, "Debt Diet", "3 consecutive zero-debt week endings.", "Unlocks: Supplier bulk tier x300"));
+        definitions.add(new MilestoneDefinition(Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE, 4, "Balanced Books, Busy House", "Hit profit target while funding wages/security.", "Unlocks: Door Team II"));
+        definitions.add(new MilestoneDefinition(Milestone.M16_SUPPLIERS_FAVOURITE, 4, "Supplier's Favourite", "Good supplier trust + one large bulk order.", "Unlocks: Premium supplier catalog"));
+        definitions.add(new MilestoneDefinition(Milestone.M17_GOLDEN_QUARTER, 5, "Golden Quarter", "4 strong weeks in a row.", "Unlocks: Landlord actions tier 4"));
+        definitions.add(new MilestoneDefinition(Milestone.M18_STORMPROOF_OPERATOR, 5, "Stormproof Operator", "Profitable week with positive rep under high adversity.", "Unlocks: Door Team III"));
+        definitions.add(new MilestoneDefinition(Milestone.M19_HEADLINER_VENUE, 5, "Headliner Venue", "Premium pricing + high rep + top-tier programming quality.", "Unlocks: Landlord actions tier 5 + supplier bulk x500"));
     }
 
-    public void onNightEnd() {
-        grantMilestone(Milestone.FIRST_NIGHT,
-                "First night survived",
-                "Complete 1 night",
-                "Reward: morale +1 for all staff.",
-                () -> applyTeamMoraleBoost(1));
-
-        if (s.nightCount >= 5) {
-            unlockActivity(PubActivity.KARAOKE,
-                    Milestone.FIVE_NIGHTS,
-                    "Five nights open",
-                    "Complete 5 nights",
-                    "Unlocked activity: Karaoke.");
-        }
-
-        if (s.nightCount >= 10) {
-            unlockActivity(PubActivity.CHARITY_NIGHT,
-                    Milestone.TEN_NIGHTS,
-                    "Ten nights open",
-                    "Complete 10 nights",
-                    "Unlocked activity: Charity Night.");
-        }
-
-        if (s.totalCashEarned >= 500) {
-            unlockActivity(PubActivity.COCKTAIL_PROMO,
-                    Milestone.CASH_STACK,
-                    "Cash flow milestone",
-                    "Earn GBP 500 total",
-                    "Unlocked activity: Cocktail Promo.");
-        }
-
-        if (s.peakReputation >= 90) {
-            grantMilestone(Milestone.REP_PEAK_90,
-                    "Reputation peak 90",
-                    "Reach reputation 90",
-                    "Reward: chaos -10.",
-                    () -> reduceChaos(10, "Reputation peak"));
-        }
-    }
-    
-
-    public void onWeekEnd() {
-        if (s.profitStreakWeeks >= 2) {
-            grantMilestone(Milestone.PROFIT_STREAK_2,
-                    "Profitable streak (2 weeks)",
-                    "Profit for 2 consecutive weeks",
-                    "Reward: cash bonus +120.",
-                    () -> grantCashBonus(120, "Profit streak"));
-        }
-
-        if (s.profitStreakWeeks >= 4) {
-            grantMilestone(Milestone.PROFIT_STREAK_4,
-                    "Profitable streak (4 weeks)",
-                    "Profit for 4 consecutive weeks",
-                    "Reward: skilled staff hire.",
-                    this::grantSkilledStaffHire);
-        }
-
-        if (s.totalCreditBalance() <= 0.0) {
-            grantMilestone(Milestone.ZERO_DEBT_WEEK,
-                    "Zero-debt week",
-                    "Finish a week with zero debt",
-                    "Reward: chaos -8.",
-                    () -> reduceChaos(8, "Zero-debt week"));
-        }
-
-        if (s.totalCreditBalance() <= 0.0 && s.fightsThisWeek == 0 && s.reputation > 0) {
-            grantMilestone(Milestone.PERFECT_WEEK,
-                    "Perfect week",
-                    "Zero debt + no fights + positive rep",
-                    "Reward: cash bonus +200 and morale +2.",
-                    () -> {
-                        grantCashBonus(200, "Perfect week");
-                        applyTeamMoraleBoost(2);
-                    });
-        }
-
-        if (s.kitchenUnlocked) {
-            unlockActivity(PubActivity.FAMILY_LUNCH,
-                    Milestone.KITCHEN_LAUNCH,
-                    "Kitchen launch",
-                    "Install Kitchen Base",
-                    "Unlocked activity: Family Lunch.");
-        }
+    private void wireActivityRequirements() {
+        activityMilestoneRequirements.put(PubActivity.KARAOKE, Milestone.M1_OPEN_FOR_BUSINESS);
+        activityMilestoneRequirements.put(PubActivity.COCKTAIL_PROMO, Milestone.M2_NO_EMPTY_SHELVES);
+        activityMilestoneRequirements.put(PubActivity.QUIZ_NIGHT, Milestone.M4_PAYROLL_GUARDIAN);
+        activityMilestoneRequirements.put(PubActivity.OPEN_MIC, Milestone.M5_CALM_HOUSE);
+        activityMilestoneRequirements.put(PubActivity.CHARITY_NIGHT, Milestone.M9_KNOWN_FOR_SOMETHING);
+        activityMilestoneRequirements.put(PubActivity.FAMILY_LUNCH, Milestone.M10_MIXED_CROWD_WHISPERER);
+        activityMilestoneRequirements.put(PubActivity.BREWERY_TAKEOVER, Milestone.M11_NARRATIVE_RECOVERY);
     }
 
-    private void unlockActivity(PubActivity activity,
-                                Milestone milestone,
-                                String title,
-                                String requirementText,
-                                String rewardText) {
-        if (s.achievedMilestones.contains(milestone)) return;
-        grantMilestone(milestone, title, requirementText, rewardText, null);
+    public void onRepChanged() { evaluateMilestones(EvaluationReason.REPUTATION_CHANGE); }
+    public void onNightEnd() { evaluateMilestones(EvaluationReason.NIGHT_END); }
+    public void onWeekEnd() { evaluateMilestones(EvaluationReason.WEEK_END); }
+    public void onPaydayResolved() { evaluateMilestones(EvaluationReason.PAYDAY); }
+    public void onActivityScheduled(PubActivity activity) {
+        if (activity != null && activity.getRequiredIdentity() != null) {
+            s.weekActivityIdentityCategories.add(activity.getRequiredIdentity());
+            s.weeklyDifferentActivityCategories = s.weekActivityIdentityCategories.size();
+            if (activity.getCost() >= 140) s.topTierActivityRanThisWeek = true;
+        }
+        evaluateMilestones(EvaluationReason.ACTIVITY);
+    }
+    public void onSupplierOrder(int qty) {
+        if (qty >= 25) s.largeBulkOrdersCompleted++;
+        evaluateMilestones(EvaluationReason.SUPPLIER);
     }
 
-    private void grantMilestone(Milestone milestone,
-                                String title,
-                                String requirementText,
-                                String rewardText,
-                                Runnable reward) {
-        if (s.achievedMilestones.contains(milestone)) return;
-        s.achievedMilestones.add(milestone);
-        s.prestigeMilestones.add(milestone);
-        applyingReward = true;
-        try {
-            if (reward != null) reward.run();
-        } finally {
-            applyingReward = false;
+    public void evaluateMilestones(EvaluationReason reason) {
+        for (MilestoneDefinition def : definitions) {
+            if (s.achievedMilestones.contains(def.id())) continue;
+            if (isMet(def.id())) {
+                grant(def, reason);
+            }
         }
+        recomputeActivityAvailability();
+    }
 
-        String msg = " " + title + "\n" + rewardText;
+    private boolean isMet(Milestone id) {
+        return switch (id) {
+            case M1_OPEN_FOR_BUSINESS -> s.nightCount >= 3 && !s.businessCollapsed && !s.bankruptcyDeclared;
+            case M2_NO_EMPTY_SHELVES -> s.noStockoutStreakNights >= 2;
+            case M3_NO_ONE_LEAVES_ANGRY -> s.nightRefunds == 0 && s.nightUnserved == 0 && s.nightFoodUnserved == 0;
+            case M4_PAYROLL_GUARDIAN -> s.wagesPaidLastWeek && s.rentAccruedThisWeek <= 0.01;
+            case M5_CALM_HOUSE -> s.calmNightsStreak >= 3 && s.calmNightsWithActivityStreak >= 1;
+            case M6_MARGIN_WITH_MANNERS -> s.weekPriceMultiplierSamples > 0
+                    && (s.weekPriceMultiplierSum / s.weekPriceMultiplierSamples) >= 1.15
+                    && s.weeklyRepDeltaNet > 0;
+            case M7_CREW_THAT_STAYS -> s.weeksNoStaffDepartures >= 2 && s.teamMorale >= CREW_MORALE_THRESHOLD;
+            case M8_ORDER_RESTORED -> s.chaosRecoveryPending && s.chaos <= CHAOS_SAFE_THRESHOLD;
+            case M9_KNOWN_FOR_SOMETHING -> s.weeksDominantIdentityStreak >= 2;
+            case M10_MIXED_CROWD_WHISPERER -> s.weeklyDifferentActivityCategories >= 3 && s.weeklyRepDeltaNet >= 0
+                    && avgWeeklyChaos() <= 45.0;
+            case M11_NARRATIVE_RECOVERY -> s.negativeRumorRecoveryPending && s.weekNegativeEvents <= s.weekPositiveEvents;
+            case M12_BOOKED_OUT -> s.nearCapacityServiceNightsThisWeek >= 3;
+            case M13_BRIDGE_DONT_BLEED -> s.usedCreditThisWeek && s.totalCreditBalance() <= 0.01 && s.metMinimumsLastWeek
+                    && s.creditScore >= s.creditScoreAtWeekStart;
+            case M14_DEBT_DIET -> s.zeroDebtWeekStreak >= 3;
+            case M15_BALANCED_BOOKS_BUSY_HOUSE -> (s.weekRevenue - s.weekCosts) >= 250.0
+                    && s.wagesAccruedThisWeek >= 200.0
+                    && s.securityUpkeepAccruedThisWeek >= 10.0;
+            case M16_SUPPLIERS_FAVOURITE -> "Good".equals(s.supplierTrustLabel()) && s.largeBulkOrdersCompleted > 0;
+            case M17_GOLDEN_QUARTER -> s.goldenQuarterWeekStreak >= 4;
+            case M18_STORMPROOF_OPERATOR -> (s.weekRevenue - s.weekCosts) > 0
+                    && s.weeklyRepDeltaNet > 0
+                    && s.weekNegativeEvents >= STORMPROOF_NEGATIVE_EVENTS;
+            case M19_HEADLINER_VENUE -> averageWeekPrice() >= 1.22
+                    && s.reputation >= 75
+                    && s.topTierActivityRanThisWeek
+                    && refundRate() <= 0.02;
+        };
+    }
+
+    private void grant(MilestoneDefinition def, EvaluationReason reason) {
+        s.achievedMilestones.add(def.id());
+        s.prestigeMilestones.add(def.id());
+        applyReward(def.id());
+        String msg = def.title() + "\n" + def.rewardText();
         s.milestonePopups.add(msg);
-        log.event(" Milestone: " + title + " - " + rewardText);
-        recordMilestoneReward(title, requirementText, rewardText);
-        recomputeActivityAvailability();
+        recordMilestoneReward(def.title(), def.description(), def.rewardText());
+        log.event("Milestone achieved [" + reason + "]: " + def.title() + " -> " + def.rewardText());
+    }
+
+    private void applyReward(Milestone id) {
+        switch (id) {
+            case M6_MARGIN_WITH_MANNERS -> grantCashBonus(100, "Margin With Manners");
+            case M8_ORDER_RESTORED -> s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 2);
+            case M12_BOOKED_OUT -> s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 3);
+            case M13_BRIDGE_DONT_BLEED -> s.supplierBulkUnlockTier = Math.max(s.supplierBulkUnlockTier, 1);
+            case M14_DEBT_DIET -> s.supplierBulkUnlockTier = Math.max(s.supplierBulkUnlockTier, 2);
+            case M16_SUPPLIERS_FAVOURITE -> s.premiumSupplierCatalogUnlocked = true;
+            case M17_GOLDEN_QUARTER -> s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 4);
+            case M19_HEADLINER_VENUE -> {
+                s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 5);
+                s.supplierBulkUnlockTier = Math.max(s.supplierBulkUnlockTier, 3);
+            }
+            default -> {
+                // unlock is handled via requirement mapping and upgrade gates
+            }
+        }
     }
 
     public void recomputeActivityAvailability() {
         activityAvailability.clear();
         s.unlockedActivities.clear();
         for (PubActivity activity : PubActivity.values()) {
-            java.util.List<String> missing = new java.util.ArrayList<>();
-
+            List<String> missing = new ArrayList<>();
             if (activity.getRequiredUpgrade() != null && !hasUpgradeOrPending(activity.getRequiredUpgrade())) {
                 missing.add("Upgrade: " + activity.getRequiredUpgrade().getLabel());
             }
-
             Milestone reqMilestone = requiredMilestone(activity);
             if (reqMilestone != null && !s.achievedMilestones.contains(reqMilestone)) {
-                missing.add("Milestone: " + milestoneLabel(reqMilestone));
+                missing.add("Milestone: " + reqMilestone.name());
             }
-
+            if (!activity.requiresUnlock()) {
+                // base activities remain available unless blocked by explicit milestone/upgrade requirement
+            }
             boolean unlocked = missing.isEmpty();
-            if (unlocked) {
-                s.unlockedActivities.add(activity);
-            }
+            if (unlocked) s.unlockedActivities.add(activity);
             activityAvailability.put(activity, new ActivityAvailability(unlocked, missing));
         }
     }
 
     private Milestone requiredMilestone(PubActivity activity) {
-        if (activityMilestoneRequirements.containsKey(activity)) {
-            return activityMilestoneRequirements.get(activity);
-        }
-        return activity.requiresUnlock() ? Milestone.ACTIVITY_UNLOCK : null;
-    }
-
-    private String milestoneLabel(Milestone milestone) {
-        return switch (milestone) {
-            case LOCAL_FAVOURITE -> "Local favourite";
-            case KNOWN_VENUE -> "Known venue";
-            case ACTIVITY_UNLOCK -> "Community darling";
-            case FIVE_NIGHTS -> "Five nights open";
-            case TEN_NIGHTS -> "Ten nights open";
-            case CASH_STACK -> "Cash flow milestone";
-            case KITCHEN_LAUNCH -> "Kitchen launch";
-            default -> milestone.name().replace('_', ' ');
-        };
+        return activityMilestoneRequirements.get(activity);
     }
 
     private boolean hasUpgradeOrPending(PubUpgrade upgrade) {
@@ -250,90 +231,42 @@ public class MilestoneSystem {
     }
 
     public boolean canBuyUpgrade(PubUpgrade upgrade) {
-        if (upgrade.isKitchenRelated()
-                && upgrade != PubUpgrade.KITCHEN_SETUP
-                && !s.kitchenUnlocked) {
-            return false;
-        }
-        if (upgrade == PubUpgrade.KITCHEN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN_SETUP)) {
-            return false;
-        }
-        if (upgrade == PubUpgrade.NEW_KITCHEN_PLAN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN)) {
-            return false;
-        }
-        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) {
-            return false;
-        }
-        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
-            return false;
-        }
+        if (upgrade.isKitchenRelated() && upgrade != PubUpgrade.KITCHEN_SETUP && !s.kitchenUnlocked) return false;
+        if (upgrade == PubUpgrade.KITCHEN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN_SETUP)) return false;
+        if (upgrade == PubUpgrade.NEW_KITCHEN_PLAN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN)) return false;
+        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) return false;
+        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) return false;
         if (upgrade.getChainKey() != null && upgrade.getTier() > 1) {
             boolean hasPrev = false;
             for (PubUpgrade owned : s.ownedUpgrades) {
-                if (upgrade.getChainKey().equals(owned.getChainKey())
-                        && owned.getTier() == upgrade.getTier() - 1) {
+                if (upgrade.getChainKey().equals(owned.getChainKey()) && owned.getTier() == upgrade.getTier() - 1) {
                     hasPrev = true;
                     break;
                 }
             }
             if (!hasPrev) return false;
         }
-        if (upgrade == PubUpgrade.DOOR_TEAM_II || upgrade == PubUpgrade.DOOR_TEAM_III) {
-            return s.achievedMilestones.contains(Milestone.REP_STAR);
+        if (upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE) {
+            return s.achievedMilestones.contains(Milestone.M6_MARGIN_WITH_MANNERS);
         }
-        if (upgrade == PubUpgrade.CCTV) {
-            return s.achievedMilestones.contains(Milestone.CASH_STACK);
+        if (upgrade == PubUpgrade.DOOR_TEAM_II) {
+            return s.achievedMilestones.contains(Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE);
+        }
+        if (upgrade == PubUpgrade.DOOR_TEAM_III) {
+            return s.achievedMilestones.contains(Milestone.M18_STORMPROOF_OPERATOR);
         }
         if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) {
-            return s.achievedMilestones.contains(Milestone.FIVE_NIGHTS);
-        }
-        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT) {
-            return s.achievedMilestones.contains(Milestone.KITCHEN_LAUNCH);
-        }
-        if (upgrade == PubUpgrade.HYGIENE_TRAINING) {
-            return s.achievedMilestones.contains(Milestone.KITCHEN_LAUNCH);
-        }
-        if (upgrade == PubUpgrade.KITCHEN_STAFFING_II || upgrade == PubUpgrade.KITCHEN_STAFFING_III) {
-            return s.achievedMilestones.contains(Milestone.PROFIT_STREAK_2);
+            return s.achievedMilestones.contains(Milestone.M7_CREW_THAT_STAYS) || s.achievedMilestones.contains(Milestone.M3_NO_ONE_LEAVES_ANGRY);
         }
         return true;
     }
 
     public String upgradeRequirementText(PubUpgrade upgrade) {
         if (s.ownedUpgrades.contains(upgrade)) return "Unlocked";
-        if (upgrade.isKitchenRelated() && upgrade != PubUpgrade.KITCHEN_SETUP && !s.kitchenUnlocked) {
-            return "Requires Kitchen Base";
-        }
-        if (upgrade == PubUpgrade.KITCHEN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN_SETUP)) {
-            return "Requires Kitchen Base";
-        }
-        if (upgrade == PubUpgrade.NEW_KITCHEN_PLAN && !s.ownedUpgrades.contains(PubUpgrade.KITCHEN)) {
-            return "Requires Kitchen Upgrade I";
-        }
-        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT && !s.ownedUpgrades.contains(PubUpgrade.NEW_KITCHEN_PLAN)) {
-            return "Requires Kitchen Upgrade II";
-        }
-        if (!upgrade.isInnRelated() && upgrade.getTier() > 1 && s.pubLevel < upgrade.getTier() - 1) {
-            return "Requires pub level " + (upgrade.getTier() - 1);
-        }
-        if (upgrade == PubUpgrade.DOOR_TEAM_II || upgrade == PubUpgrade.DOOR_TEAM_III) {
-            return "Requires milestone: Reputation star";
-        }
-        if (upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE) {
-            return "Requires milestone: Cash flow";
-        }
-        if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) {
-            return "Requires milestone: Five nights open";
-        }
-        if (upgrade == PubUpgrade.KITCHEN_EQUIPMENT || upgrade == PubUpgrade.HYGIENE_TRAINING) {
-            return "Requires milestone: Kitchen launch";
-        }
-        if (upgrade == PubUpgrade.KITCHEN_STAFFING_II || upgrade == PubUpgrade.KITCHEN_STAFFING_III) {
-            return "Requires milestone: Profitable streak (2 weeks)";
-        }
-        if (upgrade.getChainKey() != null && upgrade.getTier() > 1) {
-            return "Requires previous tier";
-        }
+        if (upgrade == PubUpgrade.CCTV || upgrade == PubUpgrade.CCTV_PACKAGE) return "Requires milestone: Margin With Manners";
+        if (upgrade == PubUpgrade.DOOR_TEAM_II) return "Requires milestone: Balanced Books, Busy House";
+        if (upgrade == PubUpgrade.DOOR_TEAM_III) return "Requires milestone: Stormproof Operator";
+        if (upgrade == PubUpgrade.STAFF_ROOM_II || upgrade == PubUpgrade.STAFF_ROOM_III) return "Requires milestone: Crew That Stays";
         return null;
     }
 
@@ -356,50 +289,73 @@ public class MilestoneSystem {
         return availability;
     }
 
+    public String milestoneProgressReport() {
+        StringBuilder sb = new StringBuilder();
+        for (int tier = 1; tier <= 5; tier++) {
+            sb.append("Tier ").append(tier).append("\n");
+            for (MilestoneDefinition def : definitions) {
+                if (def.tier() != tier) continue;
+                boolean done = s.achievedMilestones.contains(def.id());
+                sb.append(done ? "[✓] " : "[ ] ")
+                        .append(def.title())
+                        .append(" - ")
+                        .append(def.description())
+                        .append(" | Reward: ")
+                        .append(def.rewardText())
+                        .append(" | Progress: ")
+                        .append(progress(def.id()))
+                        .append("\n");
+            }
+            sb.append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    private String progress(Milestone id) {
+        return switch (id) {
+            case M1_OPEN_FOR_BUSINESS -> s.nightCount + "/3 nights";
+            case M2_NO_EMPTY_SHELVES -> s.noStockoutStreakNights + "/2 nights";
+            case M4_PAYROLL_GUARDIAN -> (s.wagesPaidLastWeek ? "Wages paid" : "Wages pending") + ", rent due " + String.format("%.0f", s.rentAccruedThisWeek);
+            case M5_CALM_HOUSE -> s.calmNightsStreak + "/3 calm nights";
+            case M7_CREW_THAT_STAYS -> s.weeksNoStaffDepartures + "/2 weeks";
+            case M8_ORDER_RESTORED -> s.chaosRecoveryPending ? ("Chaos " + String.format("%.1f", s.chaos) + " safe<=25") : "Awaiting high-chaos trigger";
+            case M9_KNOWN_FOR_SOMETHING -> s.weeksDominantIdentityStreak + "/2 weeks";
+            case M10_MIXED_CROWD_WHISPERER -> s.weeklyDifferentActivityCategories + "/3 categories";
+            case M11_NARRATIVE_RECOVERY -> s.negativeRumorRecoveryPending ? "Recovery in progress" : "Awaiting negative rumor week";
+            case M12_BOOKED_OUT -> s.nearCapacityServiceNightsThisWeek + "/3 nights";
+            case M13_BRIDGE_DONT_BLEED -> (s.usedCreditThisWeek ? "credit used" : "no credit used") + ", debt " + String.format("%.0f", s.totalCreditBalance());
+            case M14_DEBT_DIET -> s.zeroDebtWeekStreak + "/3 weeks";
+            case M16_SUPPLIERS_FAVOURITE -> ("Good".equals(s.supplierTrustLabel()) ? "Good trust" : "Trust " + s.supplierTrustLabel()) + ", bulk " + s.largeBulkOrdersCompleted;
+            case M17_GOLDEN_QUARTER -> s.goldenQuarterWeekStreak + "/4 weeks";
+            default -> "In play";
+        };
+    }
+
+    private double averageWeekPrice() {
+        if (s.weekPriceMultiplierSamples <= 0) return s.priceMultiplier;
+        return s.weekPriceMultiplierSum / s.weekPriceMultiplierSamples;
+    }
+
+    private double avgWeeklyChaos() {
+        if (s.weekChaosRounds <= 0) return s.chaos;
+        return s.weekChaosTotal / s.weekChaosRounds;
+    }
+
+    private double refundRate() {
+        if (s.weekRevenue <= 0.0) return 0.0;
+        return s.weekRefundTotal / s.weekRevenue;
+    }
+
     private void recordMilestoneReward(String title, String requirement, String rewardText) {
         String entry = title + " | Req: " + requirement + " | " + rewardText;
         s.milestoneRewardLog.addFirst(entry);
-        while (s.milestoneRewardLog.size() > 5) {
-            s.milestoneRewardLog.removeLast();
-        }
+        while (s.milestoneRewardLog.size() > 8) s.milestoneRewardLog.removeLast();
     }
 
     private void grantCashBonus(double amount, String reason) {
         if (amount <= 0) return;
         s.cash += amount;
         s.totalCashEarned += amount;
-        log.pos(" Milestone reward: cash +" + String.format("%.0f", amount) + " (" + reason + ").");
-    }
-
-    private void reduceChaos(double amount, String reason) {
-        if (amount <= 0) return;
-        s.chaos = Math.max(0.0, s.chaos - amount);
-        log.pos(" Milestone reward: chaos -" + String.format("%.0f", amount) + " (" + reason + ").");
-    }
-
-    private void applyTeamMoraleBoost(int delta) {
-        if (delta == 0) return;
-        for (Staff st : s.fohStaff) st.adjustMorale(delta);
-        for (Staff st : s.bohStaff) st.adjustMorale(delta);
-        for (Staff st : s.generalManagers) st.adjustMorale(delta);
-        log.pos(" Milestone reward: staff morale " + (delta > 0 ? "+" : "") + delta + ".");
-    }
-
-    private void grantSkilledStaffHire() {
-        Staff.Type pick = Staff.Type.EXPERIENCED;
-        if (s.kitchenUnlocked && s.bohStaff.size() < s.kitchenChefCap) {
-            pick = Staff.Type.CHEF_DE_PARTIE;
-        } else if (s.fohStaff.size() >= s.fohStaffCap) {
-            grantCashBonus(120, "Skilled hire fallback");
-            return;
-        }
-        Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), pick, s.random);
-        hire.levelUpWeekly(2);
-        if (hire.isKitchenRole()) {
-            s.bohStaff.add(hire);
-        } else {
-            s.fohStaff.add(hire);
-        }
-        log.pos(" Milestone reward: skilled hire " + hire + ".");
+        log.pos("Milestone reward: cash +" + String.format("%.0f", amount) + " (" + reason + ").");
     }
 }
