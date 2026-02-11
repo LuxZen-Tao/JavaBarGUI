@@ -165,6 +165,7 @@ public class Simulation {
     private final ObservationEngine observationEngine;
     private final MusicSystem musicSystem;
     private final AudioManager audioManager;
+    private final VIPSystem vipSystem;
 
     public Simulation(GameState state, UILogger log) {
 
@@ -190,6 +191,7 @@ public class Simulation {
         this.observationEngine = new ObservationEngine();
         this.musicSystem = new MusicSystem(s);
         this.audioManager = new AudioManager();
+        this.vipSystem = new VIPSystem();
 
         markReportStartIfMissing();
 
@@ -1241,6 +1243,9 @@ public class Simulation {
         if (s.maxBarOccupancy < 5) s.maxBarOccupancy = 5;
 
         punters.seedNightPunters(pool);
+        if (FeatureFlags.FEATURE_VIPS) {
+            vipSystem.ensureRosterFromNames(currentPunterNames(), s.random);
+        }
         audioManager.setPubOpen(true);
         audioManager.updateChatterOccupancy(s.nightPunters.size(), s.maxBarOccupancy);
 
@@ -1664,6 +1669,10 @@ public class Simulation {
         generateNightRumor();
 
         runInnNightly();
+
+        if (FeatureFlags.FEATURE_VIPS) {
+            vipSystem.evaluateNight(buildVipNightOutcome());
+        }
 
         if (!s.sickStaffTonight.isEmpty()) {
             for (Staff st : s.sickStaffTonight) {
@@ -5051,6 +5060,29 @@ public class Simulation {
         mult += atmosphere * 0.002;
 
         return Math.max(0.80, Math.min(1.20, mult));
+    }
+
+
+    private List<String> currentPunterNames() {
+        List<String> names = new java.util.ArrayList<>();
+        for (Punter punter : s.nightPunters) {
+            if (punter != null && punter.getName() != null && !punter.getName().isBlank()) {
+                names.add(punter.getName());
+            }
+        }
+        return names;
+    }
+
+    private VIPNightOutcome buildVipNightOutcome() {
+        double foodQualitySignal = s.nightFoodUnserved == 0 && s.nightRefunds == 0 ? 0.8 : 0.3;
+        return new VIPNightOutcome(
+                s.nightUnserved,
+                s.nightFights,
+                s.nightEvents,
+                s.nightRefunds,
+                s.priceMultiplier,
+                foodQualitySignal
+        );
     }
 
     private String repMoodLabel() {
