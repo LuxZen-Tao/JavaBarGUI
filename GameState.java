@@ -343,6 +343,11 @@ public class GameState {
     public String weeklyIdentityFlavorText = "";
     public String identityDriftSummary = "";
     public String identityDrift = "";
+    public MarketPressure latestMarketPressure = MarketPressure.empty();
+    public double rivalDemandTrafficMultiplier = 1.0;
+    public double rivalPunterMixBias = 0.0;
+    public double rivalRumorSentimentBias = 0.0;
+    public String rivalDistrictUpdate = "District update: quiet week.";
 
     // temp perks
     public int nextNightServeCapBonus = 0;
