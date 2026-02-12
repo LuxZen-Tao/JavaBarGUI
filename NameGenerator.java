@@ -35,7 +35,10 @@ public class NameGenerator {
 
     private static void loadList(String resource, List<String> target) {
         try (InputStream input = NameGenerator.class.getClassLoader().getResourceAsStream(resource)) {
-            if (input == null) return;
+            if (input == null) {
+                System.err.println("Warning: Could not find resource: " + resource);
+                return;
+            }
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -44,7 +47,8 @@ public class NameGenerator {
                     target.add(cleaned);
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("Error loading name resource " + resource + ": " + e.getMessage());
         }
     }
 }

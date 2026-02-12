@@ -30,8 +30,8 @@ public final class UiTheme {
                         break;
                     }
                 }
-            } catch (Exception ignored) {
-                // keep default
+            } catch (Exception e) {
+                System.err.println("Failed to set Nimbus look and feel, using default: " + e.getMessage());
             }
 
             ColorUIResource bg = new ColorUIResource(new Color(28, 31, 36));      // #1C1F24

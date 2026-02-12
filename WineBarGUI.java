@@ -1025,7 +1025,11 @@ public class WineBarGUI {
                 options[0]);
         if (choice != 1) return;
         shutdownForMenuTransition();
-        try { prefs.flush(); } catch (Exception ignored) {}
+        try { 
+            prefs.flush(); 
+        } catch (Exception e) {
+            System.err.println("Warning: Could not flush preferences: " + e.getMessage());
+        }
         System.exit(0);
     }
 
