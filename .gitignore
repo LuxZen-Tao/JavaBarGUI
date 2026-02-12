@@ -9,6 +9,7 @@
 # IDE files
 .idea/
 *.iml
+!JavaBarGUI.iml
 .vscode/
 
 # Save files
