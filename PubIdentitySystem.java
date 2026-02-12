@@ -1,3 +1,4 @@
+import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -238,7 +239,7 @@ public class PubIdentitySystem {
             double teamMorale,
             int securityLevel,
             EnumMap<PubIdentity, Double> identitySignals
-    ) {}
+    ) implements Serializable {}
 
     private interface ToDouble {
         double get(WeeklyIdentitySnapshot snap);
