@@ -17,7 +17,7 @@ java Main
 **Requirements**: JDK 17+ (uses Java records)
 
 ### First Time Playing?
-Read the **[Player Guide](PLAYER_GUIDE.md)** for complete gameplay instructions, system explanations, and strategy advice.
+Read the **[Player Guide](UserGuide/PLAYER_GUIDE.md)** for complete gameplay instructions, system explanations, and strategy advice.
 
 ---
 
@@ -85,9 +85,9 @@ Read the **[Player Guide](PLAYER_GUIDE.md)** for complete gameplay instructions,
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| **[PLAYER_GUIDE.md](PLAYER_GUIDE.md)** | Complete gameplay guide with strategies and system breakdowns | Players |
-| **[GAME_DESCRIPTION.md](GAME_DESCRIPTION.md)** | Detailed design document explaining all mechanics | Players & Designers |
-| **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** | Technical reference for code architecture and modding | Developers |
+| **[PLAYER_GUIDE.md](UserGuide/PLAYER_GUIDE.md)** | Complete gameplay guide with strategies and system breakdowns | Players |
+| **[GAME_DESCRIPTION.md](UserGuide/GAME_DESCRIPTION.md)** | Detailed design document explaining all mechanics | Players & Designers |
+| **[DEVELOPER_GUIDE.md](UserGuide/DEVELOPER_GUIDE.md)** | Technical reference for code architecture and modding | Developers |
 
 ---
 
@@ -209,7 +209,7 @@ The codebase is designed for extension:
 - **New Activity**: Add to `PubActivity.java` and wire unlock requirements
 - **New System**: Create system class, inject into `Simulation.java`, call from game loop
 
-See **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** for complete technical documentation.
+See **[DEVELOPER_GUIDE.md](UserGuide/DEVELOPER_GUIDE.md)** for complete technical documentation.
 
 ---
 
