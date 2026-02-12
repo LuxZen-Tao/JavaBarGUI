@@ -161,6 +161,11 @@ javac *.java
 java Main
 ```
 
+**Note**: Compiled `.class` files are excluded from git. If you see "java cups" (`.class` files) instead of source files in your IDE, ensure:
+- `JavaBarGUI.iml` exists at the project root
+- The `.idea` folder is properly configured
+- Rebuild the project in your IDE (Build → Rebuild Project)
+
 ### Resource Files
 - `names/first_names.txt` - Customer first names
 - `names/last_names.txt` - Customer last names
