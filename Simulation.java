@@ -2007,6 +2007,31 @@ public class Simulation {
     
     // ==================== INN EVENTS SYSTEM ====================
     
+    // Inn event constants
+    private static final double LOW_INN_REP_THRESHOLD = 30.0;
+    private static final double MEDIUM_LOW_INN_REP_THRESHOLD = 50.0;
+    private static final double MEDIUM_INN_REP_THRESHOLD = 70.0;
+    private static final double HIGH_INN_REP_THRESHOLD = 70.0;
+    private static final double LOW_REP_BASE_CHANCE = 0.30;
+    private static final double MEDIUM_LOW_BASE_CHANCE = 0.20;
+    private static final double MEDIUM_BASE_CHANCE = 0.10;
+    private static final double HIGH_BASE_CHANCE = 0.05;
+    private static final double LOW_REP_POSITIVE_CHANCE = 0.15;
+    private static final double MEDIUM_LOW_POSITIVE_CHANCE = 0.30;
+    private static final double MEDIUM_POSITIVE_CHANCE = 0.50;
+    private static final double HIGH_POSITIVE_CHANCE = 0.75;
+    private static final double MARSHALL_POSITIVE_BONUS = 0.10;
+    private static final double DM_POSITIVE_BONUS = 0.10;
+    private static final double MAX_POSITIVE_EVENT_CHANCE = 0.95;
+    private static final double PREMIUM_EVENT_CHANCE = 0.40;
+    private static final double SEVERE_EVENT_CHANCE = 0.50;
+    private static final double DM_SEVERITY_REDUCTION = 0.75;
+    private static final double MARSHALL_MAX_SEVERITY_FACTOR = 0.50;
+    private static final double DM_REWARD_AMPLIFICATION = 0.25;
+    private static final double MARSHALL_MAX_AMPLIFICATION = 0.50;
+    private static final double DM_PASSIVE_RECOVERY = 0.3;
+    private static final double MARSHALL_PASSIVE_FACTOR = 0.4;
+    
     /**
      * Triggers inn events during service when inn is active and guests are staying.
      * Event frequency and tone depend on inn reputation.
@@ -2039,18 +2064,18 @@ public class Simulation {
     private double calculateInnEventChance() {
         double innRep = s.innRep;
         
-        if (innRep < 30) {
+        if (innRep < LOW_INN_REP_THRESHOLD) {
             // Low reputation: events very frequent (30-40% chance)
-            return 0.30 + ((30 - innRep) / 30.0) * 0.10;
-        } else if (innRep < 50) {
+            return LOW_REP_BASE_CHANCE + ((LOW_INN_REP_THRESHOLD - innRep) / LOW_INN_REP_THRESHOLD) * 0.10;
+        } else if (innRep < MEDIUM_LOW_INN_REP_THRESHOLD) {
             // Medium-low reputation: events frequent (20-30% chance)
-            return 0.20 + ((50 - innRep) / 20.0) * 0.10;
-        } else if (innRep < 70) {
+            return MEDIUM_LOW_BASE_CHANCE + ((MEDIUM_LOW_INN_REP_THRESHOLD - innRep) / 20.0) * 0.10;
+        } else if (innRep < MEDIUM_INN_REP_THRESHOLD) {
             // Medium reputation: moderate events (10-20% chance)
-            return 0.10 + ((70 - innRep) / 20.0) * 0.10;
+            return MEDIUM_BASE_CHANCE + ((MEDIUM_INN_REP_THRESHOLD - innRep) / 20.0) * 0.10;
         } else {
             // High reputation: rare events (5-10% chance)
-            return 0.05 + ((100 - innRep) / 30.0) * 0.05;
+            return HIGH_BASE_CHANCE + ((100 - innRep) / 30.0) * 0.05;
         }
     }
     
@@ -2063,29 +2088,29 @@ public class Simulation {
         double innRep = s.innRep;
         double positiveChance;
         
-        if (innRep < 30) {
+        if (innRep < LOW_INN_REP_THRESHOLD) {
             // Low reputation: 15% positive, 85% negative
-            positiveChance = 0.15;
-        } else if (innRep < 50) {
+            positiveChance = LOW_REP_POSITIVE_CHANCE;
+        } else if (innRep < MEDIUM_LOW_INN_REP_THRESHOLD) {
             // Medium-low reputation: 30% positive, 70% negative
-            positiveChance = 0.30;
-        } else if (innRep < 70) {
+            positiveChance = MEDIUM_LOW_POSITIVE_CHANCE;
+        } else if (innRep < MEDIUM_INN_REP_THRESHOLD) {
             // Medium reputation: 50% positive, 50% negative
-            positiveChance = 0.50;
+            positiveChance = MEDIUM_POSITIVE_CHANCE;
         } else {
             // High reputation: 75% positive, 25% negative
-            positiveChance = 0.75;
+            positiveChance = HIGH_POSITIVE_CHANCE;
         }
         
         // Marshalls and duty managers boost positive chance
         if (s.marshallCount() > 0) {
-            positiveChance += 0.10;
+            positiveChance += MARSHALL_POSITIVE_BONUS;
         }
         if (s.dutyManagerCount() > 0) {
-            positiveChance += 0.10;
+            positiveChance += DM_POSITIVE_BONUS;
         }
         
-        return s.random.nextDouble() < Math.min(0.95, positiveChance);
+        return s.random.nextDouble() < Math.min(MAX_POSITIVE_EVENT_CHANCE, positiveChance);
     }
     
     /**
@@ -2095,11 +2120,11 @@ public class Simulation {
     private void triggerPositiveInnEvent(boolean hasDutyManager, double marshallMitigation) {
         // Calculate amplification from staff
         double amplification = 1.0;
-        if (hasDutyManager) amplification += 0.25;
-        if (marshallMitigation > 0.0) amplification += marshallMitigation * 0.5;
+        if (hasDutyManager) amplification += DM_REWARD_AMPLIFICATION;
+        if (marshallMitigation > 0.0) amplification += marshallMitigation * MARSHALL_MAX_AMPLIFICATION;
         
         // Higher inn rep = better positive events
-        boolean premiumEvent = s.innRep > 70 && s.random.nextDouble() < 0.40;
+        boolean premiumEvent = s.innRep > HIGH_INN_REP_THRESHOLD && s.random.nextDouble() < PREMIUM_EVENT_CHANCE;
         
         if (premiumEvent) {
             // Premium positive events at high rep
@@ -2164,11 +2189,11 @@ public class Simulation {
     private void triggerNegativeInnEvent(boolean hasDutyManager, double marshallMitigation, int roomsBooked) {
         // Calculate mitigation from staff
         double mitigation = 1.0;
-        if (hasDutyManager) mitigation *= 0.75; // DM reduces severity by 25%
-        if (marshallMitigation > 0.0) mitigation *= (1.0 - marshallMitigation * 0.5); // Marshalls reduce by up to 50%
+        if (hasDutyManager) mitigation *= DM_SEVERITY_REDUCTION;
+        if (marshallMitigation > 0.0) mitigation *= (1.0 - marshallMitigation * MARSHALL_MAX_SEVERITY_FACTOR);
         
         // Lower inn rep = worse negative events
-        boolean severeEvent = s.innRep < 30 && s.random.nextDouble() < 0.50;
+        boolean severeEvent = s.innRep < LOW_INN_REP_THRESHOLD && s.random.nextDouble() < SEVERE_EVENT_CHANCE;
         
         if (severeEvent) {
             // Severe negative events at low rep
@@ -2250,12 +2275,12 @@ public class Simulation {
         
         // Duty manager provides steady recovery
         if (hasDutyManager) {
-            recovery += 0.3;
+            recovery += DM_PASSIVE_RECOVERY;
         }
         
         // Marshalls provide additional recovery based on count and quality
         if (s.marshallCount() > 0) {
-            recovery += marshallMitigation * 0.4;
+            recovery += marshallMitigation * MARSHALL_PASSIVE_FACTOR;
         }
         
         // Apply recovery (scaled down if inn rep is already high)

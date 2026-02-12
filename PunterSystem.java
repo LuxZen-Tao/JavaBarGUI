@@ -823,6 +823,22 @@ public class PunterSystem {
     
     // ==================== TRADING STANDARDS SYSTEM ====================
     
+    // Trading Standards constants
+    private static final double BASE_UNDERAGE_SERVE_CHANCE = 0.70;
+    private static final double SECURITY_REDUCTION_PER_LEVEL = 0.05;
+    private static final double BOUNCER_LOW_REDUCTION = 0.03;
+    private static final double BOUNCER_MEDIUM_REDUCTION = 0.05;
+    private static final double BOUNCER_HIGH_REDUCTION = 0.08;
+    private static final double BOUNCER_MAX_REDUCTION = 0.40;
+    private static final double POLICY_STRICT_REDUCTION = 0.15;
+    private static final double POLICY_BALANCED_REDUCTION = 0.05;
+    private static final int TIER_1_THRESHOLD = 2;
+    private static final int TIER_2_THRESHOLD = 5;
+    private static final int TIER_3_THRESHOLD = 9;
+    private static final int TIER_1_REP_LOSS = -30;
+    private static final int TIER_2_REP_LOSS = -50;
+    private static final double TIER_2_FINE = 300.0;
+    
     /**
      * Handles underage punters with Trading Standards system.
      * Roll chance to determine if they are served or refused.
@@ -830,10 +846,10 @@ public class PunterSystem {
      */
     private void handleUnderagePunter(Punter p, int sec) {
         // Calculate probability of being served (base 70%, reduced by security)
-        double baseServeChance = 0.70;
+        double baseServeChance = BASE_UNDERAGE_SERVE_CHANCE;
         
         // Base security reduction: each point reduces by 5%
-        double securityReduction = sec * 0.05;
+        double securityReduction = sec * SECURITY_REDUCTION_PER_LEVEL;
         
         // Bouncer quality reduction
         double bouncerReduction = calculateBouncerUnderageReduction();
@@ -885,13 +901,13 @@ public class PunterSystem {
         double reduction = 0.0;
         for (BouncerQuality quality : s.bouncerQualitiesTonight) {
             reduction += switch (quality) {
-                case LOW -> 0.03;
-                case MEDIUM -> 0.05;
-                case HIGH -> 0.08;
+                case LOW -> BOUNCER_LOW_REDUCTION;
+                case MEDIUM -> BOUNCER_MEDIUM_REDUCTION;
+                case HIGH -> BOUNCER_HIGH_REDUCTION;
             };
         }
         
-        return Math.min(0.40, reduction); // Cap at 40% reduction
+        return Math.min(BOUNCER_MAX_REDUCTION, reduction);
     }
     
     /**
@@ -901,9 +917,9 @@ public class PunterSystem {
         if (s.securityPolicy == null) return 0.0;
         
         return switch (s.securityPolicy) {
-            case STRICT_DOOR -> 0.15;  // 15% reduction
-            case BALANCED_DOOR -> 0.05; // 5% reduction
-            case FRIENDLY_WELCOME -> 0.0; // No reduction
+            case STRICT_DOOR -> POLICY_STRICT_REDUCTION;
+            case BALANCED_DOOR -> POLICY_BALANCED_REDUCTION;
+            case FRIENDLY_WELCOME -> 0.0;
         };
     }
     
@@ -917,40 +933,39 @@ public class PunterSystem {
     private void evaluateTradingStandardsTier() {
         int ts = s.tradingStandardsCounter;
         
-        if (ts >= 9) {
+        if (ts >= TIER_3_THRESHOLD) {
             // Tier 3: Game Over
             log.popup("LICENCE REVOKED",
                 "<b>Repeated underage service violations.</b><br><br>" +
-                "Trading Standards: " + ts + "/9<br>" +
+                "Trading Standards: " + ts + "/" + TIER_3_THRESHOLD + "<br>" +
                 "Your licence has been revoked.",
                 "GAME OVER");
             s.gameOver = true;
             s.gameOverReason = "Licence revoked due to repeated underage service violations.";
-        } else if (ts >= 5) {
+        } else if (ts >= TIER_2_THRESHOLD) {
             // Tier 2: Heavy rep penalty + £300 fine
-            eco.applyRep(-50, "Trading Standards (multiple violations)");
+            eco.applyRep(TIER_2_REP_LOSS, "Trading Standards (multiple violations)");
             
             // Apply £300 fine
-            double fine = 300.0;
-            if (!eco.tryPay(fine, TransactionType.OTHER, "Trading Standards fine", CostTag.OTHER)) {
+            if (!eco.tryPay(TIER_2_FINE, TransactionType.OTHER, "Trading Standards fine", CostTag.OTHER)) {
                 log.neg("Insufficient cash for TS fine - using credit/debt system.");
             }
             
             log.popup("Trading Standards Fine",
                 "<b>Trading Standards fine issued.</b><br><br>" +
                 "Multiple underage service violations: " + ts + "<br>" +
-                "Fine: GBP 300<br>" +
-                "Reputation: -50",
-                "TS >= 5");
-        } else if (ts >= 2) {
+                "Fine: GBP " + (int)TIER_2_FINE + "<br>" +
+                "Reputation: " + TIER_2_REP_LOSS,
+                "TS >= " + TIER_2_THRESHOLD);
+        } else if (ts >= TIER_1_THRESHOLD) {
             // Tier 1: Rep -30
-            eco.applyRep(-30, "Trading Standards (seen serving underage)");
+            eco.applyRep(TIER_1_REP_LOSS, "Trading Standards (seen serving underage)");
             
             log.popup("Trading Standards Warning",
                 "<b>Seen serving underage punters.</b><br><br>" +
                 "Trading Standards: " + ts + "<br>" +
-                "Reputation: -30",
-                "TS >= 2");
+                "Reputation: " + TIER_1_REP_LOSS,
+                "TS >= " + TIER_1_THRESHOLD);
         }
     }
 }

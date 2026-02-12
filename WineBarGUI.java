@@ -3368,8 +3368,18 @@ public class WineBarGUI {
                                          double chaos,
                                          int tradingStandards) {
         String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec + " | Chaos " + String.format("%.1f", chaos);
-        String tsWarning = tradingStandards >= 2 ? " | TS: " + tradingStandards + "/9 ⚠" : (tradingStandards > 0 ? " | TS: " + tradingStandards + "/9" : "");
+        String tsWarning = buildTsWarning(tradingStandards);
         return "<html>" + policyLine + tsWarning + "<br>" + bouncerInfo + " | " + mitigationInfo + "</html>";
+    }
+    
+    private static String buildTsWarning(int ts) {
+        if (ts >= 2) {
+            return " | TS: " + ts + "/9 ⚠";
+        } else if (ts > 0) {
+            return " | TS: " + ts + "/9";
+        } else {
+            return "";
+        }
     }
     
     static String buildSecurityBadgeText(int sec,
