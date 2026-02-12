@@ -446,7 +446,7 @@ public class GameState implements java.io.Serializable {
     public List<Food> foodSupplier = new ArrayList<>();
 
     public static final String[] DAYS = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
-    public final Random random = new Random();
+    public transient Random random = new Random();
 
     public final EnumSet<PubActivity> unlockedActivities = EnumSet.noneOf(PubActivity.class);
     public String pubName;
@@ -1038,5 +1038,11 @@ public class GameState implements java.io.Serializable {
     public ReportSummary reports() {
         double profit = reportRevenue - reportCosts;
         return new ReportSummary(reportIndex, weeksIntoReport, reportRevenue, reportCosts, profit, reportSales, reportEvents);
+    }
+
+    private void readObject(java.io.ObjectInputStream in) throws java.io.IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        // Reinitialize transient Random field after deserialization
+        random = new Random();
     }
 }
