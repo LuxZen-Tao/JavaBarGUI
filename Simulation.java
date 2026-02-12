@@ -5900,7 +5900,7 @@ public class Simulation {
 
 
     private void showEndOfNightReport() {
-        int covers = Math.min(s.nightSales + s.nightUnserved, s.maxBarOccupancy);
+        int covers = s.servedPuntersThisService.size();
         double profit = s.nightRevenue - s.nightRoundCostsTotal;
         String bestWine = bestSeller("Wine:");
         String bestFood = bestSeller("Food:");
