@@ -95,6 +95,13 @@ public class GameState implements java.io.Serializable {
     public int upgradeSecurityBonus = 0;
     public int peakReputation = 10;
     public int profitStreakWeeks = 0;
+    
+    // Trading Standards (TS) system
+    public int tradingStandardsCounter = 0;     // Increments when underage served; resets weekly
+    
+    // Game over state
+    public boolean gameOver = false;
+    public String gameOverReason = "";
 
     // pricing
     public double priceMultiplier = 1.10;

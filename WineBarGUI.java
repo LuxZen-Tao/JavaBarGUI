@@ -3290,7 +3290,7 @@ public class WineBarGUI {
         }
         String bouncerInfo = "Bouncers: " + state.bouncersHiredTonight + "/" + state.bouncerCap;
         String mitigationInfo = "Rep x" + String.format("%.2f", state.securityIncidentRepMultiplier());
-        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, state.chaos));
+        securityLabel.setText(buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, state.chaos, state.tradingStandardsCounter));
 
         staffLabel.setText(buildStaffBadgeText(cap));
         reportLabel.setText("Report: " + state.reports().summaryLine());
@@ -3401,8 +3401,30 @@ public class WineBarGUI {
                                          String policyShort,
                                          String taskShort,
                                          String bouncerInfo,
+                                         String mitigationInfo,
+                                         double chaos,
+                                         int tradingStandards) {
+        String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec + " | Chaos " + String.format("%.1f", chaos);
+        String tsWarning = buildTsWarning(tradingStandards);
+        return "<html>" + policyLine + tsWarning + "<br>" + bouncerInfo + " | " + mitigationInfo + "</html>";
+    }
+    
+    private static String buildTsWarning(int ts) {
+        if (ts >= 2) {
+            return " | TS: " + ts + "/9 ⚠";
+        } else if (ts > 0) {
+            return " | TS: " + ts + "/9";
+        } else {
+            return "";
+        }
+    }
+    
+    static String buildSecurityBadgeText(int sec,
+                                         String policyShort,
+                                         String taskShort,
+                                         String bouncerInfo,
                                          String mitigationInfo) {
-        return buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, 0.0);
+        return buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, 0.0, 0);
     }
 
     static String buildSecurityBadgeText(int sec,
@@ -3411,8 +3433,7 @@ public class WineBarGUI {
                                          String bouncerInfo,
                                          String mitigationInfo,
                                          double chaos) {
-        String policyLine = "Policy: " + policyShort + " | Task: " + taskShort + " | Sec " + sec + " | Chaos " + String.format("%.1f", chaos);
-        return "<html>" + policyLine + "<br>" + bouncerInfo + " | " + mitigationInfo + "</html>";
+        return buildSecurityBadgeText(sec, policyShort, taskShort, bouncerInfo, mitigationInfo, chaos, 0);
     }
 
     private boolean canUseKitchen() {
