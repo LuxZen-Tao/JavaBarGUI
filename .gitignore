@@ -26,3 +26,6 @@ Thumbs.db
 # Backup files
 *_backup.md
 README_OLD*.md
+
+# GDX template (not part of main project)
+/gdx-template/

@@ -1,1 +1,0 @@
-Basic skin assets for Scene2D styles (texture regions built in code).
