@@ -115,11 +115,9 @@ public class PunterSystem {
 
         log.info("Punter: " + p);
 
+        // Underage check with Trading Standards system
         if (!p.canDrink()) {
-            log.neg("  - Underage. Refused.");
-            s.nightRefusedUnderage++;
-            p.incrementNoBuy();
-            if (p.isBanned()) kickOut(p, -4, "Underage trouble");
+            handleUnderagePunter(p, sec);
             return;
         }
 
@@ -821,5 +819,138 @@ public class PunterSystem {
             case REGULAR -> Punter.Tier.LOWLIFE;
             case LOWLIFE -> Punter.Tier.LOWLIFE;
         };
+    }
+    
+    // ==================== TRADING STANDARDS SYSTEM ====================
+    
+    /**
+     * Handles underage punters with Trading Standards system.
+     * Roll chance to determine if they are served or refused.
+     * Chance reduced by base security and bouncer effects.
+     */
+    private void handleUnderagePunter(Punter p, int sec) {
+        // Calculate probability of being served (base 70%, reduced by security)
+        double baseServeChance = 0.70;
+        
+        // Base security reduction: each point reduces by 5%
+        double securityReduction = sec * 0.05;
+        
+        // Bouncer quality reduction
+        double bouncerReduction = calculateBouncerUnderageReduction();
+        
+        // Security policy reduction
+        double policyReduction = calculatePolicyUnderageReduction();
+        
+        // Total serve chance
+        double serveChance = Math.max(0.0, baseServeChance - securityReduction - bouncerReduction - policyReduction);
+        
+        // Roll to see if they get served
+        boolean served = s.random.nextDouble() < serveChance;
+        
+        if (served) {
+            // Underage punter was served
+            s.tradingStandardsCounter++;
+            log.neg("  - SERVED UNDERAGE! Trading Standards +1 (now " + s.tradingStandardsCounter + ")");
+            
+            // Immediately evaluate consequences
+            evaluateTradingStandardsTier();
+            
+            // Punter leaves after being served
+            p.leaveBar();
+        } else {
+            // Underage punter was refused
+            s.nightRefusedUnderage++;
+            eco.applyRep(1, "Refused underage");
+            
+            // Flavour messages
+            String[] messages = {
+                "  - Spotted fake ID.",
+                "  - They looked about 12?"
+            };
+            log.pos(messages[s.random.nextInt(messages.length)]);
+            
+            // Punter still can't buy, increment no-buy
+            p.incrementNoBuy();
+            if (p.isBanned()) kickOut(p, -4, "Underage trouble");
+        }
+    }
+    
+    /**
+     * Calculates underage prevention from bouncers.
+     * Each bouncer contributes based on quality.
+     */
+    private double calculateBouncerUnderageReduction() {
+        if (s.bouncersHiredTonight <= 0) return 0.0;
+        
+        double reduction = 0.0;
+        for (BouncerQuality quality : s.bouncerQualitiesTonight) {
+            reduction += switch (quality) {
+                case LOW -> 0.03;
+                case MEDIUM -> 0.05;
+                case HIGH -> 0.08;
+            };
+        }
+        
+        return Math.min(0.40, reduction); // Cap at 40% reduction
+    }
+    
+    /**
+     * Calculates underage prevention from security policy.
+     */
+    private double calculatePolicyUnderageReduction() {
+        if (s.securityPolicy == null) return 0.0;
+        
+        return switch (s.securityPolicy) {
+            case STRICT_DOOR -> 0.15;  // 15% reduction
+            case BALANCED_DOOR -> 0.05; // 5% reduction
+            case FRIENDLY_WELCOME -> 0.0; // No reduction
+        };
+    }
+    
+    /**
+     * Evaluates Trading Standards tier and applies penalties immediately.
+     * 
+     * Tier 1: TS >= 2 and < 5 - Reputation -30
+     * Tier 2: TS >= 5 and < 9 - Heavier reputation penalty + £300 fine
+     * Tier 3: TS >= 9 - Game Over (Licence revoked)
+     */
+    private void evaluateTradingStandardsTier() {
+        int ts = s.tradingStandardsCounter;
+        
+        if (ts >= 9) {
+            // Tier 3: Game Over
+            log.popup("LICENCE REVOKED",
+                "<b>Repeated underage service violations.</b><br><br>" +
+                "Trading Standards: " + ts + "/9<br>" +
+                "Your licence has been revoked.",
+                "GAME OVER");
+            s.gameOver = true;
+            s.gameOverReason = "Licence revoked due to repeated underage service violations.";
+        } else if (ts >= 5) {
+            // Tier 2: Heavy rep penalty + £300 fine
+            eco.applyRep(-50, "Trading Standards (multiple violations)");
+            
+            // Apply £300 fine
+            double fine = 300.0;
+            if (!eco.tryPay(fine, TransactionType.OTHER, "Trading Standards fine", CostTag.OTHER)) {
+                log.neg("Insufficient cash for TS fine - using credit/debt system.");
+            }
+            
+            log.popup("Trading Standards Fine",
+                "<b>Trading Standards fine issued.</b><br><br>" +
+                "Multiple underage service violations: " + ts + "<br>" +
+                "Fine: GBP 300<br>" +
+                "Reputation: -50",
+                "TS >= 5");
+        } else if (ts >= 2) {
+            // Tier 1: Rep -30
+            eco.applyRep(-30, "Trading Standards (seen serving underage)");
+            
+            log.popup("Trading Standards Warning",
+                "<b>Seen serving underage punters.</b><br><br>" +
+                "Trading Standards: " + ts + "<br>" +
+                "Reputation: -30",
+                "TS >= 2");
+        }
     }
 }

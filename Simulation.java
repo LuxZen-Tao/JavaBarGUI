@@ -2276,6 +2276,12 @@ public class Simulation {
         s.weekInnEventMaintenance = 0.0;
         s.weekInnEventRefunds = 0.0;
         s.unservedThisWeek = 0;
+        
+        // Trading Standards weekly reset
+        if (s.tradingStandardsCounter > 0) {
+            log.info("New week: Trading Standards counter reset.");
+        }
+        s.tradingStandardsCounter = 0;
         s.weekPriceMultiplierSum = 0.0;
         s.weekPriceMultiplierSamples = 0;
         s.weekFoodOrders = 0;
