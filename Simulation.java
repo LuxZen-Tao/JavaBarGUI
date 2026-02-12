@@ -1918,6 +1918,11 @@ public class Simulation {
 
         double cleanlinessDelta = -roomsBooked * INN_USAGE_CLEANLINESS_DECAY;
         boolean underHousekeeping = housekeepingCoverage < roomsBooked;
+        
+        // Run inn events if rooms are booked
+        if (roomsBooked > 0) {
+            runInnEvents(roomsBooked, hasDutyManager, marshallMitigation);
+        }
         if (roomsBooked > 0) {
             if (underHousekeeping) {
                 cleanlinessDelta -= (roomsBooked - housekeepingCoverage) * 1.2;
@@ -1984,6 +1989,9 @@ public class Simulation {
         } else if (underHousekeeping) {
             s.innRep = clamp01to100(s.innRep - 0.5);
         }
+        
+        // Passive inn rep recovery from marshalls and duty managers
+        applyPassiveInnRepRecovery(hasDutyManager, marshallMitigation);
 
         s.lastNightInnSummaryLine = "Rooms " + roomsBooked + "/" + s.roomsTotal
                 + " | Rev " + money2(revenue)
@@ -1996,6 +2004,274 @@ public class Simulation {
 
         s.innDemandBoostNextNight = Math.max(0.0, s.innDemandBoostNextNight);
     }
+    
+    // ==================== INN EVENTS SYSTEM ====================
+    
+    /**
+     * Triggers inn events during service when inn is active and guests are staying.
+     * Event frequency and tone depend on inn reputation.
+     * Marshalls and Duty Managers influence outcomes.
+     */
+    private void runInnEvents(int roomsBooked, boolean hasDutyManager, double marshallMitigation) {
+        // Inn event chance calculation based on reputation
+        double baseEventChance = calculateInnEventChance();
+        
+        // Roll for event
+        if (s.random.nextDouble() >= baseEventChance) {
+            return; // No event this time
+        }
+        
+        // Determine event tone based on inn reputation
+        boolean positiveEvent = shouldTriggerPositiveInnEvent();
+        
+        if (positiveEvent) {
+            triggerPositiveInnEvent(hasDutyManager, marshallMitigation);
+        } else {
+            triggerNegativeInnEvent(hasDutyManager, marshallMitigation, roomsBooked);
+        }
+    }
+    
+    /**
+     * Calculates base event chance based on inn reputation.
+     * Low inn rep: More frequent events
+     * High inn rep: Less frequent events
+     */
+    private double calculateInnEventChance() {
+        double innRep = s.innRep;
+        
+        if (innRep < 30) {
+            // Low reputation: events very frequent (30-40% chance)
+            return 0.30 + ((30 - innRep) / 30.0) * 0.10;
+        } else if (innRep < 50) {
+            // Medium-low reputation: events frequent (20-30% chance)
+            return 0.20 + ((50 - innRep) / 20.0) * 0.10;
+        } else if (innRep < 70) {
+            // Medium reputation: moderate events (10-20% chance)
+            return 0.10 + ((70 - innRep) / 20.0) * 0.10;
+        } else {
+            // High reputation: rare events (5-10% chance)
+            return 0.05 + ((100 - innRep) / 30.0) * 0.05;
+        }
+    }
+    
+    /**
+     * Determines if event should be positive based on inn reputation.
+     * Low inn rep: Mostly negative events
+     * High inn rep: Mostly positive events
+     */
+    private boolean shouldTriggerPositiveInnEvent() {
+        double innRep = s.innRep;
+        double positiveChance;
+        
+        if (innRep < 30) {
+            // Low reputation: 15% positive, 85% negative
+            positiveChance = 0.15;
+        } else if (innRep < 50) {
+            // Medium-low reputation: 30% positive, 70% negative
+            positiveChance = 0.30;
+        } else if (innRep < 70) {
+            // Medium reputation: 50% positive, 50% negative
+            positiveChance = 0.50;
+        } else {
+            // High reputation: 75% positive, 25% negative
+            positiveChance = 0.75;
+        }
+        
+        // Marshalls and duty managers boost positive chance
+        if (s.marshallCount() > 0) {
+            positiveChance += 0.10;
+        }
+        if (s.dutyManagerCount() > 0) {
+            positiveChance += 0.10;
+        }
+        
+        return s.random.nextDouble() < Math.min(0.95, positiveChance);
+    }
+    
+    /**
+     * Triggers a positive inn event.
+     * Marshalls and DMs amplify positive outcomes.
+     */
+    private void triggerPositiveInnEvent(boolean hasDutyManager, double marshallMitigation) {
+        // Calculate amplification from staff
+        double amplification = 1.0;
+        if (hasDutyManager) amplification += 0.25;
+        if (marshallMitigation > 0.0) amplification += marshallMitigation * 0.5;
+        
+        // Higher inn rep = better positive events
+        boolean premiumEvent = s.innRep > 70 && s.random.nextDouble() < 0.40;
+        
+        if (premiumEvent) {
+            // Premium positive events at high rep
+            int roll = s.random.nextInt(4);
+            switch (roll) {
+                case 0 -> {
+                    double repGain = 4.0 * amplification;
+                    double revenue = (30.0 + s.random.nextDouble() * 20.0) * amplification;
+                    eco.addCash(revenue, "Inn: VIP upgrade");
+                    applyInnEventWithMarshalls("VIP guest upgraded to premium suite", repGain, 2, -revenue, hasDutyManager, marshallMitigation);
+                }
+                case 1 -> {
+                    double repGain = 3.5 * amplification;
+                    applyInnEventWithMarshalls("Wedding party booked multiple rooms", repGain, 3, 0.0, hasDutyManager, marshallMitigation);
+                    s.innDemandBoostNextNight = Math.min(1.5, s.innDemandBoostNextNight + 1.0);
+                }
+                case 2 -> {
+                    double repGain = 3.0 * amplification;
+                    applyInnEventWithMarshalls("Travel blog featured the inn positively", repGain, 2, 0.0, hasDutyManager, marshallMitigation);
+                    s.innDemandBoostNextNight = Math.min(1.5, s.innDemandBoostNextNight + 0.8);
+                }
+                default -> {
+                    double repGain = 2.5 * amplification;
+                    applyInnEventWithMarshalls("Corporate booking for next week secured", repGain, 1, 0.0, hasDutyManager, marshallMitigation);
+                }
+            }
+        } else {
+            // Standard positive events
+            int roll = s.random.nextInt(5);
+            switch (roll) {
+                case 0 -> {
+                    double repGain = 2.0 * amplification;
+                    applyInnEventWithMarshalls("Guest praised exceptional cleanliness", repGain, 0, 0.0, hasDutyManager, marshallMitigation);
+                    s.innDemandBoostNextNight = Math.min(1.2, s.innDemandBoostNextNight + 0.4);
+                }
+                case 1 -> {
+                    double repGain = 1.8 * amplification;
+                    applyInnEventWithMarshalls("Repeat customer left 5-star review", repGain, 1, 0.0, hasDutyManager, marshallMitigation);
+                }
+                case 2 -> {
+                    double repGain = 1.5 * amplification;
+                    applyInnEventWithMarshalls("Guest appreciated helpful staff", repGain, 0, 0.0, hasDutyManager, marshallMitigation);
+                }
+                case 3 -> {
+                    double repGain = 1.2 * amplification;
+                    double tip = (5.0 + s.random.nextDouble() * 10.0) * amplification;
+                    eco.addCash(tip, "Inn: Guest tip");
+                    applyInnEventWithMarshalls("Guest left generous tip for housekeeping", repGain, 0, -tip, hasDutyManager, marshallMitigation);
+                }
+                default -> {
+                    double repGain = 1.0 * amplification;
+                    applyInnEventWithMarshalls("Smooth check-in/check-out process", repGain, 0, 0.0, hasDutyManager, marshallMitigation);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Triggers a negative inn event.
+     * Marshalls and DMs reduce severity and cost.
+     */
+    private void triggerNegativeInnEvent(boolean hasDutyManager, double marshallMitigation, int roomsBooked) {
+        // Calculate mitigation from staff
+        double mitigation = 1.0;
+        if (hasDutyManager) mitigation *= 0.75; // DM reduces severity by 25%
+        if (marshallMitigation > 0.0) mitigation *= (1.0 - marshallMitigation * 0.5); // Marshalls reduce by up to 50%
+        
+        // Lower inn rep = worse negative events
+        boolean severeEvent = s.innRep < 30 && s.random.nextDouble() < 0.50;
+        
+        if (severeEvent) {
+            // Severe negative events at low rep
+            int roll = s.random.nextInt(4);
+            switch (roll) {
+                case 0 -> {
+                    double repLoss = -6.0 * mitigation;
+                    double cost = (80.0 + s.random.nextDouble() * 40.0) * mitigation;
+                    if (!eco.tryPay(cost, TransactionType.REPAIR, "Inn: Room vandalism repair", CostTag.INN_MAINTENANCE)) {
+                        log.neg("Insufficient funds for inn repairs - using credit.");
+                    }
+                    applyInnEventWithMarshalls("Room trashed by disruptive guest", repLoss, -2, cost, hasDutyManager, marshallMitigation);
+                }
+                case 1 -> {
+                    double repLoss = -5.0 * mitigation;
+                    double refund = (40.0 + s.random.nextDouble() * 30.0) * mitigation;
+                    s.cash -= refund;
+                    s.weekCosts += refund;
+                    applyInnEventWithMarshalls("Major complaint forced full refund", repLoss, -2, refund, hasDutyManager, marshallMitigation);
+                    s.weekInnEventRefunds += refund;
+                }
+                case 2 -> {
+                    double repLoss = -4.5 * mitigation;
+                    applyInnEventWithMarshalls("Health & safety complaint reported", repLoss, -1, 0.0, hasDutyManager, marshallMitigation);
+                }
+                default -> {
+                    double repLoss = -4.0 * mitigation;
+                    double cost = (50.0 + s.random.nextDouble() * 30.0) * mitigation;
+                    if (!eco.tryPay(cost, TransactionType.REPAIR, "Inn: Plumbing emergency", CostTag.INN_MAINTENANCE)) {
+                        log.neg("Insufficient funds for inn repairs - using credit.");
+                    }
+                    applyInnEventWithMarshalls("Plumbing issue in occupied room", repLoss, -1, cost, hasDutyManager, marshallMitigation);
+                    s.weekInnEventMaintenance += cost;
+                }
+            }
+        } else {
+            // Standard negative events
+            int roll = s.random.nextInt(5);
+            switch (roll) {
+                case 0 -> {
+                    double repLoss = -2.5 * mitigation;
+                    applyInnEventWithMarshalls("Guest complained about noise", repLoss, -1, 0.0, hasDutyManager, marshallMitigation);
+                }
+                case 1 -> {
+                    double repLoss = -2.0 * mitigation;
+                    double refund = (15.0 + s.random.nextDouble() * 15.0) * mitigation;
+                    s.cash -= refund;
+                    s.weekCosts += refund;
+                    applyInnEventWithMarshalls("Room not ready: partial refund given", repLoss, -1, refund, hasDutyManager, marshallMitigation);
+                    s.weekInnEventRefunds += refund;
+                }
+                case 2 -> {
+                    double repLoss = -1.8 * mitigation;
+                    applyInnEventWithMarshalls("Guest found room below standard", repLoss, 0, 0.0, hasDutyManager, marshallMitigation);
+                }
+                case 3 -> {
+                    double repLoss = -1.5 * mitigation;
+                    double cost = (20.0 + s.random.nextDouble() * 20.0) * mitigation;
+                    if (!eco.tryPay(cost, TransactionType.REPAIR, "Inn: Minor damages", CostTag.INN_MAINTENANCE)) {
+                        log.neg("Insufficient funds for inn repairs - using credit.");
+                    }
+                    applyInnEventWithMarshalls("Minor room damage discovered", repLoss, 0, cost, hasDutyManager, marshallMitigation);
+                    s.weekInnEventMaintenance += cost;
+                }
+                default -> {
+                    double repLoss = -1.2 * mitigation;
+                    applyInnEventWithMarshalls("Slow service at reception", repLoss, 0, 0.0, hasDutyManager, marshallMitigation);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Applies passive inn rep recovery from marshalls and duty managers.
+     * Helps stabilize and gradually improve inn reputation.
+     */
+    private void applyPassiveInnRepRecovery(boolean hasDutyManager, double marshallMitigation) {
+        double recovery = 0.0;
+        
+        // Duty manager provides steady recovery
+        if (hasDutyManager) {
+            recovery += 0.3;
+        }
+        
+        // Marshalls provide additional recovery based on count and quality
+        if (s.marshallCount() > 0) {
+            recovery += marshallMitigation * 0.4;
+        }
+        
+        // Apply recovery (scaled down if inn rep is already high)
+        if (s.innRep < 50) {
+            // Full recovery at low rep
+            s.innRep = clamp01to100(s.innRep + recovery);
+        } else if (s.innRep < 80) {
+            // Reduced recovery at medium-high rep
+            s.innRep = clamp01to100(s.innRep + recovery * 0.5);
+        } else {
+            // Minimal recovery at very high rep
+            s.innRep = clamp01to100(s.innRep + recovery * 0.25);
+        }
+    }
+    
+    // ==================== END INN EVENTS SYSTEM ====================
 
     void installUpgradeForTest(PubUpgrade up) {
         installUpgradeNow(up, false);
