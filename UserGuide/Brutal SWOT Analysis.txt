@@ -1,0 +1,82 @@
+Brutal SWOT Analysis
+
+No fluff. Just reality.
+
+Strengths
+
+Deep System Interconnectivity
+The mechanics genuinely influence one another. This is rare and valuable.
+
+High Replayability Potential
+Systems-based gameplay creates emergent outcomes and strategic variance.
+
+Strong Core Logic Foundation
+The simulation exists. This isn’t just concept-stage thinking.
+
+Differentiated Theme
+Hospitality + regulation + nightlife tension is underused in management sims.
+
+Expansion-Ready Structure
+The architecture supports future scaling if handled properly.
+
+Weaknesses
+
+Presentation Gap
+Without strong UI/UX and visual polish, deep systems can feel overwhelming or dated.
+
+Complexity Risk
+Too many systems without onboarding can alienate players.
+
+Balance Fragility
+Interconnected mechanics mean small misbalances cascade fast.
+
+Market Perception
+“Java GUI pub sim” does not scream premium product yet. Branding matters.
+
+Solo-Built System Bias
+Some systems may reflect design passion more than market-tested demand.
+
+Opportunities
+
+Engine Upgrade
+Moving to a more polished rendering engine could dramatically elevate perception.
+
+Influencer-Friendly Systems
+Emergent chaos + reputation collapse moments are streamable content gold.
+
+Niche Dominance
+Few games deeply explore hospitality management with regulatory pressure.
+
+Expansion Packs
+Theme extensions: festivals, town politics, gang influence, chain expansion.
+
+AI-Enhanced Simulation
+Behaviour modelling and procedural content could become a signature feature.
+
+Threats
+
+Overengineering
+Adding systems faster than polishing existing ones could bury usability.
+
+Feature Creep
+Depth without clarity becomes friction.
+
+Indie Market Saturation
+Management sims are competitive; presentation must match depth.
+
+Burnout Risk
+Complex systems require structured iteration — not chaotic patching.
+
+Migration Risk
+Engine transition can stall momentum if not planned surgically.
+
+The honest truth?
+
+The simulation brain is stronger than the current body.
+
+If refined and presented properly, this could evolve into a serious mid-tier management sim.
+
+If left unpolished and overextended, it risks becoming a brilliant but inaccessible systems sandbox.
+
+The ceiling is high.
+Execution determines everything.

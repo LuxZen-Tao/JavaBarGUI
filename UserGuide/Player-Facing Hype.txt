@@ -1,0 +1,71 @@
+README 1 — Player-Facing Hype Version
+JavaBarGUI
+Run the Night. Own the Chaos.
+
+JavaBarGUI is a deep, systems-driven pub management simulation where every decision ripples through your business.
+
+You’re not just pouring drinks. You’re managing reputation, staff morale, regulatory risk, VIP loyalty, seasonal demand, finances, and chaos — all at once.
+
+Every service is a story.
+
+What You Control
+
+Pricing strategy and supply management
+
+Staff hiring, morale, and progression
+
+Security policies and enforcement
+
+Reputation and public identity
+
+VIP relationships
+
+Trading Standards risk
+
+Inn guest behaviour and hospitality incidents
+
+Financial survival: wages, rent, fines, debt, and profit
+
+What Makes It Different
+
+This is not a clicker. It’s not a shallow idle loop.
+
+JavaBarGUI is built around cause-and-effect systems:
+
+Serve underage customers? Expect regulatory consequences.
+
+Neglect security? Reputation spirals.
+
+Build strong relationships? Regulars return.
+
+Expand the inn? New revenue — and new problems.
+
+Every mechanic connects.
+
+A Living System
+
+Customers aren’t numbers.
+Staff aren’t static modifiers.
+Your pub develops an identity over time.
+
+Reputation shapes event frequency.
+Security affects risk exposure.
+Inn performance changes the tone of your nights.
+Milestones unlock new possibilities.
+
+You can play safe.
+Or you can push the edge.
+
+The Core Experience
+
+Survive the early nights.
+Stabilize your finances.
+Balance risk and reward.
+Scale your operation.
+Build a respected venue — or a notorious one.
+
+One bad week won’t end you.
+But repeated bad decisions will.
+
+The doors are open.
+What kind of landlord are you going to be?
