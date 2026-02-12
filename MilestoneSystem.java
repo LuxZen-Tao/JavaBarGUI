@@ -198,7 +198,13 @@ public class MilestoneSystem {
     private void applyReward(Milestone id) {
         switch (id) {
             case M6_MARGIN_WITH_MANNERS -> grantCashBonus(100, "Margin With Manners");
-            case M8_ORDER_RESTORED -> s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 2);
+            case M8_ORDER_RESTORED -> {
+                s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 2);
+                s.chaosRecoveryPending = false; // Reset flag to prevent duplicate triggers
+            }
+            case M11_NARRATIVE_RECOVERY -> {
+                s.negativeRumorRecoveryPending = false; // Reset flag to prevent duplicate triggers
+            }
             case M12_BOOKED_OUT -> s.unlockedLandlordActionTier = Math.max(s.unlockedLandlordActionTier, 3);
             case M13_BRIDGE_DONT_BLEED -> s.supplierBulkUnlockTier = Math.max(s.supplierBulkUnlockTier, 1);
             case M14_DEBT_DIET -> s.supplierBulkUnlockTier = Math.max(s.supplierBulkUnlockTier, 2);
