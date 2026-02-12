@@ -10,6 +10,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Hashtable;
 import java.util.Locale;
 import java.util.List;
 import java.util.Map;
@@ -207,6 +208,7 @@ public class WineBarGUI {
     private JSlider musicVolumeSlider;
     private JSlider chatterVolumeSlider;
     private JSlider sfxVolumeSlider;
+    private JSlider logSpeedSlider;
     private boolean optionsOpenPausedAuto;
     private int lastAutosavedWeek = -1;
     private final Preferences prefs = Preferences.userNodeForPackage(WineBarGUI.class);
@@ -256,6 +258,7 @@ public class WineBarGUI {
         log.setPopupSink(this::showPopup);
         wireEvents();
         applySavedAudioPreferences();
+        applySavedLogPreferences();
 
         refreshAll();
         log.header("READY");
@@ -380,6 +383,11 @@ public class WineBarGUI {
         int chatter = prefs.getInt("audio.chatter", 80);
         sim.setMusicVolume(music);
         sim.setChatterVolume(chatter);
+    }
+
+    private void applySavedLogPreferences() {
+        int speedSetting = prefs.getInt("ui.logSpeed", UILogger.LOG_SPEED_SETTING_DEFAULT);
+        log.setLogSpeedSetting(speedSetting);
     }
 
     private void handleFreshWeekAutosave(int week) {
@@ -905,6 +913,15 @@ public class WineBarGUI {
         sound.add(labeledSlider("Chatter Volume", chatterVolumeSlider));
         sound.add(labeledSlider("SFX Volume (Coming soon)", sfxVolumeSlider));
 
+        JPanel activityLog = new JPanel();
+        activityLog.setLayout(new BoxLayout(activityLog, BoxLayout.Y_AXIS));
+        activityLog.setBorder(BorderFactory.createTitledBorder("Activity Log"));
+        logSpeedSlider = createLogSpeedSlider(log.getLogSpeedSetting(), v -> {
+            log.setLogSpeedSetting(v);
+            prefs.putInt("ui.logSpeed", v);
+        });
+        activityLog.add(labeledSlider("Activity Log Speed", logSpeedSlider));
+
         JPanel save = new JPanel(new FlowLayout(FlowLayout.LEFT));
         save.setBorder(BorderFactory.createTitledBorder("Save"));
         JButton saveButton = new JButton("Save Game");
@@ -921,6 +938,7 @@ public class WineBarGUI {
 
         content.add(navigation);
         content.add(sound);
+        content.add(activityLog);
         content.add(save);
         content.add(quit);
 
@@ -942,6 +960,25 @@ public class WineBarGUI {
 
     private JSlider createVolumeSlider(int initial, java.util.function.IntConsumer onChange) {
         JSlider slider = new JSlider(0, 100, Math.max(0, Math.min(100, initial)));
+        slider.addChangeListener(e -> onChange.accept(slider.getValue()));
+        return slider;
+    }
+
+    private JSlider createLogSpeedSlider(int initial, java.util.function.IntConsumer onChange) {
+        JSlider slider = new JSlider(
+                UILogger.LOG_SPEED_SETTING_MIN,
+                UILogger.LOG_SPEED_SETTING_MAX,
+                Math.max(UILogger.LOG_SPEED_SETTING_MIN, Math.min(UILogger.LOG_SPEED_SETTING_MAX, initial))
+        );
+        slider.setMajorTickSpacing(50);
+        slider.setMinorTickSpacing(10);
+        slider.setPaintTicks(true);
+        slider.setPaintLabels(true);
+        Hashtable<Integer, JLabel> labels = new Hashtable<>();
+        labels.put(UILogger.LOG_SPEED_SETTING_MIN, new JLabel("Crawl"));
+        labels.put(UILogger.LOG_SPEED_SETTING_DEFAULT, new JLabel("Default"));
+        labels.put(UILogger.LOG_SPEED_SETTING_MAX, new JLabel("Fast"));
+        slider.setLabelTable(labels);
         slider.addChangeListener(e -> onChange.accept(slider.getValue()));
         return slider;
     }

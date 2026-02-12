@@ -9,6 +9,13 @@ import java.util.function.Consumer;
 
 public class UILogger implements Logger {
 
+    public static final int LOG_SPEED_SETTING_MIN = 0;
+    public static final int LOG_SPEED_SETTING_DEFAULT = 50;
+    public static final int LOG_SPEED_SETTING_MAX = 100;
+    public static final int LOG_PRINT_DELAY_CRAWL_MS = 220;
+    public static final int LOG_PRINT_DELAY_DEFAULT_MS = 30;
+    public static final int LOG_PRINT_DELAY_FAST_MS = 15;
+
     public enum Tone { INFO, NEUTRAL, MID, POS, GREAT, NEG, EVENT, ACTION, HEADER }
     public record Segment(String text, Tone tone) {}
     private interface LogEntry {
@@ -33,6 +40,7 @@ public class UILogger implements Logger {
     private final StyledDocument doc;
     private final Deque<LogEntry> queue = new ArrayDeque<>();
     private final Timer timer;
+    private int logSpeedSetting = LOG_SPEED_SETTING_DEFAULT;
     private boolean showTimestamps = false;
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
     public record PopupMessage(String title, String body, String effects, UIPopup.PopupStyle style) {}
@@ -51,8 +59,32 @@ public class UILogger implements Logger {
         Font base = mono != null ? mono : new Font("Monospaced", Font.PLAIN, 12);
         pane.setFont(base.deriveFont((float) (base.getSize() + 2)));
 
-        timer = new Timer(30, e -> flushOne());
+        timer = new Timer(LOG_PRINT_DELAY_DEFAULT_MS, e -> flushOne());
         timer.start();
+    }
+
+    public int getLogSpeedSetting() {
+        return logSpeedSetting;
+    }
+
+    public void setLogSpeedSetting(int setting) {
+        int clamped = Math.max(LOG_SPEED_SETTING_MIN, Math.min(LOG_SPEED_SETTING_MAX, setting));
+        logSpeedSetting = clamped;
+        int delay = delayFromSetting(clamped);
+        timer.setDelay(delay);
+        timer.setInitialDelay(delay);
+    }
+
+    private static int delayFromSetting(int setting) {
+        if (setting <= LOG_SPEED_SETTING_DEFAULT) {
+            double t = (double) setting / LOG_SPEED_SETTING_DEFAULT;
+            return (int) Math.round(LOG_PRINT_DELAY_CRAWL_MS
+                    + t * (LOG_PRINT_DELAY_DEFAULT_MS - LOG_PRINT_DELAY_CRAWL_MS));
+        }
+        double t = (double) (setting - LOG_SPEED_SETTING_DEFAULT)
+                / (LOG_SPEED_SETTING_MAX - LOG_SPEED_SETTING_DEFAULT);
+        return (int) Math.round(LOG_PRINT_DELAY_DEFAULT_MS
+                + t * (LOG_PRINT_DELAY_FAST_MS - LOG_PRINT_DELAY_DEFAULT_MS));
     }
 
     private void setupStyles() {
