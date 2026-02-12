@@ -91,6 +91,7 @@ public class ReportSystem {
         }
         sb.append("Revenue:  ").append(fmt2(s.nightRevenue)).append("\n");
         sb.append("Sales:    ").append(s.nightSales).append("\n");
+        sb.append("Covers:   ").append(s.servedPuntersThisService.size()).append("\n");
         sb.append("Unserved: ").append(s.nightUnserved).append("\n");
         sb.append("Food misses: ").append(s.nightFoodUnserved).append("\n");
         sb.append("Natural departures: ").append(s.nightNaturalDepartures).append("\n");

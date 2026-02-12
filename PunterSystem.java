@@ -513,6 +513,10 @@ public class PunterSystem {
                         + (tips > 0 ? " (tips +" + String.format("%.2f", tips) + ")" : ""));
 
                 if (effectiveMult <= 1.10) eco.applyRep(+1, "Satisfied customer");
+                
+                // Track unique punter served this service for covers count
+                s.servedPuntersThisService.add(p.getId());
+                
                 return true;
             }
 
@@ -606,6 +610,9 @@ public class PunterSystem {
         s.recordFoodQuality(food);
         applyFoodOverpricingConsequences(p, food, price);
         log.info("  - Orders food: " + food.getName() + " (ready in " + prepRounds + " rounds).");
+        
+        // Track unique punter served this service for covers count
+        s.servedPuntersThisService.add(p.getId());
     }
 
     private double priceTipMultiplier(double sellPrice, double basePrice, Punter.Tier tier) {

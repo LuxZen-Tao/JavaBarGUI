@@ -1243,6 +1243,9 @@ public class Simulation {
         s.sickCallTriggeredTonight = false;
         s.sickStaffNameTonight = "";
         s.sickStaffTonight.clear();
+        
+        // Reset covers tracking for new service
+        s.servedPuntersThisService.clear();
 
         // nightly reset
         s.activityTonight = null;

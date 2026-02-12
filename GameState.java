@@ -401,6 +401,9 @@ public class GameState implements java.io.Serializable {
     // punters
     public final List<Punter> nightPunters = new ArrayList<>();
     public int nextPunterId = 1;
+    
+    // covers tracking: unique punters served this service
+    public final java.util.Set<Integer> servedPuntersThisService = new java.util.HashSet<>();
 
     // how many can be in the bar at once (arrivals stop once full)
     public int maxBarOccupancy = 5;
