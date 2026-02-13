@@ -86,6 +86,7 @@ Read the **[Player Guide](UserGuide/PLAYER_GUIDE.md)** for complete gameplay ins
 | Document | Purpose | Audience |
 |----------|---------|----------|
 | **[PLAYER_GUIDE.md](UserGuide/PLAYER_GUIDE.md)** | Complete gameplay guide with strategies and system breakdowns | Players |
+| **[DRIVER_MECHANICS_GUIDE.md](UserGuide/DRIVER_MECHANICS_GUIDE.md)** | Deep dive into service/stability drivers and staff performance | Players (Advanced) |
 | **[GAME_DESCRIPTION.md](UserGuide/GAME_DESCRIPTION.md)** | Detailed design document explaining all mechanics | Players & Designers |
 | **[DEVELOPER_GUIDE.md](UserGuide/DEVELOPER_GUIDE.md)** | Technical reference for code architecture and modding | Developers |
 
