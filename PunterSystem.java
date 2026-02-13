@@ -792,6 +792,13 @@ public class PunterSystem {
         if (rumors != null) bias += rumors.wealthBias();
         if (FeatureFlags.FEATURE_RIVALS) bias += s.rivalPunterMixBias;
         bias += s.pubLevel * 0.06;
+        
+        // Press tone effect: "word of mouth" attracts matching clientele
+        // Positive press tone (respectable/family-friendly) attracts higher tier patrons
+        // Negative press tone (underground/shady) attracts lower tier patrons
+        if (s.currentIdentity != null) {
+            bias += s.currentIdentity.getPressToneBias() * 0.25;
+        }
 
         if (bias > 0.15 && s.random.nextInt(100) < 35) {
             return promoteTier(base);

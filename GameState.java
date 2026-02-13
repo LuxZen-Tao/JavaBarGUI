@@ -457,6 +457,13 @@ public class GameState implements java.io.Serializable {
     public double chaos = 0.0;
     public double betweenNightChaos = 0.0;
 
+    // DUAL IDENTITY SYSTEM:
+    // pubIdentity (legacy system) - Used by legacy code in some UI displays and older gameplay logic.
+    //                               Updated by simple chaos/event-based scoring in Simulation.java.
+    // currentIdentity (modern system) - Used by HUD, press tone, and newer gameplay features.
+    //                                   Updated by sophisticated 4-week historical analysis in PubIdentitySystem.java.
+    // Both exist for backwards compatibility and gradual migration. Some systems reference pubIdentity
+    // as a fallback when currentIdentity is null. New code should use currentIdentity.
     public PubIdentity pubIdentity = PubIdentity.NEUTRAL;
     public double identityRespectable = 0.0;
     public double identityRowdy = 0.0;
@@ -468,6 +475,7 @@ public class GameState implements java.io.Serializable {
     public final EnumMap<Rumor, RumorInstance> activeRumors = new EnumMap<>(Rumor.class);
     public final EnumMap<Rumor, Integer> rumorHeat = new EnumMap<>(Rumor.class);
     public EnumMap<PubIdentity, Double> pubIdentityScore = new EnumMap<>(PubIdentity.class);
+    // Modern identity system - preferred for all new code
     public PubIdentity currentIdentity = PubIdentity.RESPECTABLE;
     public java.util.Deque<PubIdentitySystem.WeeklyIdentitySnapshot> identitySnapshots = new ArrayDeque<>();
     public java.util.List<PubIdentity> identityHistory = new ArrayList<>();

@@ -3347,7 +3347,7 @@ public class WineBarGUI {
     }
 
     private String buildReputationBadgeText(String mood) {
-        String identity = formatIdentityLabel(state.pubIdentity);
+        String identity = formatIdentityLabel(state.currentIdentity);
         RumorInstance featuredRumor = findFeaturedRumor();
         String rumorLine = featuredRumor != null ? featuredRumor.type().getLabel() : "None";
         return "<html>Reputation: " + state.reputation + " (" + mood + ")"
