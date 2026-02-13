@@ -44,8 +44,14 @@ public class PubLevelIntegrationTest {
         milestones.evaluateMilestones(MilestoneSystem.EvaluationReason.NIGHT_END);
         assert state.milestonesAchievedCount == 2 : "Should have 2 milestones, got " + state.milestonesAchievedCount;
         
+        // Still need to wait 2 weeks at level 0
         levelSystem.updatePubLevel(state);
-        assert state.pubLevel == 1 : "Should be level 1 with 2 milestones, got " + state.pubLevel;
+        assert state.pubLevel == 0 : "Should still be level 0 without enough weeks";
+        
+        // Simulate 2 weeks passing
+        state.weeksAtCurrentLevel = 2;
+        levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 1 : "Should be level 1 with 2 milestones and 2 weeks, got " + state.pubLevel;
 
         // Achieve three more milestones to reach level 2 (need 5 total)
         state.lastServiceRanFullRounds = true;
@@ -65,8 +71,10 @@ public class PubLevelIntegrationTest {
         int countBefore6 = state.milestonesAchievedCount;
         assert countBefore6 == 5 : "Should have 5 milestones, got " + countBefore6;
         
+        // Need 3 weeks at level 1 before reaching level 2
+        state.weeksAtCurrentLevel = 3;
         levelSystem.updatePubLevel(state);
-        assert state.pubLevel == 2 : "Should be level 2 with 5 milestones, got " + state.pubLevel;
+        assert state.pubLevel == 2 : "Should be level 2 with 5 milestones and 3 weeks, got " + state.pubLevel;
     }
 
     /**
@@ -75,12 +83,14 @@ public class PubLevelIntegrationTest {
     private static void testCountPersistsAcrossSessions() {
         GameState state = GameFactory.newGame();
         
-        // Manually set up a saved game state with 3 milestones
+        // Manually set up a saved game state with 3 milestones at level 1
         state.achievedMilestones.add(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS);
         state.achievedMilestones.add(MilestoneSystem.Milestone.M2_NO_EMPTY_SHELVES);
         state.achievedMilestones.add(MilestoneSystem.Milestone.M3_NO_ONE_LEAVES_ANGRY);
         state.prestigeMilestones.addAll(state.achievedMilestones);
         state.milestonesAchievedCount = 3;
+        state.pubLevel = 1;
+        state.weeksAtCurrentLevel = 1;
         
         // Simulate loading by creating new MilestoneSystem
         MilestoneSystem milestones = new MilestoneSystem(state, new UILogger(new JTextPane()));

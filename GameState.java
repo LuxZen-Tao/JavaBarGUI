@@ -344,6 +344,7 @@ public class GameState implements java.io.Serializable {
     public record InnPriceSegment(int startRound, int endRound, double rateApplied) {}
 
     public int pubLevel = 0;
+    public int weeksAtCurrentLevel = 0;
     public int pubLevelServeCapBonus = 0;
     public int pubLevelBarCapBonus = 0;
     public double pubLevelTrafficBonusPct = 0.0;
