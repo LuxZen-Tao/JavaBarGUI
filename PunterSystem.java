@@ -507,8 +507,8 @@ public class PunterSystem {
 
                 double tips = sellPrice * tipRate * tipMult;
                 if (tips > 0) {
-                    eco.addCash(tips, "Tips");
-                    s.tipsThisWeek += tips;
+                    // Tips go to the pot, not directly to cash
+                    s.tipsPotWeek += tips;
                 }
 
                 p.spend(sellPrice);
