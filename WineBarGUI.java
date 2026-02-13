@@ -2231,8 +2231,7 @@ public class WineBarGUI {
                 enabled = state.managerPoolCount() < state.managerCap;
 
             } else if (t == Staff.Type.DUTY_MANAGER) {
-                enabled = state.innUnlocked
-                        && state.innTier >= 2
+                enabled = state.ownedUpgrades.contains(PubUpgrade.LEADERSHIP_PROGRAM_II)
                         && state.managerPoolCount() < state.managerCap
                         && state.fohStaffCount() < state.fohStaffCap;
 

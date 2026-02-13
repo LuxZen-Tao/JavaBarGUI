@@ -177,7 +177,7 @@ public class UpgradeSystem {
                     FASTER_TAPS_I, FASTER_TAPS_II, FASTER_TAPS_III,
                     EXTENDED_BAR -> UpgradeCategory.THROUGHPUT;
             case STAFF_ROOM_I, STAFF_ROOM_II, STAFF_ROOM_III,
-                    LEADERSHIP_PROGRAM,
+                    LEADERSHIP_PROGRAM_I, LEADERSHIP_PROGRAM_II,
                     BETTER_GLASSWARE_I, BETTER_GLASSWARE_II, BETTER_GLASSWARE_III -> UpgradeCategory.FINANCE;
             default -> UpgradeCategory.IDENTITY;
         };

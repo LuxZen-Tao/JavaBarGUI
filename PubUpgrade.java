@@ -167,9 +167,13 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    LEADERSHIP_PROGRAM("Leadership Program", 480, 0.02, 1, 1,
+    LEADERSHIP_PROGRAM_I("Leadership Program I", 380, 0.02, 1, 1,
             0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
             0.00, 0.00, 0.02, 0.00, 0.00, 0.00),
+
+    LEADERSHIP_PROGRAM_II("Leadership Program II", 580, 0.02, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+            0.00, 0.00, 0.03, 0.00, 0.00, 0.00),
 
     // QoL & risk
     BETTER_GLASSWARE_I("Better Glassware I", 140, 0.00, 1, 0,
