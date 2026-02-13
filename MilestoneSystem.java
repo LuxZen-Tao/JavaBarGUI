@@ -212,9 +212,12 @@ public class MilestoneSystem {
     }
 
     private void grant(MilestoneDefinition def, EvaluationReason reason) {
-        s.achievedMilestones.add(def.id());
-        s.prestigeMilestones.add(def.id());
-        s.milestonesAchievedCount++;  // Increment count for unique milestone
+        // Defensive check: only increment count if milestone not already achieved
+        if (!s.achievedMilestones.contains(def.id())) {
+            s.achievedMilestones.add(def.id());
+            s.prestigeMilestones.add(def.id());
+            s.milestonesAchievedCount++;  // Increment count for unique milestone
+        }
         applyReward(def.id());
         String msg = def.title() + "\n" + def.rewardText();
         s.milestonePopups.add(msg);

@@ -25,15 +25,16 @@ public class PubLevelCountTests {
 
     /**
      * Test that thresholdForLevel() calculates correct cumulative values.
-     * Level 1: 2, Level 2: 5, Level 3: 9, Level 4: 14, Level 5: 20, Level 6: 27
+     * Formula: Level L requires L+2 additional milestones beyond previous level.
+     * Expected thresholds: Level 1: 2, Level 2: 5, Level 3: 9, Level 4: 14, Level 5: 20, Level 6: 27
      */
     private static void testThresholdCalculation() {
         assert PubLevelSystem.thresholdForLevel(1) == 2 : "Level 1 should require 2 milestones";
-        assert PubLevelSystem.thresholdForLevel(2) == 5 : "Level 2 should require 5 milestones (2+3)";
-        assert PubLevelSystem.thresholdForLevel(3) == 9 : "Level 3 should require 9 milestones (5+4)";
-        assert PubLevelSystem.thresholdForLevel(4) == 14 : "Level 4 should require 14 milestones (9+5)";
-        assert PubLevelSystem.thresholdForLevel(5) == 20 : "Level 5 should require 20 milestones (14+6)";
-        assert PubLevelSystem.thresholdForLevel(6) == 27 : "Level 6 should require 27 milestones (20+7)";
+        assert PubLevelSystem.thresholdForLevel(2) == 5 : "Level 2 should require 5 milestones";
+        assert PubLevelSystem.thresholdForLevel(3) == 9 : "Level 3 should require 9 milestones";
+        assert PubLevelSystem.thresholdForLevel(4) == 14 : "Level 4 should require 14 milestones";
+        assert PubLevelSystem.thresholdForLevel(5) == 20 : "Level 5 should require 20 milestones";
+        assert PubLevelSystem.thresholdForLevel(6) == 27 : "Level 6 should require 27 milestones";
     }
 
     /**

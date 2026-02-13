@@ -16,8 +16,8 @@ public class PubLevelSystem {
         if (level == 1) return 2;
         
         int cumulative = 2;  // Start with level 1's threshold
-        for (int L = 1; L < level; L++) {
-            cumulative += (L + 2);  // Each level L→L+1 requires L+2 milestones
+        for (int i = 1; i < level; i++) {
+            cumulative += (i + 2);  // Each level i→i+1 requires i+2 milestones
         }
         return cumulative;
     }
@@ -79,10 +79,6 @@ public class PubLevelSystem {
         int needed = thresholdForLevel(level);
         String status = current >= needed ? "[✓]" : "[ ]";
         return List.of(status + " Milestones: " + current + " / " + needed);
-    }
-
-    private String formatRequirement(String label, boolean met) {
-        return (met ? "[✓] " : "[ ] ") + label;
     }
 
     public String compactNextLevelBadge(GameState s) {
