@@ -16,7 +16,7 @@ public class UILogger implements Logger {
     public static final int LOG_PRINT_DELAY_DEFAULT_MS = 30;
     public static final int LOG_PRINT_DELAY_FAST_MS = 15;
 
-    public enum Tone { INFO, NEUTRAL, MID, POS, GREAT, NEG, EVENT, ACTION, HEADER }
+    public enum Tone { INFO, NEUTRAL, MID, POS, GREAT, NEG, EVENT, ACTION, HEADER, WARNING, CRITICAL, MONEY, SECURITY, REPUTATION }
     public record Segment(String text, Tone tone) {}
     private interface LogEntry {
         void append(StyledDocument doc) throws BadLocationException;
@@ -118,6 +118,26 @@ public class UILogger implements Logger {
         Style hdr = doc.addStyle("HEADER", def);
         StyleConstants.setForeground(hdr, new Color(255, 186, 90)); // orange-ish
         StyleConstants.setBold(hdr, true);
+
+        Style warning = doc.addStyle("WARNING", def);
+        StyleConstants.setForeground(warning, new Color(255, 200, 100)); // amber/yellow-family
+        StyleConstants.setBold(warning, false);
+
+        Style critical = doc.addStyle("CRITICAL", def);
+        StyleConstants.setForeground(critical, new Color(255, 100, 80)); // hot orange/red
+        StyleConstants.setBold(critical, true);
+
+        Style money = doc.addStyle("MONEY", def);
+        StyleConstants.setForeground(money, new Color(120, 220, 180)); // mint/green
+        StyleConstants.setBold(money, false);
+
+        Style security = doc.addStyle("SECURITY", def);
+        StyleConstants.setForeground(security, new Color(220, 180, 100)); // gold
+        StyleConstants.setBold(security, false);
+
+        Style reputation = doc.addStyle("REPUTATION", def);
+        StyleConstants.setForeground(reputation, new Color(160, 140, 220)); // soft purple/blue
+        StyleConstants.setBold(reputation, false);
     }
 
     private void flushOne() {
@@ -139,6 +159,11 @@ public class UILogger implements Logger {
             case EVENT -> "EVENT";
             case ACTION -> "ACTION";
             case HEADER -> "HEADER";
+            case WARNING -> "WARNING";
+            case CRITICAL -> "CRITICAL";
+            case MONEY -> "MONEY";
+            case SECURITY -> "SECURITY";
+            case REPUTATION -> "REPUTATION";
             default -> "INFO";
         };
     }
@@ -200,6 +225,12 @@ public class UILogger implements Logger {
         publishEvent(s);
     }
     public void action(String s) { push(s, Tone.ACTION); }
+
+    public void warning(String s) { push(s, Tone.WARNING); }
+    public void critical(String s) { push(s, Tone.CRITICAL); }
+    public void money(String s) { push(s, Tone.MONEY); }
+    public void security(String s) { push(s, Tone.SECURITY); }
+    public void reputation(String s) { push(s, Tone.REPUTATION); }
 
     public void header(String s) { push("\n" + s + "\n", Tone.HEADER); }
     public void spacer() { push("", Tone.INFO); }
