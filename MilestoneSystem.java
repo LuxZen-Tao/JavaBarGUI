@@ -86,6 +86,10 @@ public class MilestoneSystem {
         if (!s.prestigeMilestones.isEmpty() && s.achievedMilestones.isEmpty()) {
             s.achievedMilestones.addAll(s.prestigeMilestones);
         }
+        // Sync count from achievedMilestones if not already set
+        if (s.milestonesAchievedCount == 0 && !s.achievedMilestones.isEmpty()) {
+            s.milestonesAchievedCount = s.achievedMilestones.size();
+        }
         recomputeActivityAvailability();
         recomputeUpgradeAvailability();
     }
@@ -210,6 +214,7 @@ public class MilestoneSystem {
     private void grant(MilestoneDefinition def, EvaluationReason reason) {
         s.achievedMilestones.add(def.id());
         s.prestigeMilestones.add(def.id());
+        s.milestonesAchievedCount++;  // Increment count for unique milestone
         applyReward(def.id());
         String msg = def.title() + "\n" + def.rewardText();
         s.milestonePopups.add(msg);

@@ -5,10 +5,31 @@ public class PubLevelSystem {
 
     public static final int MAX_LEVEL = PrestigeSystem.MAX_LEVEL;
 
+    /**
+     * Compute cumulative milestone threshold for a given level.
+     * Level 1 requires 2 milestones.
+     * Each subsequent level requires (level + 1) more milestones.
+     * Cumulative: 2, 5, 9, 14, 20, 27...
+     */
+    public static int thresholdForLevel(int level) {
+        if (level <= 0) return 0;
+        if (level == 1) return 2;
+        
+        int cumulative = 2;  // Start with level 1's threshold
+        for (int L = 1; L < level; L++) {
+            cumulative += (L + 2);  // Each level L→L+1 requires L+2 milestones
+        }
+        return cumulative;
+    }
+
     public void updatePubLevel(GameState s) {
+        int count = s.milestonesAchievedCount;
         int level = 0;
+        
+        // Check each level threshold and assign highest met level
+        // Allow skipping multiple levels if count jumps
         for (int i = 1; i <= MAX_LEVEL; i++) {
-            if (meetsLevelRequirement(s, i)) {
+            if (count >= thresholdForLevel(i)) {
                 level = i;
             } else {
                 break;
@@ -33,71 +54,31 @@ public class PubLevelSystem {
     }
 
     public boolean meetsLevelRequirement(GameState s, int targetLevel) {
-        int prestigeWeeks = s.weeksSincePrestige();
-        EnumSet<MilestoneSystem.Milestone> milestones = s.prestigeMilestones;
-        return switch (targetLevel) {
-            case 1 -> prestigeWeeks >= 2 && milestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS);
-            case 2 -> prestigeWeeks >= 4
-                    && milestones.contains(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING)
-                    && milestones.contains(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER);
-            case 3 -> prestigeWeeks >= 6
-                    && milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET)
-                    && milestones.contains(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE);
-            case 4 -> prestigeWeeks >= 8
-                    && milestones.contains(MilestoneSystem.Milestone.M12_BOOKED_OUT)
-                    && milestones.contains(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE);
-            case 5 -> prestigeWeeks >= 10
-                    && milestones.contains(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER)
-                    && milestones.contains(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR);
-            case 6 -> prestigeWeeks >= 12
-                    && milestones.contains(MilestoneSystem.Milestone.M19_HEADLINER_VENUE)
-                    && milestones.contains(MilestoneSystem.Milestone.M13_BRIDGE_DONT_BLEED)
-                    && milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET);
-            default -> false;
-        };
+        return s.milestonesAchievedCount >= thresholdForLevel(targetLevel);
     }
 
     public String progressionSummary(GameState s) {
         int next = Math.min(MAX_LEVEL, s.pubLevel + 1);
         if (next <= s.pubLevel) return "Max pub level reached.";
+        
+        int current = s.milestonesAchievedCount;
+        int needed = thresholdForLevel(next);
+        
         StringBuilder sb = new StringBuilder();
         sb.append("Next level requirements (Lv ").append(next).append("):\n");
-        for (String req : levelRequirementsText(s, next)) {
-            sb.append(" - ").append(req).append("\n");
+        sb.append(" - Milestones: ").append(current).append(" / ").append(needed);
+        if (current >= needed) {
+            sb.append(" [✓]");
         }
+        sb.append("\n");
         return sb.toString();
     }
 
     private List<String> levelRequirementsText(GameState s, int level) {
-        int prestigeWeeks = s.weeksSincePrestige();
-        EnumSet<MilestoneSystem.Milestone> milestones = s.prestigeMilestones;
-        return switch (level) {
-            case 1 -> List.of(
-                    formatRequirement("Week 2+ (since prestige)", prestigeWeeks >= 2),
-                    formatRequirement("Milestone: Open For Business", milestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS))
-            );
-            case 2 -> List.of(
-                    formatRequirement("Week 4+ (since prestige)", prestigeWeeks >= 4),
-                    formatRequirement("Milestone: Known For Something", milestones.contains(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING)),
-                    formatRequirement("Milestone: Mixed Crowd Whisperer", milestones.contains(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER))
-            );
-            case 3 -> List.of(
-                    formatRequirement("Week 6+ (since prestige)", prestigeWeeks >= 6),
-                    formatRequirement("Milestone: Debt Diet", milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET)),
-                    formatRequirement("Milestone: Balanced Books", milestones.contains(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE))
-            );
-            case 4 -> List.of(
-                    formatRequirement("Week 8+ (since prestige)", prestigeWeeks >= 8),
-                    formatRequirement("Milestone: Booked Out", milestones.contains(MilestoneSystem.Milestone.M12_BOOKED_OUT)),
-                    formatRequirement("Milestone: Supplier's Favourite", milestones.contains(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE))
-            );
-            case 5 -> List.of(
-                    formatRequirement("Week 10+ (since prestige)", prestigeWeeks >= 10),
-                    formatRequirement("Milestone: Golden Quarter", milestones.contains(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER)),
-                    formatRequirement("Milestone: Stormproof Operator", milestones.contains(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR))
-            );
-            default -> List.of("No further requirements.");
-        };
+        int current = s.milestonesAchievedCount;
+        int needed = thresholdForLevel(level);
+        String status = current >= needed ? "[✓]" : "[ ]";
+        return List.of(status + " Milestones: " + current + " / " + needed);
     }
 
     private String formatRequirement(String label, boolean met) {
@@ -107,64 +88,21 @@ public class PubLevelSystem {
     public String compactNextLevelBadge(GameState s) {
         int next = Math.min(MAX_LEVEL, s.pubLevel + 1);
         if (next <= s.pubLevel) return "Max level";
-        List<String> unmet = compactLevelRequirements(s, next);
-        if (unmet.isEmpty()) return "Ready to level up";
-        String join = unmet.size() > 1
-                ? (unmet.get(0) + ", " + unmet.get(1))
-                : unmet.get(0);
-        return "Next: " + join;
+        
+        int current = s.milestonesAchievedCount;
+        int needed = thresholdForLevel(next);
+        
+        if (current >= needed) return "Ready to level up";
+        return "Next: Milestones " + current + "/" + needed;
     }
 
     private List<String> compactLevelRequirements(GameState s, int level) {
         List<String> unmet = new java.util.ArrayList<>();
-        int prestigeWeeks = s.weeksSincePrestige();
-        EnumSet<MilestoneSystem.Milestone> milestones = s.prestigeMilestones;
-        switch (level) {
-            case 1 -> {
-                if (prestigeWeeks < 2) unmet.add("Week 2+ (" + prestigeWeeks + "/2 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.M1_OPEN_FOR_BUSINESS)) {
-                    unmet.add("Milestone: Open For Business");
-                }
-            }
-            case 2 -> {
-                if (prestigeWeeks < 4) unmet.add("Week 4+ (" + prestigeWeeks + "/4 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING)) {
-                    unmet.add("Milestone: Known For Something");
-                }
-                if (!milestones.contains(MilestoneSystem.Milestone.M10_MIXED_CROWD_WHISPERER)) {
-                    unmet.add("Milestone: Mixed Crowd Whisperer");
-                }
-            }
-            case 3 -> {
-                if (prestigeWeeks < 6) unmet.add("Week 6+ (" + prestigeWeeks + "/6 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.M14_DEBT_DIET)) {
-                    unmet.add("Milestone: Debt Diet");
-                }
-                if (!milestones.contains(MilestoneSystem.Milestone.M15_BALANCED_BOOKS_BUSY_HOUSE)) {
-                    unmet.add("Milestone: Balanced Books");
-                }
-            }
-            case 4 -> {
-                if (prestigeWeeks < 8) unmet.add("Week 8+ (" + prestigeWeeks + "/8 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.M12_BOOKED_OUT)) {
-                    unmet.add("Milestone: Booked Out");
-                }
-                if (!milestones.contains(MilestoneSystem.Milestone.M16_SUPPLIERS_FAVOURITE)) {
-                    unmet.add("Milestone: Supplier's Favourite");
-                }
-            }
-            case 5 -> {
-                if (prestigeWeeks < 10) unmet.add("Week 10+ (" + prestigeWeeks + "/10 since prestige)");
-                if (!milestones.contains(MilestoneSystem.Milestone.M17_GOLDEN_QUARTER)) {
-                    unmet.add("Milestone: Golden Quarter");
-                }
-                if (!milestones.contains(MilestoneSystem.Milestone.M18_STORMPROOF_OPERATOR)) {
-                    unmet.add("Milestone: Stormproof Operator");
-                }
-            }
-            default -> {
-                // no-op
-            }
+        int current = s.milestonesAchievedCount;
+        int needed = thresholdForLevel(level);
+        
+        if (current < needed) {
+            unmet.add("Milestones " + current + "/" + needed);
         }
         return unmet;
     }

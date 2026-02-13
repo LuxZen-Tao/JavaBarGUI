@@ -372,6 +372,7 @@ public class GameState implements java.io.Serializable {
 
     // milestone tracking + popups
     public final EnumSet<MilestoneSystem.Milestone> achievedMilestones = EnumSet.noneOf(MilestoneSystem.Milestone.class);
+    public int milestonesAchievedCount = 0;  // Count of unique milestones achieved for pub leveling
     public final Deque<String> milestonePopups = new ArrayDeque<>();
     public int unlockedLandlordActionTier = 1;
     public int supplierBulkUnlockTier = 0;
