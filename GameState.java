@@ -89,11 +89,12 @@ public class GameState implements java.io.Serializable {
     }
 
     // rep/security
-    public int reputation = 10;                 // -100..100
+    public static final int STARTING_REPUTATION = 10; // Starting reputation for new games
+    public int reputation = STARTING_REPUTATION;      // -100..100
     public int consecutiveNeg100Rounds = 0;
     public int baseSecurityLevel = 0;           // persists across nights
     public int upgradeSecurityBonus = 0;
-    public int peakReputation = 10;
+    public int peakReputation = STARTING_REPUTATION;
     public int profitStreakWeeks = 0;
     
     // Trading Standards (TS) system
@@ -157,7 +158,7 @@ public class GameState implements java.io.Serializable {
     public int weekFoodOrders = 0;
     public double weeklyRepDeltaAbs = 0.0;
     public double weeklyRepDeltaNet = 0.0;
-    public int weekMinReputation = 10; // Track minimum reputation during the week for Stormproof milestone (initialized to match starting reputation)
+    public int weekMinReputation = STARTING_REPUTATION; // Track minimum reputation during the week for Stormproof milestone
     public int weekPositiveEvents = 0;
     public int weekNegativeEvents = 0;
     public double weekChaosTotal = 0.0;

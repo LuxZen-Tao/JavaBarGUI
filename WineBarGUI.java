@@ -3374,16 +3374,19 @@ public class WineBarGUI {
      * Returns the main rival pub for display purposes.
      * Uses first rival from district as primary competitor.
      * In future, this could be enhanced to select based on stance or market pressure.
+     * 
+     * TODO: Remove data duplication by extracting district rivals to shared configuration.
+     * Currently duplicates Simulation.defaultDistrictRivals() to avoid UI dependency on Simulation.
      */
     private RivalPub getMainRivalForDisplay() {
         // Hard-coded district rivals matching Simulation.defaultDistrictRivals()
-        // Consider extracting to shared configuration in future refactoring
         List<RivalPub> rivals = List.of(
             new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
             new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
             new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
         );
-        return rivals.isEmpty() ? null : rivals.get(0);
+        // Note: List is always non-empty in current implementation
+        return rivals.get(0);
     }
 
     private RumorInstance findFeaturedRumor() {
