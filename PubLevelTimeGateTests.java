@@ -12,7 +12,7 @@ public class PubLevelTimeGateTests {
         testWeekCounterResetsOnLevelUp();
         testChainLevelingPrevented();
         testProgressionSummaryShowsWeeks();
-        System.out.println("All PubLevelTimeGateTests passed.");
+        System.out.println("All Pub Level Time Gate Tests passed.");
         System.exit(0);
     }
 

@@ -13,7 +13,7 @@ public class PubLevelCountTests {
         testNineMilestonesReachesLevel3();
         testSameMilestoneDoesNotDoubleCount();
         testSaveLoadPreservesCountAndLevel();
-        testLevelSkippingAllowed();
+        testChainLevelingPrevented();
         testProgressionSummaryDisplaysCount();
         System.out.println("All PubLevelCountTests passed.");
         System.exit(0);
@@ -185,7 +185,7 @@ public class PubLevelCountTests {
     /**
      * Test that chain-leveling is prevented - must progress one level at a time.
      */
-    private static void testLevelSkippingAllowed() {
+    private static void testChainLevelingPrevented() {
         GameState state = GameFactory.newGame();
         PubLevelSystem levelSystem = new PubLevelSystem();
         
