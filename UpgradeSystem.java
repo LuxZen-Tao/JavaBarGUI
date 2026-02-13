@@ -199,6 +199,8 @@ public class UpgradeSystem {
         append(sb, up.getManagerCapBonus() > 0, "+" + up.getManagerCapBonus() + " manager cap");
         append(sb, up.getChefCapBonus() > 0, "+" + up.getChefCapBonus() + " chef cap");
         append(sb, up.getKitchenQualityBonus() > 0, "+" + up.getKitchenQualityBonus() + " kitchen quality");
+        append(sb, up.getDailyRentDelta() != 0, (up.getDailyRentDelta() > 0 ? "+£" : "-£")
+                + Math.abs(up.getDailyRentDelta()) + "/day rent");
         append(sb, up.getRefundRiskReductionPct() > 0, "-" + pct(up.getRefundRiskReductionPct()) + " refund risk");
         append(sb, up.getStaffMisconductReductionPct() > 0, "-" + pct(up.getStaffMisconductReductionPct()) + " misconduct risk");
         append(sb, up.getWageEfficiencyPct() > 0, "-" + pct(up.getWageEfficiencyPct()) + " wages");

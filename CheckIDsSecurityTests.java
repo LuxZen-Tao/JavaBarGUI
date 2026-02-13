@@ -4,14 +4,16 @@ import javax.swing.JTextPane;
  * Tests for Check IDs security task (T1_CHECK_IDS).
  * Validates that:
  * - Check IDs affects underage purchase logic (reduces serve chance)
- * - Check IDs remains active for exactly 3 rounds
- * - Check IDs expires after 3 rounds and returns to baseline
+ * - Check IDs remains active for exactly its configured duration
+ * - Check IDs expires after duration and returns to baseline
+ * - Cooldown starts after expiry and ticks down
  */
 public class CheckIDsSecurityTests {
     public static void main(String[] args) {
         testCheckIDsReducesUnderageServeChance();
-        testCheckIDsLastsThreeRounds();
-        testCheckIDsExpiresAfterThreeRounds();
+        testCheckIDsLastsConfiguredDuration();
+        testCheckIDsExpiresAfterDuration();
+        testCooldownStartsAfterExpiryAndTicksDown();
         System.out.println("All CheckIDsSecurityTests passed.");
         System.exit(0);
     }
@@ -26,6 +28,9 @@ public class CheckIDsSecurityTests {
     private static void testCheckIDsReducesUnderageServeChance() {
         GameState s = GameFactory.newGame();
         Simulation sim = newSimulation(s);
+        s.baseSecurityLevel = 5;
+        s.nightOpen = true;
+        s.cash = 200.0;
         
         // Baseline incident multiplier
         double baselineMult = s.securityTaskIncidentChanceMultiplier();
@@ -34,14 +39,12 @@ public class CheckIDsSecurityTests {
         // Activate Check IDs
         sim.resolveSecurityTask(SecurityTask.T1_CHECK_IDS);
         
-        // Task is queued for next round
+        // Task activates immediately
         assert s.activeSecurityTask == SecurityTask.T1_CHECK_IDS 
             : "Check IDs should be active";
-        assert s.activeSecurityTaskRoundsRemaining == 3 
-            : "Check IDs should have 3 rounds remaining";
-        
-        // Move to next round where task becomes active
-        sim.openNight();
+        assert s.activeSecurityTaskRoundsRemaining == SecurityTask.T1_CHECK_IDS.getDurationRounds()
+            : "Check IDs should have configured rounds remaining";
+
         sim.playRound();
         
         // Check that incident multiplier is reduced
@@ -53,59 +56,74 @@ public class CheckIDsSecurityTests {
     }
 
     /**
-     * Test that Check IDs remains active for exactly 3 rounds.
+     * Test that Check IDs remains active for exactly its configured duration.
      */
-    private static void testCheckIDsLastsThreeRounds() {
+    private static void testCheckIDsLastsConfiguredDuration() {
         GameState s = GameFactory.newGame();
         Simulation sim = newSimulation(s);
+        s.baseSecurityLevel = 5;
+        s.nightOpen = true;
+        s.cash = 200.0;
         
         // Activate Check IDs
         sim.resolveSecurityTask(SecurityTask.T1_CHECK_IDS);
-        assert s.activeSecurityTaskRoundsRemaining == 3 : "Should start with 3 rounds";
-        
-        // Open night and advance to first round of effect
-        sim.openNight();
-        sim.playRound(); // Round 1
-        assert s.isSecurityTaskActive() : "Task should be active in round 1";
-        assert s.activeSecurityTaskRoundsRemaining == 2 : "Should have 2 rounds remaining after round 1";
-        
-        sim.playRound(); // Round 2
-        assert s.isSecurityTaskActive() : "Task should be active in round 2";
-        assert s.activeSecurityTaskRoundsRemaining == 1 : "Should have 1 round remaining after round 2";
-        
-        sim.playRound(); // Round 3
-        assert s.isSecurityTaskActive() : "Task should be active in round 3";
-        assert s.activeSecurityTaskRoundsRemaining == 0 : "Should have 0 rounds remaining after round 3";
+        int duration = SecurityTask.T1_CHECK_IDS.getDurationRounds();
+        assert s.activeSecurityTaskRoundsRemaining == duration : "Should start with configured duration";
+
+        for (int round = 1; round < duration; round++) {
+            sim.playRound();
+            assert s.isSecurityTaskActive() : "Task should still be active before final active round";
+            assert s.activeSecurityTaskRoundsRemaining == (duration - round)
+                    : "Remaining rounds should decrement by one each round";
+        }
     }
 
     /**
-     * Test that Check IDs expires after 3 rounds and returns to baseline.
+     * Test that Check IDs expires after duration and returns to baseline.
      */
-    private static void testCheckIDsExpiresAfterThreeRounds() {
+    private static void testCheckIDsExpiresAfterDuration() {
         GameState s = GameFactory.newGame();
         Simulation sim = newSimulation(s);
+        s.baseSecurityLevel = 5;
+        s.nightOpen = true;
+        s.cash = 200.0;
         
         // Activate Check IDs
         sim.resolveSecurityTask(SecurityTask.T1_CHECK_IDS);
         
-        // Open night and run through 3 rounds
-        sim.openNight();
-        sim.playRound(); // Round 1
-        assert s.isSecurityTaskActive() : "Task should be active in round 1";
-        
-        sim.playRound(); // Round 2
-        assert s.isSecurityTaskActive() : "Task should be active in round 2";
-        
-        sim.playRound(); // Round 3
-        assert s.isSecurityTaskActive() : "Task should be active in round 3";
-        
-        sim.playRound(); // Round 4
-        assert !s.isSecurityTaskActive() : "Task should NOT be active in round 4";
+        int duration = SecurityTask.T1_CHECK_IDS.getDurationRounds();
+        for (int i = 0; i < duration; i++) {
+            sim.playRound();
+        }
+
+        assert !s.isSecurityTaskActive() : "Task should expire right after configured duration";
         assert s.activeSecurityTask == null : "Active task should be cleared";
         assert s.activeSecurityTaskRoundsRemaining == 0 : "Rounds remaining should be 0";
         
         // Verify incident multiplier returns to baseline
         double mult = s.securityTaskIncidentChanceMultiplier();
         assert mult == 1.0 : "Incident multiplier should return to 1.0 after expiration";
+    }
+
+    private static void testCooldownStartsAfterExpiryAndTicksDown() {
+        GameState s = GameFactory.newGame();
+        Simulation sim = newSimulation(s);
+        s.baseSecurityLevel = 5;
+        s.nightOpen = true;
+        s.cash = 200.0;
+
+        SecurityTask task = SecurityTask.T1_CHECK_IDS;
+        sim.resolveSecurityTask(task);
+        assert s.securityTaskCooldownRemaining(task) == 0 : "Cooldown should not begin on activation";
+
+        for (int i = 0; i < task.getDurationRounds(); i++) {
+            sim.playRound();
+        }
+        assert s.securityTaskCooldownRemaining(task) == task.getCooldownRounds()
+                : "Cooldown should start after expiry";
+
+        sim.playRound();
+        assert s.securityTaskCooldownRemaining(task) == task.getCooldownRounds() - 1
+                : "Cooldown should decrement each round";
     }
 }

@@ -73,6 +73,8 @@ public class GameState implements java.io.Serializable {
     public double debtSpiralNegativeRepMultiplier = 1.0;
     public double debtSpiralPositiveRepMultiplier = 1.0;
 
+    public static final int BASE_BAR_CAPACITY = 5;
+    public int baseDailyRent = 60;
     public final double weeklyRent = 420.0;
     public double rentAccruedThisWeek = 0.0;
     public double securityUpkeepAccruedThisWeek = 0.0;
@@ -81,8 +83,38 @@ public class GameState implements java.io.Serializable {
     public double opCostSkillThisWeek = 0.0;
     public double opCostOccupancyThisWeek = 0.0;
 
+    public double roomsDailyRent() {
+        return roomsTotal * 20.0;
+    }
+
+    public int barCapRentSteps() {
+        int capIncrease = Math.max(0, structuralBarCapacityForRent() - BASE_BAR_CAPACITY);
+        return capIncrease / 5;
+    }
+
+    public double barCapStepRentDelta() {
+        return barCapRentSteps() * 20.0;
+    }
+
+    public double upgradesDailyRentDeltaTotal() {
+        double total = 0.0;
+        for (PubUpgrade up : ownedUpgrades) {
+            if (up == null) continue;
+            total += up.getDailyRentDelta();
+        }
+        return total;
+    }
+
+    public int structuralBarCapacityForRent() {
+        return Math.max(BASE_BAR_CAPACITY, BASE_BAR_CAPACITY + upgradeBarCapBonus + pubLevelBarCapBonus);
+    }
+
+    public double getEffectiveDailyBaseRent() {
+        return Math.max(0, baseDailyRent) + barCapStepRentDelta() + upgradesDailyRentDeltaTotal();
+    }
+
     public double dailyRent() {
-        return 60.0 + (roomsTotal * 20.0);
+        return getEffectiveDailyBaseRent() + roomsDailyRent();
     }
 
     public double weeklyRentTotal() {

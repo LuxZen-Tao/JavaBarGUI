@@ -7,6 +7,10 @@ public class WageRentTests {
         testWeeklyWageAccrualTotal();
         testRentAccrual();
         testWeeklyMinDueIncludesRentAndWages();
+        testBarCapStepRentScaling();
+        testUpgradeDailyRentDeltas();
+        testCombinedRentStacking();
+        testPaydayRentDueTracksDailyAccrual();
         System.out.println("All WageRentTests passed.");
         System.exit(0);
     }
@@ -83,6 +87,73 @@ public class WageRentTests {
         assert closeTo(due.rent(), state.weeklyRentTotal()) : "Weekly rent due should match rent accrual.";
         assert closeTo(due.wages(), wagesDue) : "Weekly wages due should be included in breakdown.";
         assert due.total() >= due.rent() + due.wages() + due.innMaintenance() : "Total due should include rent, wages, and inn maintenance.";
+    }
+
+    private static void testBarCapStepRentScaling() {
+        GameState state = GameFactory.newGame();
+
+        state.upgradeBarCapBonus = 0;
+        assert closeTo(state.barCapStepRentDelta(), 0.0) : "Base cap should have zero bar-cap rent delta.";
+
+        state.upgradeBarCapBonus = 4;
+        assert closeTo(state.barCapStepRentDelta(), 0.0) : "+4 cap should not add a rent step.";
+
+        state.upgradeBarCapBonus = 5;
+        assert closeTo(state.barCapStepRentDelta(), 20.0) : "+5 cap should add £20/day.";
+
+        state.upgradeBarCapBonus = 10;
+        assert closeTo(state.barCapStepRentDelta(), 40.0) : "+10 cap should add £40/day.";
+    }
+
+    private static void testUpgradeDailyRentDeltas() {
+        GameState state = GameFactory.newGame();
+
+        state.ownedUpgrades.add(PubUpgrade.WINE_CELLAR);
+        assert closeTo(state.upgradesDailyRentDeltaTotal(), 5.0) : "Wine Cellar should add £5/day.";
+
+        state.ownedUpgrades.add(PubUpgrade.DARTS);
+        assert closeTo(state.upgradesDailyRentDeltaTotal(), 5.0) : "Upgrades with zero delta should not change rent.";
+
+        state.ownedUpgrades.add(PubUpgrade.KITCHEN);
+        assert closeTo(state.upgradesDailyRentDeltaTotal(), 15.0) : "Upgrade deltas should sum across installed upgrades.";
+    }
+
+    private static void testCombinedRentStacking() {
+        GameState state = GameFactory.newGame();
+        state.upgradeBarCapBonus = 10;
+        state.ownedUpgrades.add(PubUpgrade.WINE_CELLAR);
+        state.ownedUpgrades.add(PubUpgrade.KITCHEN);
+
+        double expectedBase = 60.0;
+        double expectedCap = 40.0;
+        double expectedUpgrade = 15.0;
+        double expectedRooms = 0.0;
+
+        assert closeTo(state.getEffectiveDailyBaseRent(), expectedBase + expectedCap + expectedUpgrade)
+                : "Effective base daily rent should include base + bar-cap steps + upgrade deltas.";
+        assert closeTo(state.dailyRent(), expectedBase + expectedCap + expectedUpgrade + expectedRooms)
+                : "Total daily rent should include base-side total plus rooms.";
+    }
+
+    private static void testPaydayRentDueTracksDailyAccrual() {
+        GameState state = GameFactory.newGame();
+        Simulation sim = newSimulation(state);
+        EconomySystem eco = new EconomySystem(state, new UILogger(new JTextPane()));
+
+        state.upgradeBarCapBonus = 10;
+        state.ownedUpgrades.add(PubUpgrade.WINE_CELLAR);
+        state.ownedUpgrades.add(PubUpgrade.KITCHEN);
+
+        double daily = state.dailyRent();
+        for (int day = 0; day < 3; day++) {
+            eco.accrueDailyRent();
+        }
+
+        Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
+        assert closeTo(state.rentAccruedThisWeek, daily * 3.0)
+                : "Rent accrual should equal effective daily rent × elapsed days.";
+        assert closeTo(due.rent(), daily * 3.0)
+                : "Payday due rent should match accrued rent.";
     }
 
     private static boolean closeTo(double a, double b) {
