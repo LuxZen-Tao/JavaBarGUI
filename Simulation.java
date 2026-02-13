@@ -6049,7 +6049,7 @@ public class Simulation {
      * Calculate tips earned tonight based on service quality, reputation, and chaos.
      * Tips are capped at 25% of gross sales to prevent economic imbalance.
      */
-    private void calculateTipsTonight() {
+    public void calculateTipsTonight() {
         if (s.nightRevenue <= 0) {
             s.tipsEarnedTonight = 0.0;
             return;
