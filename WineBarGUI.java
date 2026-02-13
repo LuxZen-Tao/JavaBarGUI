@@ -3309,10 +3309,13 @@ public class WineBarGUI {
                 ? state.topSalesForecastLine
                 : "Top sellers (5r): Wine None | Food None";
 
-        // OBS box = traffic + forecast + top sellers
+        String vipLine = sim.vipInHouseHudLine();
+
+        // OBS box = traffic + forecast + VIP in-house + top sellers
         observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
                 + " (natural " + state.lastNaturalDepartures + ")"
                 + "<br>📈 " + forecastLine
+                + "<br>⭐ " + vipLine
                 + "<br>🏆 " + topSalesLine + "</html>");
 
         // Middle grey box = quips only (no serve cap here)

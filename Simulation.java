@@ -5611,6 +5611,31 @@ public class Simulation {
         return names;
     }
 
+    public String vipInHouseHudLine() {
+        if (!FeatureFlags.FEATURE_VIPS || s.nightPunters == null || s.nightPunters.isEmpty()) return "VIP: none in-house";
+
+        java.util.Set<String> present = new java.util.LinkedHashSet<>();
+        for (Punter punter : s.nightPunters) {
+            if (punter != null && punter.getName() != null && !punter.getName().isBlank()) {
+                present.add(punter.getName().trim());
+            }
+        }
+        if (present.isEmpty()) return "VIP: none in-house";
+
+        java.util.List<String> matched = new java.util.ArrayList<>();
+        for (VIPRegular vip : vipSystem.roster()) {
+            if (vip == null || vip.getName() == null || vip.getName().isBlank()) continue;
+            if (present.contains(vip.getName().trim())) {
+                String stage = vip.getArcStage() == null ? "neutral" : vip.getArcStage().name().toLowerCase().replace('_', ' ');
+                matched.add(vip.getName() + " (" + stage + ")");
+            }
+        }
+
+        if (matched.isEmpty()) return "VIP: none in-house";
+        if (matched.size() == 1) return "VIP in-house: " + matched.get(0);
+        return "VIPs in-house: " + String.join(", ", matched);
+    }
+
     private VIPNightOutcome buildVipNightOutcome() {
         double foodQualitySignal = s.nightFoodUnserved == 0 && s.nightRefunds == 0 ? 0.8 : 0.3;
         return new VIPNightOutcome(
