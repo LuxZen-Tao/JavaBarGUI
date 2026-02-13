@@ -1171,7 +1171,7 @@ public class Simulation {
     public void openCreditLine(Bank bank) {
         if (bank == null) return;
         if (s.bankruptcyLockWeeksRemaining > 0) {
-            log.neg("Bankruptcy lock active: banks refuse credit for " + s.bankruptcyLockWeeksRemaining + " more week(s).");
+            log.critical("Bankruptcy lock active: banks refuse credit for " + s.bankruptcyLockWeeksRemaining + " more week(s).");
             return;
         }
         if (s.banksLocked) {
@@ -1214,7 +1214,7 @@ public class Simulation {
         s.loanShark.openLoan(amount, apr);
         if (s.bankruptcyDeclared) {
             s.loanShark.setPenaltyAddOnApr(s.loanShark.getPenaltyAddOnApr() + BANKRUPTCY_SHARK_PENALTY_BONUS);
-            log.neg("Bankruptcy stigma: shark terms are harsher and misses are punished harder.");
+            log.critical("Bankruptcy stigma: shark terms are harsher and misses are punished harder.");
         }
         s.cash += amount;
         s.creditScore = s.clampCreditScore(s.creditScore - 50);
