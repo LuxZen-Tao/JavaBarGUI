@@ -91,7 +91,7 @@ public class MilestoneSystem {
     }
 
     private void buildDefinitions() {
-        definitions.add(new MilestoneDefinition(Milestone.M1_OPEN_FOR_BUSINESS, 1, "Open For Business", "Survive 3 services without bankruptcy.", "Unlocks: Karaoke"));
+        definitions.add(new MilestoneDefinition(Milestone.M1_OPEN_FOR_BUSINESS, 1, "Open For Business", "Survive 5 services without bankruptcy.", "Unlocks: Karaoke"));
         definitions.add(new MilestoneDefinition(Milestone.M2_NO_EMPTY_SHELVES, 1, "No Empty Shelves", "Two consecutive nights with zero stockouts.", "Unlocks: Cocktail Promo"));
         definitions.add(new MilestoneDefinition(Milestone.M3_NO_ONE_LEAVES_ANGRY, 1, "No One Leaves Angry", "One perfect service night (0 refunds, 0 unserved).", "Unlocks: Staff Room II upgrades"));
         definitions.add(new MilestoneDefinition(Milestone.M4_PAYROLL_GUARDIAN, 1, "Payroll Guardian", "Pay wages and rent on payday.", "Unlocks: Quiz Night"));
@@ -168,7 +168,7 @@ public class MilestoneSystem {
 
     private boolean isMet(Milestone id) {
         return switch (id) {
-            case M1_OPEN_FOR_BUSINESS -> s.nightCount >= 3 && !s.businessCollapsed && !s.bankruptcyDeclared;
+            case M1_OPEN_FOR_BUSINESS -> s.openForBusinessNights >= 5 && !s.businessCollapsed && !s.bankruptcyDeclared;
             case M2_NO_EMPTY_SHELVES -> s.noStockoutStreakNights >= 2;
             case M3_NO_ONE_LEAVES_ANGRY -> 
                 s.lastServiceRanFullRounds 
@@ -387,7 +387,7 @@ public class MilestoneSystem {
 
     private String progress(Milestone id) {
         return switch (id) {
-            case M1_OPEN_FOR_BUSINESS -> s.nightCount + "/3 nights";
+            case M1_OPEN_FOR_BUSINESS -> s.openForBusinessNights + "/5 nights";
             case M2_NO_EMPTY_SHELVES -> s.noStockoutStreakNights + "/2 nights";
             case M4_PAYROLL_GUARDIAN -> (s.wagesPaidLastWeek ? "Wages paid" : "Wages pending") + ", rent due " + String.format("%.0f", s.rentAccruedThisWeek);
             case M5_CALM_HOUSE -> s.calmNightsStreak + "/3 calm nights";

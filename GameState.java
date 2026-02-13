@@ -182,6 +182,7 @@ public class GameState implements java.io.Serializable {
     public double lastChaosMoralePosMult = 1.0;
     public final Deque<String> milestoneRewardLog = new ArrayDeque<>();
     public int noStockoutStreakNights = 0;
+    public int openForBusinessNights = 0;
     public int calmNightsStreak = 0;
     public int calmNightsWithActivityStreak = 0;
     public int weeksNoStaffDepartures = 0;
