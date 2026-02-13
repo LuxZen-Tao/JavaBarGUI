@@ -2789,7 +2789,10 @@ public class WineBarGUI {
             innPriceLabel.setText("Room price: " + (unlocked ? money0(state.roomPrice) : "Locked"));
         }
         if (innPriceSlider != null) {
-            innPriceSlider.setEnabled(unlocked && !state.nightOpen);
+            // Keep room pricing adjustable while service is open.
+            // Simulation#setRoomPrice() already rate-locks existing bookings and
+            // applies new prices only to later booking segments in the night.
+            innPriceSlider.setEnabled(unlocked);
             if (unlocked) {
                 innPriceSlider.setValue((int)Math.round(state.roomPrice));
             }
@@ -3306,10 +3309,13 @@ public class WineBarGUI {
                 ? state.topSalesForecastLine
                 : "Top sellers (5r): Wine None | Food None";
 
-        // OBS box = traffic + forecast + top sellers
+        String vipLine = sim.vipInHouseHudLine();
+
+        // OBS box = traffic + forecast + VIP in-house + top sellers
         observationLabel.setText("<html>🚶 In: " + state.lastTrafficIn + " | Out: " + state.lastTrafficOut
                 + " (natural " + state.lastNaturalDepartures + ")"
                 + "<br>📈 " + forecastLine
+                + "<br>⭐ " + vipLine
                 + "<br>🏆 " + topSalesLine + "</html>");
 
         // Middle grey box = quips only (no serve cap here)
@@ -3353,42 +3359,26 @@ public class WineBarGUI {
         String identity = formatIdentityLabel(state.currentIdentity);
         RumorInstance featuredRumor = findFeaturedRumor();
         String rumorLine = featuredRumor != null ? featuredRumor.type().getLabel() : "None";
-        
-        // Add rival pub info - show first district rival as main competitor
+
         String rivalInfo = "";
         if (FeatureFlags.FEATURE_RIVALS) {
-            RivalPub topRival = getMainRivalForDisplay();
-            if (topRival != null) {
-                rivalInfo = "<br>Rival: " + topRival.getName();
-            }
+            MarketPressure pressure = state.latestMarketPressure == null
+                    ? MarketPressure.empty()
+                    : state.latestMarketPressure;
+            String dominant = pressure.dominantStance().name().replace('_', ' ').toLowerCase();
+            rivalInfo = "<br>Rivals: " + pressure.totalRivals()
+                    + " | " + dominant
+                    + "<br>Rival traffic x" + String.format("%.2f", state.rivalDemandTrafficMultiplier)
+                    + " | mix " + String.format("%+.2f", state.rivalPunterMixBias);
         }
-        
+
         return "<html>Reputation: " + state.reputation + " (" + mood + ")"
                 + "<br>Identity: " + identity
-                + "<br>Rumor: " + rumorLine 
+                + "<br>Rumor: " + rumorLine
                 + rivalInfo
                 + "</html>";
     }
     
-    /**
-     * Returns the main rival pub for display purposes.
-     * Uses first rival from district as primary competitor.
-     * In future, this could be enhanced to select based on stance or market pressure.
-     * 
-     * TODO: Remove data duplication by extracting district rivals to shared configuration.
-     * Currently duplicates Simulation.defaultDistrictRivals() to avoid UI dependency on Simulation.
-     */
-    private RivalPub getMainRivalForDisplay() {
-        // Hard-coded district rivals matching Simulation.defaultDistrictRivals()
-        List<RivalPub> rivals = List.of(
-            new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
-            new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
-            new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
-        );
-        // Note: List is always non-empty in current implementation
-        return rivals.get(0);
-    }
-
     private RumorInstance findFeaturedRumor() {
         RumorInstance featured = null;
         for (RumorInstance rumor : state.activeRumors.values()) {
