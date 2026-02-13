@@ -1695,8 +1695,8 @@ public class WineBarGUI {
         double toStaff = state.tipsPotWeek * (state.tipSplitPercent / 100.0);
         double toHouse = state.tipsPotWeek - toStaff;
         tipSplitPreviewLabel.setText(String.format(
-            "To staff (%d%%): GBP %.2f  |  To house: GBP %.2f",
-            state.tipSplitPercent, toStaff, toHouse
+            "To staff (%d%%): GBP %s  |  To house: GBP %s",
+            state.tipSplitPercent, money2(toStaff), money2(toHouse)
         ));
     }
 

@@ -3755,22 +3755,23 @@ public class Simulation {
         
         if (p <= 20) {
             // Tier A: Exploitative (0-20%)
-            int moraleDelta = -3 * Math.min(headcount, 5); // Scale by staff count, capped
             for (Staff st : s.fohStaff) st.adjustMorale(-3);
             for (Staff st : s.bohStaff) st.adjustMorale(-3);
             for (Staff st : s.generalManagers) st.adjustMorale(-3);
-            s.chaos += Math.min(3.0 * headcount / 4.0, 8.0);
+            double chaosIncrease = Math.min(3.0 * headcount / 4.0, 8.0);
+            s.chaos += chaosIncrease;
             staff.updateTeamMorale();
-            log.neg(" Tips split exploitative: morale " + moraleDelta + ", chaos +" + String.format("%.1f", Math.min(3.0 * headcount / 4.0, 8.0)));
+            log.neg(" Tips split exploitative: morale " + (headcount * -3) + ", chaos +" + String.format("%.1f", chaosIncrease));
             
         } else if (p <= 40) {
             // Tier B: Bare minimum (>20-40%)
             for (Staff st : s.fohStaff) st.adjustMorale(-1);
             for (Staff st : s.bohStaff) st.adjustMorale(-1);
             for (Staff st : s.generalManagers) st.adjustMorale(-1);
-            s.chaos += Math.min(1.0 * headcount / 4.0, 2.0);
+            double chaosIncrease = Math.min(1.0 * headcount / 4.0, 2.0);
+            s.chaos += chaosIncrease;
             staff.updateTeamMorale();
-            log.info(" Tips split bare minimum: morale -" + headcount + ", chaos +" + String.format("%.1f", Math.min(1.0 * headcount / 4.0, 2.0)));
+            log.info(" Tips split bare minimum: morale " + (headcount * -1) + ", chaos +" + String.format("%.1f", chaosIncrease));
             
         } else if (p <= 60) {
             // Tier C: Neutral baseline (>40-60%)
