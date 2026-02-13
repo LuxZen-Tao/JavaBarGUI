@@ -74,11 +74,12 @@ public class IdentityAndPressToneTests {
         System.out.println("RESPECTABLE high-tier patrons: " + respectableHighTier + " vs UNDERGROUND: " + undergroundHighTier);
         System.out.println("RESPECTABLE low-tier patrons: " + respectableLowTier + " vs UNDERGROUND: " + undergroundLowTier);
         
-        // Press tone should create a noticeable difference (at least 10% difference in distribution)
-        assert respectableHighTier > undergroundHighTier : 
-            "RESPECTABLE should attract more high-tier patrons due to positive press tone";
-        assert undergroundLowTier > respectableLowTier : 
-            "UNDERGROUND should attract more low-tier patrons due to negative press tone";
+        // Press tone should create a noticeable difference (at least 20% more for appropriate tiers)
+        // to account for statistical variance
+        assert respectableHighTier > undergroundHighTier * 1.2 : 
+            "RESPECTABLE should attract significantly more high-tier patrons due to positive press tone (expected 20%+ increase)";
+        assert undergroundLowTier > respectableLowTier * 1.5 : 
+            "UNDERGROUND should attract significantly more low-tier patrons due to negative press tone (expected 50%+ increase)";
         
         System.out.println("✓ Press tone affects tier distribution correctly");
     }
@@ -118,9 +119,10 @@ public class IdentityAndPressToneTests {
         
         System.out.println("FAMILY_FRIENDLY distribution - Lowlifes: " + lowlifes + ", High-tier: " + highTier);
         
-        // With positive press tone and wealth bias, high-tier should outnumber lowlifes
-        assert highTier > lowlifes : 
-            "FAMILY_FRIENDLY currentIdentity should attract more high-tier patrons";
+        // With positive press tone and wealth bias, high-tier should significantly outnumber lowlifes
+        // Use threshold to account for random variance
+        assert highTier > lowlifes * 2.0 : 
+            "FAMILY_FRIENDLY currentIdentity should attract significantly more high-tier patrons (expected 2x+ ratio)";
         
         System.out.println("✓ currentIdentity is used correctly in PunterSystem");
     }
