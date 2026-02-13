@@ -1214,7 +1214,7 @@ public class Simulation {
         s.loanShark.openLoan(amount, apr);
         if (s.bankruptcyDeclared) {
             s.loanShark.setPenaltyAddOnApr(s.loanShark.getPenaltyAddOnApr() + BANKRUPTCY_SHARK_PENALTY_BONUS);
-            log.critical("Bankruptcy stigma: shark terms are harsher and misses are punished harder.");
+            log.warning("Bankruptcy stigma: shark terms are harsher and misses are punished harder.");
         }
         s.cash += amount;
         s.creditScore = s.clampCreditScore(s.creditScore - 50);
