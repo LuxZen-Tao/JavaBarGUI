@@ -135,6 +135,7 @@ public class InnSystemTests {
     private static void testDutyManagerEffects() {
         GameState state = GameFactory.newGame();
         Simulation sim = newSimulation(state);
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_1);
         sim.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
         sim.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_II);
         sim.hireStaff(Staff.Type.DUTY_MANAGER);
@@ -156,9 +157,9 @@ public class InnSystemTests {
 
         GameState staffed = GameFactory.newGame();
         Simulation simStaffed = newSimulation(staffed);
+        simStaffed.installUpgradeForTest(PubUpgrade.INN_WING_2);
         simStaffed.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
         simStaffed.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_II);
-        simStaffed.installUpgradeForTest(PubUpgrade.INN_WING_2);
         staffed.roomsTotal = 7;
         staffed.roomPrice = 28.0;
         staffed.innRep = 80.0;
