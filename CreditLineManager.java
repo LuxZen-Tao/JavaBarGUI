@@ -3,6 +3,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class CreditLineManager  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private static final double MIN_WEEKLY_PAYMENT = 25.0;
     private static final double WEEKLY_PAYMENT_PCT = 0.05;
     private final List<CreditLine> openLines = new ArrayList<>();

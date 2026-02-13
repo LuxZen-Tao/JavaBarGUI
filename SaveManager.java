@@ -98,6 +98,10 @@ public final class SaveManager {
                     return state;
                 }
                 throw new IllegalStateException("SaveData payload is not GameState: " + loaded.getClass().getName());
+            } catch (java.io.InvalidClassException ex) {
+                throw new IllegalStateException("Save file is incompatible with this version of the game. " +
+                    "The game code has changed since this save was created. " +
+                    "Please start a new game or restore a backup save file.", ex);
             } catch (IOException | ClassNotFoundException ex) {
                 throw new IllegalStateException("Unable to deserialize game state from save data.", ex);
             }

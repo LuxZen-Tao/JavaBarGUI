@@ -1,4 +1,5 @@
 public class Food  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private final String name;
     private final double baseCost;
     private final double basePrice;
