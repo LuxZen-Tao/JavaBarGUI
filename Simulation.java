@@ -867,7 +867,8 @@ public class Simulation {
         log.pos(" Bought " + added + "x " + w.getName()
                 + " for GBP " + String.format("%.2f", cost)
                 + bulkTag
-                + (s.supplierDeal != null && s.supplierDeal.appliesTo(w) ? " (DEAL applied)" : ""));
+                + (s.supplierDeal != null && s.supplierDeal.appliesTo(w) ? 
+                    " (" + (s.supplierDeal.getType() == SupplierDeal.Type.DISCOUNT ? "DEAL" : "SHORTAGE") + " applied)" : ""));
         milestones.onSupplierOrder(added);
     }
 
@@ -1474,6 +1475,7 @@ public class Simulation {
 
         s.activeSecurityTask = task;
         s.activeSecurityTaskRound = s.currentRoundIndex() + 1;
+        s.activeSecurityTaskRoundsRemaining = task.getCooldownRounds(); // Duration of effect
         s.securityTaskCooldowns.put(task, task.getCooldownRounds());
         s.lastSecurityTaskRound = s.currentRoundIndex();
 
@@ -1692,8 +1694,13 @@ public class Simulation {
         }
 
         if (s.isSecurityTaskActive()) {
-            s.activeSecurityTask = null;
-            s.activeSecurityTaskRound = -999;
+            if (s.activeSecurityTaskRoundsRemaining > 0) {
+                s.activeSecurityTaskRoundsRemaining--;
+            }
+            if (s.activeSecurityTaskRoundsRemaining <= 0) {
+                s.activeSecurityTask = null;
+                s.activeSecurityTaskRound = -999;
+            }
         }
 
         if (s.consecutiveNeg100Rounds >= 3) {
@@ -1736,6 +1743,7 @@ public class Simulation {
         s.nightOpen = false;
         s.activeSecurityTask = null;
         s.activeSecurityTaskRound = -999;
+        s.activeSecurityTaskRoundsRemaining = 0;
         log.header(" PUB CLOSED");
         log.info(reason);
 
@@ -2611,6 +2619,7 @@ public class Simulation {
         s.weekFoodQualityPoints = 0.0;
         s.weeklyRepDeltaAbs = 0.0;
         s.weeklyRepDeltaNet = 0.0;
+        s.weekMinReputation = s.reputation; // Reset to current reputation at week start
         s.weekPositiveEvents = 0;
         s.weekNegativeEvents = 0;
         s.weekChaosTotal = 0.0;
@@ -5392,7 +5401,7 @@ public class Simulation {
             s.sickStaffTonight.add(picked);
             s.sickCallTriggeredTonight = true;
             s.sickStaffNameTonight = picked.getName();
-            log.event(picked.getName() + " called in sick and can't make it tonight. Coverage reduced.");
+            log.mid(picked.getName() + " called in sick and can't make it tonight. Coverage reduced.");
             staff.updateTeamMorale();
         }
     }

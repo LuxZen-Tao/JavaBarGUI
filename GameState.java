@@ -89,11 +89,12 @@ public class GameState implements java.io.Serializable {
     }
 
     // rep/security
-    public int reputation = 10;                 // -100..100
+    public static final int STARTING_REPUTATION = 10; // Starting reputation for new games
+    public int reputation = STARTING_REPUTATION;      // -100..100
     public int consecutiveNeg100Rounds = 0;
     public int baseSecurityLevel = 0;           // persists across nights
     public int upgradeSecurityBonus = 0;
-    public int peakReputation = 10;
+    public int peakReputation = STARTING_REPUTATION;
     public int profitStreakWeeks = 0;
     
     // Trading Standards (TS) system
@@ -157,6 +158,7 @@ public class GameState implements java.io.Serializable {
     public int weekFoodOrders = 0;
     public double weeklyRepDeltaAbs = 0.0;
     public double weeklyRepDeltaNet = 0.0;
+    public int weekMinReputation = STARTING_REPUTATION; // Track minimum reputation during the week for Stormproof milestone
     public int weekPositiveEvents = 0;
     public int weekNegativeEvents = 0;
     public double weekChaosTotal = 0.0;
@@ -325,6 +327,7 @@ public class GameState implements java.io.Serializable {
     public SecurityPolicy securityPolicy = SecurityPolicy.BALANCED_DOOR;
     public SecurityTask activeSecurityTask = null;
     public int activeSecurityTaskRound = -999;
+    public int activeSecurityTaskRoundsRemaining = 0; // Track how many rounds the task remains active
     public int lastSecurityTaskRound = -999;
     public final EnumMap<SecurityTask, Integer> securityTaskCooldowns = new EnumMap<>(SecurityTask.class);
     public final Deque<String> securityEventLog = new ArrayDeque<>();
@@ -615,7 +618,8 @@ public class GameState implements java.io.Serializable {
     }
 
     public boolean isSecurityTaskActive() {
-        return activeSecurityTask != null && activeSecurityTaskRound == currentRoundIndex();
+        return activeSecurityTask != null && activeSecurityTaskRound <= currentRoundIndex() 
+                && activeSecurityTaskRoundsRemaining > 0;
     }
 
     public boolean isSecurityTaskQueued() {
