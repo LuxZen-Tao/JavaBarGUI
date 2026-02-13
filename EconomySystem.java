@@ -23,8 +23,17 @@ public class EconomySystem {
         s.weeklyRepDeltaAbs += Math.abs(adjusted);
         s.weeklyRepDeltaNet += adjusted;
 
-        if (adjusted > 0) log.pos(reason + " | rep +" + adjusted + "  " + s.reputation);
-        else log.neg(reason + " | rep " + adjusted + "  " + s.reputation);
+        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+        if (adjusted > 0) {
+            segments.add(new UILogger.Segment(reason + " | rep ", UILogger.Tone.POS));
+            segments.add(new UILogger.Segment("+" + adjusted, UILogger.Tone.REPUTATION));
+            segments.add(new UILogger.Segment("  " + s.reputation, UILogger.Tone.REPUTATION));
+        } else {
+            segments.add(new UILogger.Segment(reason + " | rep ", UILogger.Tone.NEG));
+            segments.add(new UILogger.Segment(String.valueOf(adjusted), UILogger.Tone.REPUTATION));
+            segments.add(new UILogger.Segment("  " + s.reputation, UILogger.Tone.REPUTATION));
+        }
+        log.appendLogSegments(segments);
 
         if (s.reputation > s.peakReputation) s.peakReputation = s.reputation;
         
@@ -54,7 +63,11 @@ public class EconomySystem {
             s.reportCosts += amount;
             s.weekCosts += amount;
             s.addReportCost(tag, amount);
-            log.info("Paid GBP " + fmt(amount) + " - " + description);
+            java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+            segments.add(new UILogger.Segment("Paid ", UILogger.Tone.INFO));
+            segments.add(new UILogger.Segment("GBP " + fmt(amount), UILogger.Tone.MONEY));
+            segments.add(new UILogger.Segment(" - " + description, UILogger.Tone.INFO));
+            log.appendLogSegments(segments);
             return true;
         }
 
@@ -74,12 +87,20 @@ public class EconomySystem {
                 if ("Loan Shark".equals(selectedLine.getLenderName())) {
                     s.creditScore = s.clampCreditScore(s.creditScore - 10);
                 }
-                log.info("Paid GBP " + fmt(amount) + " (cash + credit) - " + description);
+                java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+                segments.add(new UILogger.Segment("Paid ", UILogger.Tone.INFO));
+                segments.add(new UILogger.Segment("GBP " + fmt(amount), UILogger.Tone.MONEY));
+                segments.add(new UILogger.Segment(" (cash + credit) - " + description, UILogger.Tone.INFO));
+                log.appendLogSegments(segments);
                 return true;
             }
         }
 
-        log.neg("Insufficient funds: cannot pay GBP " + fmt(amount) + " for " + description + ".");
+        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+        segments.add(new UILogger.Segment("Insufficient funds: cannot pay ", UILogger.Tone.NEG));
+        segments.add(new UILogger.Segment("GBP " + fmt(amount), UILogger.Tone.MONEY));
+        segments.add(new UILogger.Segment(" for " + description + ".", UILogger.Tone.NEG));
+        log.appendLogSegments(segments);
         return false;
     }
 
