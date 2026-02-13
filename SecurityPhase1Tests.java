@@ -5,6 +5,8 @@ public class SecurityPhase1Tests {
         testPolicyAffectsSecurityAndTraffic();
         testSecurityTaskTierUnlocks();
         testSecurityTaskUsageAndCooldown();
+        testSecurityTaskActivationCost();
+        testSecurityTaskActivationRequiresCash();
         testSecurityTaskMultipliers();
         testHudBadgeSummary();
         testMissionControlSecuritySummary();
@@ -68,18 +70,53 @@ public class SecurityPhase1Tests {
         GameState state = GameFactory.newGame();
         state.baseSecurityLevel = 30;
         state.nightOpen = true;
+        state.cash = 500.0;
         Simulation sim = newSimulation(state);
 
         SecurityTask task = SecurityTask.T1_VISIBLE_PATROL;
         SecurityTaskResolution result = sim.resolveSecurityTask(task);
         assert result.applied() : "Expected task to apply.";
-        assert state.securityTaskCooldownRemaining(task) == task.getCooldownRounds() : "Cooldown should be set.";
+        assert state.activeSecurityTask == task : "Task should be active.";
+        assert state.securityTaskCooldownRemaining(task) == 0 : "Cooldown should start only after expiry.";
 
         SecurityTaskResolution blocked = sim.resolveSecurityTask(SecurityTask.T1_CHECK_IDS);
-        assert !blocked.applied() : "Only one task per round.";
+        assert !blocked.applied() : "Only one task can be active at a time.";
 
         Simulation.SecurityTaskAvailability availability = sim.securityTaskAvailability(task);
-        assert !availability.canUse() : "Cooldown should block reuse.";
+        assert !availability.canUse() : "Active task should block reuse.";
+
+        for (int i = 0; i < task.getDurationRounds(); i++) {
+            sim.playRound();
+        }
+        assert state.activeSecurityTask == null : "Task should expire after duration.";
+        assert state.securityTaskCooldownRemaining(task) == task.getCooldownRounds() : "Cooldown should begin after expiry.";
+    }
+
+    private static void testSecurityTaskActivationCost() {
+        GameState state = GameFactory.newGame();
+        state.baseSecurityLevel = 30;
+        state.nightOpen = true;
+        state.cash = 200.0;
+        Simulation sim = newSimulation(state);
+
+        SecurityTask task = SecurityTask.T1_CHECK_IDS;
+        double before = state.cash;
+        SecurityTaskResolution result = sim.resolveSecurityTask(task);
+        assert result.applied() : "Task should activate when cash is sufficient.";
+        assert Math.abs(state.cash - (before - task.getActivationCost())) < 0.001 : "Activation should deduct cash immediately.";
+    }
+
+    private static void testSecurityTaskActivationRequiresCash() {
+        GameState state = GameFactory.newGame();
+        state.baseSecurityLevel = 30;
+        state.nightOpen = true;
+        SecurityTask task = SecurityTask.T3_ZERO_TOLERANCE_NIGHT;
+        state.cash = task.getActivationCost() - 1;
+        Simulation sim = newSimulation(state);
+
+        SecurityTaskResolution result = sim.resolveSecurityTask(task);
+        assert !result.applied() : "Task should be blocked when cash is below cost.";
+        assert state.activeSecurityTask == null : "No task should activate when cash is insufficient.";
     }
 
     private static void testSecurityTaskMultipliers() {
@@ -88,6 +125,7 @@ public class SecurityPhase1Tests {
         SecurityTask task = SecurityTask.T2_TARGETED_SCREENING;
         state.activeSecurityTask = task;
         state.activeSecurityTaskRound = state.currentRoundIndex();
+        state.activeSecurityTaskRoundsRemaining = task.getDurationRounds();
 
         assert Math.abs(state.securityTaskIncidentChanceMultiplier() - task.getIncidentChanceMultiplier()) < 0.0001
                 : "Incident multiplier should match task.";

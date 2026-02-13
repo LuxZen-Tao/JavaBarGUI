@@ -1466,9 +1466,15 @@ public class Simulation {
         if (s.currentRoundIndex() == s.lastSecurityTaskRound) {
             return new SecurityTaskAvailability(false, "Only 1 task per round.");
         }
+        if (s.activeSecurityTask != null) {
+            return new SecurityTaskAvailability(false, "Another security task is already active.");
+        }
         int cooldown = s.securityTaskCooldownRemaining(task);
         if (cooldown > 0) {
             return new SecurityTaskAvailability(false, "Cooldown: " + cooldown + "r");
+        }
+        if (s.cash < task.getActivationCost()) {
+            return new SecurityTaskAvailability(false, "Need £" + task.getActivationCost() + " cash.");
         }
         return new SecurityTaskAvailability(true, "");
     }
@@ -1480,19 +1486,22 @@ public class Simulation {
             return SecurityTaskResolution.blocked(task, availability.reason());
         }
 
+        if (!eco.tryPay(task.getActivationCost(), TransactionType.OTHER,
+                "Security Task: " + task.getLabel(), CostTag.SECURITY)) {
+            String reason = "Insufficient funds for activation cost.";
+            log.neg("Security task unavailable: " + reason);
+            return SecurityTaskResolution.blocked(task, reason);
+        }
+
         s.activeSecurityTask = task;
-        s.activeSecurityTaskRound = s.currentRoundIndex() + 1;
-        s.activeSecurityTaskRoundsRemaining = task.getCooldownRounds(); // Duration of effect
-        s.securityTaskCooldowns.put(task, task.getCooldownRounds());
+        s.activeSecurityTaskRound = s.currentRoundIndex();
+        s.activeSecurityTaskRoundsRemaining = task.getDurationRounds();
         s.lastSecurityTaskRound = s.currentRoundIndex();
 
-        String message = task.getLabel() + " queued for next round.";
-        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
-        segments.add(new UILogger.Segment(" Security task: ", UILogger.Tone.NEUTRAL));
-        segments.add(new UILogger.Segment(task.getLabel(), UILogger.Tone.SECURITY));
-        segments.add(new UILogger.Segment(" queued for next round.", UILogger.Tone.NEUTRAL));
-        log.appendLogSegments(segments);
-        s.addSecurityLog("Task queued: " + task.getLabel());
+        String message = task.getLabel() + " activated.";
+        log.action("Security Task: " + task.getLabel() + " activated (cost £"
+                + task.getActivationCost() + ", lasts " + task.getDurationRounds() + " rounds)");
+        s.addSecurityLog("Task activated: " + task.getLabel());
         return SecurityTaskResolution.applied(task, message);
     }
 
@@ -1527,16 +1536,6 @@ public class Simulation {
         s.staffIncidentThisRound = false;
         log.header("- Round " + s.roundInNight + "/" + s.closingRound + " -");
         s.roundItemSales.clear();
-
-        // Log security task activation if it just became active
-        if (s.isSecurityTaskActive() && s.activeSecurityTask != null 
-                && s.activeSecurityTaskRound == s.currentRoundIndex()) {
-            java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
-            segments.add(new UILogger.Segment(" Security: ", UILogger.Tone.NEUTRAL));
-            segments.add(new UILogger.Segment(s.activeSecurityTask.getLabel(), UILogger.Tone.SECURITY));
-            segments.add(new UILogger.Segment(" ACTIVE (" + s.activeSecurityTaskRoundsRemaining + " rounds)", UILogger.Tone.SECURITY));
-            log.appendLogSegments(segments);
-        }
 
         processSupplierDeliveries();
         processFoodOrders();
@@ -1722,13 +1721,13 @@ public class Simulation {
                 SecurityTask expiredTask = s.activeSecurityTask;
                 s.activeSecurityTask = null;
                 s.activeSecurityTaskRound = -999;
+                s.activeSecurityTaskRoundsRemaining = 0;
                 // Log security task expiration
                 if (expiredTask != null) {
-                    java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
-                    segments.add(new UILogger.Segment(" Security: ", UILogger.Tone.NEUTRAL));
-                    segments.add(new UILogger.Segment(expiredTask.getLabel(), UILogger.Tone.SECURITY));
-                    segments.add(new UILogger.Segment(" EXPIRED", UILogger.Tone.SECURITY));
-                    log.appendLogSegments(segments);
+                    s.securityTaskCooldowns.put(expiredTask, expiredTask.getCooldownRounds());
+                    log.info("Security Task: " + expiredTask.getLabel() + " expired (cooldown "
+                            + expiredTask.getCooldownRounds() + " rounds)");
+                    s.addSecurityLog("Task expired: " + expiredTask.getLabel());
                 }
             }
         }
@@ -4906,8 +4905,28 @@ public class Simulation {
             minTotal += bill.getMinDue();
             fullTotal += bill.getFullDue();
         }
+
+        int daysElapsed = Math.max(0, Math.min(7, s.dayIndex));
+        double baseDaily = Math.max(0, s.baseDailyRent);
+        double capDaily = s.barCapStepRentDelta();
+        double upgradesDaily = s.upgradesDailyRentDeltaTotal();
+        double roomsDaily = s.roomsDailyRent();
+        double totalDaily = s.dailyRent();
+
         sb.append("Weekly minimum due: GBP ").append(fmt2(minTotal)).append("\n");
         sb.append("Weekly full due:    GBP ").append(fmt2(fullTotal)).append("\n");
+        sb.append("\nRent breakdown:\n");
+        sb.append("  Base rent (daily): GBP ").append(fmt2(baseDaily)).append("\n");
+        sb.append("  Bar cap rent (daily): +GBP ").append(fmt2(capDaily)).append("\n");
+        sb.append("  Building upgrades rent (daily): ")
+                .append(upgradesDaily >= 0 ? "+GBP " : "-GBP ")
+                .append(fmt2(Math.abs(upgradesDaily))).append("\n");
+        sb.append("  Rooms rent (daily): GBP ").append(fmt2(roomsDaily)).append("\n");
+        sb.append("  Total daily rent: GBP ").append(fmt2(totalDaily)).append("\n");
+        sb.append("  Rent due at payday (week, ").append(daysElapsed).append(" day(s) elapsed): GBP ")
+                .append(fmt2(totalDaily * daysElapsed)).append("\n");
+        sb.append("  Rent accrued this week (actual): GBP ").append(fmt2(s.rentAccruedThisWeek)).append("\n");
+
         sb.append("Last resolution: min ").append(s.metMinimumsLastWeek ? "MET" : "MISSED")
                 .append(" | streak ").append(s.consecutiveWeeksUnpaidMin)
                 .append(" | tier ").append(s.debtSpiralTier)
@@ -5146,7 +5165,7 @@ public class Simulation {
     private String securityTaskStatusLine() {
         SecurityTask task = s.activeSecurityTask;
         if (task == null) return "None";
-        String status = s.isSecurityTaskActive() ? "Active" : (s.isSecurityTaskQueued() ? "Queued" : "Inactive");
+        String status = s.isSecurityTaskActive() ? "Active" : "Inactive";
         int cooldown = s.securityTaskCooldownRemaining(task);
         return task.getLabel() + " (" + status + ", CD " + cooldown + "r)";
     }
