@@ -93,7 +93,11 @@ public class GameState implements java.io.Serializable {
     }
 
     public double barCapStepRentDelta() {
-        return barCapRentSteps() * 20.0;
+        return barCapRentSteps() * 10.0;
+    }
+
+    public double innTierRent() {
+        return innTier * 10.0;
     }
 
     public double upgradesDailyRentDeltaTotal() {
@@ -114,7 +118,7 @@ public class GameState implements java.io.Serializable {
     }
 
     public double dailyRent() {
-        return getEffectiveDailyBaseRent() + roomsDailyRent();
+        return getEffectiveDailyBaseRent() + roomsDailyRent() + innTierRent();
     }
 
     public double weeklyRentTotal() {
