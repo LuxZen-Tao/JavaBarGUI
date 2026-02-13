@@ -56,7 +56,7 @@ public class SecuritySystem {
         double cost = nextUpgradeCost();
         if (!eco.tryPay(cost, TransactionType.UPGRADE, "Security upgrade", CostTag.UPGRADE)) return;
         s.baseSecurityLevel++;
-        log.pos("Upgraded base security to " + s.baseSecurityLevel + ".");
+        log.action("Upgraded base security to " + s.baseSecurityLevel + ".");
     }
 
     public double nextUpgradeCost() {
@@ -94,11 +94,14 @@ public class SecuritySystem {
         s.bouncersHiredTonight++;
         s.bouncerQualitiesTonight.add(quality);
 
-        log.pos(" Bouncer hired (" + s.bouncersHiredTonight + "/" + s.bouncerCap + ", "
-                + qualityLabel(quality) + "): theft -"
-                + pct(s.bouncerTheftReduction)
+        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+        segments.add(new UILogger.Segment(" Bouncer hired (", UILogger.Tone.ACTION));
+        segments.add(new UILogger.Segment(s.bouncersHiredTonight + "/" + s.bouncerCap, UILogger.Tone.SECURITY));
+        segments.add(new UILogger.Segment(", " + qualityLabel(quality) + "): ", UILogger.Tone.ACTION));
+        segments.add(new UILogger.Segment("theft -" + pct(s.bouncerTheftReduction)
                 + ", neg -" + pct(s.bouncerNegReduction)
-                + ", fights -" + pct(s.bouncerFightReduction));
+                + ", fights -" + pct(s.bouncerFightReduction), UILogger.Tone.SECURITY));
+        log.appendLogSegments(segments);
     }
 
     private BouncerQuality rollBouncerQuality() {

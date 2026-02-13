@@ -1731,7 +1731,7 @@ public class Simulation {
 
         if (s.consecutiveNeg100Rounds >= 3) {
             closeNight("Reputation collapsed. Licence revoked! (-100 for 3 rounds).");
-            log.header(" GAME OVER");
+            log.critical(" GAME OVER");
             return;
         }
 
