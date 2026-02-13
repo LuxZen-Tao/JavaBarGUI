@@ -54,14 +54,14 @@ public class MilestoneTimingTests {
         
         sim.openNight();
         
+        // Verify counters are reset at service start
+        assert state.punterKickedOffFromNeglect == 0 : "Neglect counter should be 0 at service start";
+        assert state.punterLeftBecauseBroke == 0 : "Broke counter should be 0 at service start";
+        
         // Run exactly 20 rounds (full service)
         for (int round = 0; round < 20; round++) {
             sim.playRound();
         }
-        
-        // Set no angry/broke departures for this service
-        state.punterKickedOffFromNeglect = 0;
-        state.punterLeftBecauseBroke = 0;
         
         // Close night normally
         sim.closeNight("Closing time.");
@@ -86,14 +86,14 @@ public class MilestoneTimingTests {
         
         sim.openNight();
         
+        // Verify counters are reset at service start
+        assert state.punterKickedOffFromNeglect == 0 : "Neglect counter should be 0 at service start";
+        assert state.punterLeftBecauseBroke == 0 : "Broke counter should be 0 at service start";
+        
         // Run only 10 rounds (early close)
         for (int round = 0; round < 10; round++) {
             sim.playRound();
         }
-        
-        // Set no angry/broke departures
-        state.punterKickedOffFromNeglect = 0;
-        state.punterLeftBecauseBroke = 0;
         
         // Close night early
         sim.closeNight("Early close");

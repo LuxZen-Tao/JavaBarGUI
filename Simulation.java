@@ -1840,10 +1840,10 @@ public class Simulation {
         if (s.dayIndex == 0) {
             endOfWeek();
             s.weekCount++;
-            s.paydayWindowClosed = false;
             recomputeActivityAvailability();
             if (weekStartHook != null) weekStartHook.accept(s.weekCount);
             milestones.onNewWeekStart();
+            s.paydayWindowClosed = false;
         }
 
         milestones.onServiceClose();
