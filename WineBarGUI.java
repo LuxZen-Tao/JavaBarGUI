@@ -2232,7 +2232,7 @@ public class WineBarGUI {
 
             } else if (t == Staff.Type.DUTY_MANAGER) {
                 enabled = state.innUnlocked
-                        && state.innTier >= 2
+                        && state.ownedUpgrades.contains(PubUpgrade.LEADERSHIP_PROGRAM_II)
                         && state.managerPoolCount() < state.managerCap
                         && state.fohStaffCount() < state.fohStaffCap;
 

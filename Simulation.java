@@ -1007,8 +1007,12 @@ public class Simulation {
         }
 
         if (t == Staff.Type.DUTY_MANAGER) {
-            if (!s.innUnlocked || s.innTier < 2) {
-                log.neg("Duty Manager unlocks at Inn Tier 2.");
+            if (!s.innUnlocked) {
+                log.neg("Duty Manager requires the Inn to be unlocked.");
+                return;
+            }
+            if (!s.ownedUpgrades.contains(PubUpgrade.LEADERSHIP_PROGRAM_II)) {
+                log.neg("Duty Manager unlocks at Leadership Program II.");
                 return;
             }
             if (s.managerPoolCount() >= s.managerCap) {

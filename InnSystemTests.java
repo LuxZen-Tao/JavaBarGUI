@@ -8,6 +8,7 @@ public class InnSystemTests {
         testBookingDeterministic();
         testReceptionEffect();
         testHousekeepingEffect();
+        testDutyManagerUnlockRequirements();
         testDutyManagerEffects();
         testMaintenanceAccrualAndPayday();
         testHohPoolAndCap();
@@ -132,10 +133,50 @@ public class InnSystemTests {
         assert cleanlinessWith >= cleanlinessWithout : "Housekeeping coverage should improve cleanliness.";
     }
 
+    private static void testDutyManagerUnlockRequirements() {
+        // Test 1: Can't hire duty manager without inn unlocked
+        GameState state1 = GameFactory.newGame();
+        Simulation sim1 = newSimulation(state1);
+        sim1.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
+        sim1.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_II);
+        int staffCountBefore1 = state1.fohStaffCount();
+        sim1.hireStaff(Staff.Type.DUTY_MANAGER);
+        assert state1.fohStaffCount() == staffCountBefore1 : "Should not hire duty manager without inn unlocked.";
+
+        // Test 2: Can't hire duty manager with only INN_WING_1 (no leadership program)
+        GameState state2 = GameFactory.newGame();
+        Simulation sim2 = newSimulation(state2);
+        sim2.installUpgradeForTest(PubUpgrade.INN_WING_1);
+        int staffCountBefore2 = state2.fohStaffCount();
+        sim2.hireStaff(Staff.Type.DUTY_MANAGER);
+        assert state2.fohStaffCount() == staffCountBefore2 : "Should not hire duty manager without Leadership Program II.";
+
+        // Test 3: Can't hire duty manager with only LEADERSHIP_PROGRAM_I
+        GameState state3 = GameFactory.newGame();
+        Simulation sim3 = newSimulation(state3);
+        sim3.installUpgradeForTest(PubUpgrade.INN_WING_1);
+        sim3.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
+        int staffCountBefore3 = state3.fohStaffCount();
+        sim3.hireStaff(Staff.Type.DUTY_MANAGER);
+        assert state3.fohStaffCount() == staffCountBefore3 : "Should not hire duty manager with only Leadership Program I.";
+
+        // Test 4: CAN hire duty manager with inn and LEADERSHIP_PROGRAM_II
+        GameState state4 = GameFactory.newGame();
+        Simulation sim4 = newSimulation(state4);
+        sim4.installUpgradeForTest(PubUpgrade.INN_WING_1);
+        sim4.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
+        sim4.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_II);
+        int staffCountBefore4 = state4.fohStaffCount();
+        sim4.hireStaff(Staff.Type.DUTY_MANAGER);
+        assert state4.fohStaffCount() == staffCountBefore4 + 1 : "Should hire duty manager with inn and Leadership Program II.";
+    }
+
     private static void testDutyManagerEffects() {
         GameState state = GameFactory.newGame();
         Simulation sim = newSimulation(state);
-        sim.installUpgradeForTest(PubUpgrade.INN_WING_2);
+        sim.installUpgradeForTest(PubUpgrade.INN_WING_1);
+        sim.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
+        sim.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_II);
         sim.hireStaff(Staff.Type.DUTY_MANAGER);
         assert state.managerPoolCount() == 1 : "Duty manager should count toward manager pool.";
 
@@ -156,6 +197,8 @@ public class InnSystemTests {
         GameState staffed = GameFactory.newGame();
         Simulation simStaffed = newSimulation(staffed);
         simStaffed.installUpgradeForTest(PubUpgrade.INN_WING_2);
+        simStaffed.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_I);
+        simStaffed.installUpgradeForTest(PubUpgrade.LEADERSHIP_PROGRAM_II);
         staffed.roomsTotal = 7;
         staffed.roomPrice = 28.0;
         staffed.innRep = 80.0;
