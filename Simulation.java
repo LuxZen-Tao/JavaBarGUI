@@ -864,7 +864,7 @@ public class Simulation {
         if (added <= 0) { log.neg("Inventory full."); return; }
 
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
-        log.pos(" Bought " + added + "x " + w.getName()
+        log.action(" Bought " + added + "x " + w.getName()
                 + " for GBP " + String.format("%.2f", cost)
                 + bulkTag
                 + (s.supplierDeal != null && s.supplierDeal.appliesTo(w) ? 
@@ -931,7 +931,7 @@ public class Simulation {
         if (added <= 0) { log.neg("Kitchen inventory full."); return; }
 
         String bulkTag = (disc > 0) ? (" | bulk -" + (int)(disc * 100) + "%") : "";
-        log.pos(" Bought " + added + "x " + food.getName()
+        log.action(" Bought " + added + "x " + food.getName()
                 + " for GBP " + String.format("%.2f", cost) + bulkTag);
         milestones.onSupplierOrder(added);
     }
@@ -1002,7 +1002,7 @@ public class Simulation {
             Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random, s.weekCount, s.reputation);
             s.generalManagers.add(hire);
             staff.updateTeamMorale();
-            log.pos(" Hired " + t.name().replace("_", " ") + ": " + hire);
+            log.action(" Hired " + t.name().replace("_", " ") + ": " + hire);
             return;
         }
 
@@ -1022,7 +1022,7 @@ public class Simulation {
             Staff hire = StaffFactory.createStaff(s.nextStaffId++, StaffNameGenerator.randomName(s.random), t, s.random, s.weekCount, s.reputation);
             s.fohStaff.add(hire);
             staff.updateTeamMorale();
-            log.pos(" Hired " + t.name().replace("_", " ") + ": " + hire);
+            log.action(" Hired " + t.name().replace("_", " ") + ": " + hire);
             return;
         }
 
@@ -1046,7 +1046,7 @@ public class Simulation {
             s.bohStaff.add(hire);
             staff.updateTeamMorale();
             updateKitchenInventoryCap();
-            log.pos(" Hired: " + hire);
+            log.action(" Hired: " + hire);
             return;
         } else {
             if ((t == Staff.Type.RECEPTION_TRAINEE
@@ -1076,7 +1076,7 @@ public class Simulation {
         s.fohStaff.add(hire);
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
-        log.pos(" Hired: " + hire);
+        log.action(" Hired: " + hire);
     }
 
     private Staff.Type applyDebtSpiralHiringShift(Staff.Type requested) {
@@ -1116,7 +1116,7 @@ public class Simulation {
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
 
-        log.event(" Fired staff. Paid accrued wages. Staff removed.");
+        log.action(" Fired staff. Paid accrued wages. Staff removed.");
         eco.applyRep(-1, "Firing (staff gossip)");
     }
 
@@ -1135,7 +1135,7 @@ public class Simulation {
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
 
-        log.event(" Fired kitchen staff. Paid accrued wages.");
+        log.action(" Fired kitchen staff. Paid accrued wages.");
         eco.applyRep(-1, "Firing (kitchen gossip)");
     }
 
@@ -1154,7 +1154,7 @@ public class Simulation {
         staff.updateTeamMorale();
         updateKitchenInventoryCap();
 
-        log.event(" Fired manager. Paid accrued wages.");
+        log.action(" Fired manager. Paid accrued wages.");
         eco.applyRep(-2, "Manager fired (panic)");
     }
 
@@ -1219,8 +1219,11 @@ public class Simulation {
         s.cash += amount;
         s.creditScore = s.clampCreditScore(s.creditScore - 50);
         log.neg("Loan shark money taken. Credit score takes a hit.");
-        log.pos("Loan shark loan received | GBP " + String.format("%.0f", amount)
-                + " | APR " + String.format("%.2f", apr * 100) + "%");
+        java.util.List<UILogger.Segment> loanSegments = new java.util.ArrayList<>();
+        loanSegments.add(new UILogger.Segment("Loan shark loan received | ", UILogger.Tone.POS));
+        loanSegments.add(new UILogger.Segment("GBP " + String.format("%.0f", amount), UILogger.Tone.MONEY));
+        loanSegments.add(new UILogger.Segment(" | APR " + String.format("%.2f", apr * 100) + "%", UILogger.Tone.POS));
+        log.appendLogSegments(loanSegments);
     }
 
     public void repayCreditLineInFull(String lineId) {
@@ -1384,7 +1387,7 @@ public class Simulation {
         if (policy == null) return;
         if (s.securityPolicy == policy) return;
         s.securityPolicy = policy;
-        log.info("Security policy set: " + policy.getLabel() + ".");
+        log.action("Security policy set: " + policy.getLabel() + ".");
         s.addSecurityLog("Policy set: " + policy.getLabel());
     }
 
@@ -1403,7 +1406,7 @@ public class Simulation {
         }
         BouncerQuality quality = rollMarshallQuality();
         s.marshalls.add(quality);
-        log.pos(" Hired Marshall (" + quality.name().toLowerCase() + ").");
+        log.action(" Hired Marshall (" + quality.name().toLowerCase() + ").");
     }
 
     private BouncerQuality rollMarshallQuality() {
@@ -1480,7 +1483,11 @@ public class Simulation {
         s.lastSecurityTaskRound = s.currentRoundIndex();
 
         String message = task.getLabel() + " queued for next round.";
-        log.info(" Security task: " + message);
+        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+        segments.add(new UILogger.Segment(" Security task: ", UILogger.Tone.NEUTRAL));
+        segments.add(new UILogger.Segment(task.getLabel(), UILogger.Tone.SECURITY));
+        segments.add(new UILogger.Segment(" queued for next round.", UILogger.Tone.NEUTRAL));
+        log.appendLogSegments(segments);
         s.addSecurityLog("Task queued: " + task.getLabel());
         return SecurityTaskResolution.applied(task, message);
     }
@@ -1516,6 +1523,16 @@ public class Simulation {
         s.staffIncidentThisRound = false;
         log.header("- Round " + s.roundInNight + "/" + s.closingRound + " -");
         s.roundItemSales.clear();
+
+        // Log security task activation if it just became active
+        if (s.isSecurityTaskActive() && s.activeSecurityTask != null 
+                && s.activeSecurityTaskRound == s.currentRoundIndex()) {
+            java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+            segments.add(new UILogger.Segment(" Security: ", UILogger.Tone.NEUTRAL));
+            segments.add(new UILogger.Segment(s.activeSecurityTask.getLabel(), UILogger.Tone.SECURITY));
+            segments.add(new UILogger.Segment(" ACTIVE (" + s.activeSecurityTaskRoundsRemaining + " rounds)", UILogger.Tone.SECURITY));
+            log.appendLogSegments(segments);
+        }
 
         processSupplierDeliveries();
         processFoodOrders();
@@ -1698,8 +1715,17 @@ public class Simulation {
                 s.activeSecurityTaskRoundsRemaining--;
             }
             if (s.activeSecurityTaskRoundsRemaining <= 0) {
+                SecurityTask expiredTask = s.activeSecurityTask;
                 s.activeSecurityTask = null;
                 s.activeSecurityTaskRound = -999;
+                // Log security task expiration
+                if (expiredTask != null) {
+                    java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+                    segments.add(new UILogger.Segment(" Security: ", UILogger.Tone.NEUTRAL));
+                    segments.add(new UILogger.Segment(expiredTask.getLabel(), UILogger.Tone.SECURITY));
+                    segments.add(new UILogger.Segment(" EXPIRED", UILogger.Tone.SECURITY));
+                    log.appendLogSegments(segments);
+                }
             }
         }
 
@@ -5401,7 +5427,7 @@ public class Simulation {
             s.sickStaffTonight.add(picked);
             s.sickCallTriggeredTonight = true;
             s.sickStaffNameTonight = picked.getName();
-            log.mid(picked.getName() + " called in sick and can't make it tonight. Coverage reduced.");
+            log.warning(picked.getName() + " called in sick and can't make it tonight. Coverage reduced.");
             staff.updateTeamMorale();
         }
     }
