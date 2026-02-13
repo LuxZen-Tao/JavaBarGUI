@@ -1516,7 +1516,10 @@ public class WineBarGUI {
                     if (w == null) continue;
 
                     boolean dealApplied = (state.supplierDeal != null && state.supplierDeal.appliesTo(w));
-                    String tag = dealApplied ? "   DEAL" : "";
+                    String tag = "";
+                    if (dealApplied) {
+                        tag = state.supplierDeal.getType() == SupplierDeal.Type.DISCOUNT ? "   DEAL" : "   SHORTAGE";
+                    }
                     double per = sim.peekSupplierCost(w, 1);
 
                     lbl.setText(w.getName()
@@ -3350,9 +3353,26 @@ public class WineBarGUI {
         String identity = formatIdentityLabel(state.currentIdentity);
         RumorInstance featuredRumor = findFeaturedRumor();
         String rumorLine = featuredRumor != null ? featuredRumor.type().getLabel() : "None";
+        
+        // Add rival pub info
+        String rivalInfo = "";
+        if (FeatureFlags.FEATURE_RIVALS) {
+            List<RivalPub> rivals = List.of(
+                new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
+                new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
+                new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
+            );
+            if (!rivals.isEmpty()) {
+                RivalPub topRival = rivals.get(0); // Show first rival as main competitor
+                rivalInfo = "<br>Rival: " + topRival.getName();
+            }
+        }
+        
         return "<html>Reputation: " + state.reputation + " (" + mood + ")"
                 + "<br>Identity: " + identity
-                + "<br>Rumor: " + rumorLine + "</html>";
+                + "<br>Rumor: " + rumorLine 
+                + rivalInfo
+                + "</html>";
     }
 
     private RumorInstance findFeaturedRumor() {

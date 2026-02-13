@@ -27,6 +27,9 @@ public class EconomySystem {
         else log.neg(reason + " | rep " + adjusted + "  " + s.reputation);
 
         if (s.reputation > s.peakReputation) s.peakReputation = s.reputation;
+        
+        // Track minimum reputation during the week for Stormproof milestone
+        if (s.reputation < s.weekMinReputation) s.weekMinReputation = s.reputation;
 
         if (s.reputation <= -100) {
             s.reputation = -100;

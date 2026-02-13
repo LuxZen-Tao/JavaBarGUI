@@ -198,7 +198,7 @@ public class MilestoneSystem {
             case M16_SUPPLIERS_FAVOURITE -> "Good".equals(s.supplierTrustLabel()) && s.largeBulkOrdersCompleted > 0;
             case M17_GOLDEN_QUARTER -> s.goldenQuarterWeekStreak >= 4;
             case M18_STORMPROOF_OPERATOR -> (s.weekRevenue - s.weekCosts) > 0
-                    && s.weeklyRepDeltaNet > 0
+                    && s.weekMinReputation >= 0
                     && s.weekNegativeEvents >= STORMPROOF_NEGATIVE_EVENTS;
             case M19_HEADLINER_VENUE -> averageWeekPrice() >= 1.22
                     && s.reputation >= 75

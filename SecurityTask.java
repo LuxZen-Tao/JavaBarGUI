@@ -20,7 +20,7 @@ public enum SecurityTask {
             "Spot checks at the door to deter trouble.",
             0.92,
             0.99,
-            2
+            3
     ),
     T1_TIGHT_DOOR_TONIGHT(
             1,
