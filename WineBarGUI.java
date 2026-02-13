@@ -2789,7 +2789,10 @@ public class WineBarGUI {
             innPriceLabel.setText("Room price: " + (unlocked ? money0(state.roomPrice) : "Locked"));
         }
         if (innPriceSlider != null) {
-            innPriceSlider.setEnabled(unlocked && !state.nightOpen);
+            // Keep room pricing adjustable while service is open.
+            // Simulation#setRoomPrice() already rate-locks existing bookings and
+            // applies new prices only to later booking segments in the night.
+            innPriceSlider.setEnabled(unlocked);
             if (unlocked) {
                 innPriceSlider.setValue((int)Math.round(state.roomPrice));
             }
