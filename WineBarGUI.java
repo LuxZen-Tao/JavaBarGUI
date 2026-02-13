@@ -2575,7 +2575,7 @@ public class WineBarGUI {
 
                 String status = "";
                 if (state.activeSecurityTask == task) {
-                    status = state.isSecurityTaskActive() ? " (Active)" : " (Queued)";
+                    status = state.isSecurityTaskActive() ? " (Active)" : " (Inactive)";
                 }
                 int cooldown = state.securityTaskCooldownRemaining(task);
                 String cooldownText = cooldown > 0 ? " | CD " + cooldown + "r" : "";

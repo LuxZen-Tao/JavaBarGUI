@@ -10,7 +10,9 @@ public enum SecurityTask {
             "Friendly presence on the floor to keep things calm.",
             0.96,
             1.03,
-            2
+            3,
+            6,
+            10
     ),
     T1_CHECK_IDS(
             1,
@@ -20,7 +22,9 @@ public enum SecurityTask {
             "Spot checks at the door to deter trouble.",
             0.92,
             0.99,
-            3
+            4,
+            7,
+            15
     ),
     T1_TIGHT_DOOR_TONIGHT(
             1,
@@ -30,7 +34,9 @@ public enum SecurityTask {
             "Strict door for a quieter crowd.",
             0.88,
             0.96,
-            3
+            4,
+            8,
+            20
     ),
     T2_DEESCALATION_FOCUS(
             2,
@@ -40,7 +46,9 @@ public enum SecurityTask {
             "Staff focus on early de-escalation and quick check-ins.",
             0.93,
             1.02,
-            3
+            4,
+            8,
+            20
     ),
     T2_TARGETED_SCREENING(
             2,
@@ -50,7 +58,9 @@ public enum SecurityTask {
             "Targeted screening of rowdier arrivals.",
             0.89,
             0.98,
-            3
+            5,
+            9,
+            25
     ),
     T2_HARD_LINE_DOOR(
             2,
@@ -60,7 +70,9 @@ public enum SecurityTask {
             "No-nonsense door for risky nights.",
             0.84,
             0.95,
-            4
+            5,
+            10,
+            30
     ),
     T3_CROWD_CONTROL_PROTOCOL(
             3,
@@ -70,7 +82,9 @@ public enum SecurityTask {
             "Proactive crowd control keeps the floor steady.",
             0.91,
             1.01,
-            3
+            5,
+            10,
+            30
     ),
     T3_SELECTIVE_ENTRY(
             3,
@@ -80,7 +94,9 @@ public enum SecurityTask {
             "Selective entry to balance vibe and safety.",
             0.86,
             0.97,
-            4
+            6,
+            11,
+            35
     ),
     T3_ZERO_TOLERANCE_NIGHT(
             3,
@@ -90,7 +106,9 @@ public enum SecurityTask {
             "Strict zero-tolerance policy for maximum control.",
             0.80,
             0.93,
-            4
+            6,
+            12,
+            40
     );
 
     private final int tier;
@@ -100,7 +118,9 @@ public enum SecurityTask {
     private final String description;
     private final double incidentChanceMultiplier;
     private final double trafficMultiplier;
+    private final int durationRounds;
     private final int cooldownRounds;
+    private final int activationCost;
 
     SecurityTask(int tier,
                  SecurityTaskCategory category,
@@ -109,7 +129,9 @@ public enum SecurityTask {
                  String description,
                  double incidentChanceMultiplier,
                  double trafficMultiplier,
-                 int cooldownRounds) {
+                 int durationRounds,
+                 int cooldownRounds,
+                 int activationCost) {
         this.tier = tier;
         this.category = category;
         this.label = label;
@@ -117,7 +139,9 @@ public enum SecurityTask {
         this.description = description;
         this.incidentChanceMultiplier = incidentChanceMultiplier;
         this.trafficMultiplier = trafficMultiplier;
+        this.durationRounds = durationRounds;
         this.cooldownRounds = cooldownRounds;
+        this.activationCost = activationCost;
     }
 
     public int getTier() {
@@ -148,14 +172,24 @@ public enum SecurityTask {
         return trafficMultiplier;
     }
 
+    public int getDurationRounds() {
+        return durationRounds;
+    }
+
     public int getCooldownRounds() {
         return cooldownRounds;
+    }
+
+    public int getActivationCost() {
+        return activationCost;
     }
 
     public String effectSummary() {
         return "Incident x" + String.format("%.2f", incidentChanceMultiplier)
                 + " | Traffic x" + String.format("%.2f", trafficMultiplier)
-                + " | Cooldown " + cooldownRounds + "r";
+                + " | Duration " + durationRounds + "r"
+                + " | Cooldown " + cooldownRounds + "r"
+                + " | Cost £" + activationCost;
     }
 
     public static List<SecurityTask> tasksForTier(int tier) {
