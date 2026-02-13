@@ -1837,6 +1837,8 @@ public class Simulation {
 
         staff.accrueDailyWages();
         s.wagesAccruedThisWeek = staff.wagesDue();
+        
+        calculateTipsTonight();
 
         processPendingUpgradeInstallsAtNightEnd();
 
@@ -2568,7 +2570,6 @@ public class Simulation {
         double raw = staff.wagesDueRaw();
         double eff = upgrades.wageEfficiencyPct();
         double wagesDue = staff.wagesDue();
-        double tipsDue = s.tipsThisWeek * 0.50;
         if (eff > 0.0001) {
             double saved = raw - wagesDue;
             log.event(" Wage efficiency: raw GBP " + String.format("%.2f", raw)
@@ -2585,7 +2586,7 @@ public class Simulation {
         rumors.updateWeeklyRumors();
         runRivalDistrictWeek();
         endOfWeekReport();
-        preparePaydayBills(wagesDue, tipsDue);
+        preparePaydayBills(wagesDue);
         if (s.staffDeparturesThisWeek == 0) s.weeksNoStaffDepartures++;
         else s.weeksNoStaffDepartures = 0;
 
@@ -3066,7 +3067,7 @@ public class Simulation {
         }
     }
 
-    private void preparePaydayBills(double wagesDue, double tipsDue) {
+    private void preparePaydayBills(double wagesDue) {
         s.paydayBills.clear();
         if (s.supplierWineCredit.getBalance() > 0.0) {
             s.paydayBills.add(new PaydayBill(
@@ -3088,13 +3089,13 @@ public class Simulation {
             ));
         }
 
-        double wagesTotal = wagesDue + tipsDue;
-        if (wagesTotal > 0.0) {
+        // Wages only (tips handled separately via slider)
+        if (wagesDue > 0.0) {
             s.paydayBills.add(new PaydayBill(
                     PaydayBill.Type.WAGES,
-                    "Wages + tips",
-                    wagesTotal,
-                    wagesTotal,
+                    "Wages",
+                    wagesDue,
+                    wagesDue,
                     null
             ));
         }
@@ -3185,7 +3186,7 @@ public class Simulation {
 
     public WeeklyDueBreakdown weeklyMinDueBreakdown() {
         double supplier = s.supplierWineMinDue() + s.supplierFoodMinDue();
-        double wages = staff.wagesDue() + (s.tipsThisWeek * 0.50);
+        double wages = staff.wagesDue(); // Wages only, tips handled separately
         double rent = s.rentAccruedThisWeek;
         double security = s.securityUpkeepAccruedThisWeek;
         double inn = s.innMaintenanceAccruedWeekly;
@@ -3621,7 +3622,7 @@ public class Simulation {
             staff.resetAccrual();
             s.wagesAccruedThisWeek = 0.0;
             handleWagesPaid();
-            applyTipsPayout();
+            // Tips are now handled separately in applyTipSplit, called after payday resolution
         } else if (amount + 0.01 < minDue) {
             handleWageMiss();
         }
@@ -3715,28 +3716,90 @@ public class Simulation {
         }
     }
 
-    private void applyTipsPayout() {
-        if (s.tipsThisWeek <= 0) return;
+    /**
+     * Apply tip split effects based on player's chosen percentage.
+     * Called after payday is processed and wages are paid.
+     * Tier A: 0-20% (Exploitative) - High distress, morale hit, chaos increase
+     * Tier B: >20-40% (Bare minimum) - Mild penalties
+     * Tier C: >40-60% (Neutral baseline) - No bonuses/penalties
+     * Tier D: >60-80% (Generous) - Small morale bump
+     * Tier E: >80-100% (Heroic) - Morale boost, chaos reduction, rep bonus
+     */
+    public void applyTipSplit() {
+        if (s.tipsPotWeek <= 0) {
+            s.tipsPotWeek = 0.0;
+            return;
+        }
 
-        double payout = s.tipsThisWeek * 0.50;
-        if (payout <= 0) return;
-
-        int moraleDelta = 0;
-        if (s.tipsThisWeek >= 60) moraleDelta += 3;
-        else if (s.tipsThisWeek >= 25) moraleDelta += 2;
-        if (s.tipsThisWeek < 10) moraleDelta -= 1;
-
-        for (Staff st : s.fohStaff) st.adjustMorale(moraleDelta);
-        for (Staff st : s.bohStaff) st.adjustMorale(moraleDelta);
-        for (Staff st : s.generalManagers) st.adjustMorale(moraleDelta);
-
-        staff.updateTeamMorale();
-
-        log.popup(" Tips payout",
-                "Staff split GBP " + String.format("%.2f", payout) + " in tips.",
-                "Morale " + (moraleDelta >= 0 ? "+" : "") + moraleDelta);
-
-        s.tipsThisWeek = 0.0;
+        double tipsToStaff = s.tipsPotWeek * (s.tipSplitPercent / 100.0);
+        double tipsToHouse = s.tipsPotWeek - tipsToStaff;
+        
+        // Add house portion to cash
+        s.cash += tipsToHouse;
+        
+        // Determine tier and apply effects
+        int p = s.tipSplitPercent;
+        int headcount = s.fohStaff.size() + s.bohStaff.size() + s.generalManagers.size();
+        if (headcount == 0) headcount = 1; // Avoid division by zero
+        
+        // Log the tip split
+        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+        segments.add(new UILogger.Segment("Tips pot split: Staff ", UILogger.Tone.INFO));
+        segments.add(new UILogger.Segment(p + "%", UILogger.Tone.ACTION));
+        segments.add(new UILogger.Segment(" (", UILogger.Tone.INFO));
+        segments.add(new UILogger.Segment("GBP " + String.format("%.2f", tipsToStaff), UILogger.Tone.MONEY));
+        segments.add(new UILogger.Segment(") | House (", UILogger.Tone.INFO));
+        segments.add(new UILogger.Segment("GBP " + String.format("%.2f", tipsToHouse), UILogger.Tone.MONEY));
+        segments.add(new UILogger.Segment(")", UILogger.Tone.INFO));
+        log.appendLogSegments(segments);
+        
+        if (p <= 20) {
+            // Tier A: Exploitative (0-20%)
+            int moraleDelta = -3 * Math.min(headcount, 5); // Scale by staff count, capped
+            for (Staff st : s.fohStaff) st.adjustMorale(-3);
+            for (Staff st : s.bohStaff) st.adjustMorale(-3);
+            for (Staff st : s.generalManagers) st.adjustMorale(-3);
+            s.chaos += Math.min(3.0 * headcount / 4.0, 8.0);
+            staff.updateTeamMorale();
+            log.neg(" Tips split exploitative: morale " + moraleDelta + ", chaos +" + String.format("%.1f", Math.min(3.0 * headcount / 4.0, 8.0)));
+            
+        } else if (p <= 40) {
+            // Tier B: Bare minimum (>20-40%)
+            for (Staff st : s.fohStaff) st.adjustMorale(-1);
+            for (Staff st : s.bohStaff) st.adjustMorale(-1);
+            for (Staff st : s.generalManagers) st.adjustMorale(-1);
+            s.chaos += Math.min(1.0 * headcount / 4.0, 2.0);
+            staff.updateTeamMorale();
+            log.info(" Tips split bare minimum: morale -" + headcount + ", chaos +" + String.format("%.1f", Math.min(1.0 * headcount / 4.0, 2.0)));
+            
+        } else if (p <= 60) {
+            // Tier C: Neutral baseline (>40-60%)
+            // No bonuses or penalties
+            log.info(" Tips split neutral: no morale/chaos effects.");
+            
+        } else if (p <= 80) {
+            // Tier D: Generous (>60-80%)
+            for (Staff st : s.fohStaff) st.adjustMorale(+2);
+            for (Staff st : s.bohStaff) st.adjustMorale(+2);
+            for (Staff st : s.generalManagers) st.adjustMorale(+2);
+            staff.updateTeamMorale();
+            log.pos(" Tips split generous: morale +" + (headcount * 2));
+            
+        } else {
+            // Tier E: Heroic (>80-100%)
+            for (Staff st : s.fohStaff) st.adjustMorale(+4);
+            for (Staff st : s.bohStaff) st.adjustMorale(+4);
+            for (Staff st : s.generalManagers) st.adjustMorale(+4);
+            s.chaos = Math.max(0.0, s.chaos - 2.0);
+            staff.updateTeamMorale();
+            eco.applyRep(+3, "Generous tip sharing");
+            // Apply permanent rep modifier (small)
+            s.pubLevelRepMultiplier = Math.min(1.5, s.pubLevelRepMultiplier + 0.005);
+            log.pos(" Tips split heroic: morale +" + (headcount * 4) + ", chaos -2.0, rep +3, rep multiplier +0.005");
+        }
+        
+        // Reset tips pot
+        s.tipsPotWeek = 0.0;
     }
 
     public MetricsSnapshot buildMetricsSnapshot() {
@@ -4300,7 +4363,7 @@ public class Simulation {
             }
             case FLIRTING_ATTENTION -> {
                 double tipsBoost = 4 + s.random.nextInt(6);
-                s.tipsThisWeek += tipsBoost;
+                s.tipsPotWeek += tipsBoost;
                 eco.applyRep(1, "Friendly service");
                 String detail = pickPhrase(FOH_FLIRTING_LINES);
                 log.popup(new EventCard("Staff misconduct",
@@ -5982,6 +6045,35 @@ public class Simulation {
     }
 
 
+    /**
+     * Calculate tips earned tonight based on service quality, reputation, and chaos.
+     * Tips are capped at 25% of gross sales to prevent economic imbalance.
+     */
+    private void calculateTipsTonight() {
+        if (s.nightRevenue <= 0) {
+            s.tipsEarnedTonight = 0.0;
+            return;
+        }
+        
+        // Base tip rate calculation
+        double repFactor = Math.max(0.0, (s.reputation + 100.0) / 200.0); // 0.0 to 1.0
+        double chaosFactor = Math.max(0.0, 1.0 - (s.chaos / 100.0)); // Lower chaos = higher tips
+        
+        // Service success rate (served vs attempted)
+        int attempted = s.nightSales + s.nightUnserved;
+        double serviceFactor = attempted > 0 ? (double) s.nightSales / attempted : 1.0;
+        
+        // Combined tip rate (reasonable baseline)
+        double tipRate = 0.08 * repFactor * chaosFactor * serviceFactor;
+        
+        // Calculate tips and apply 25% cap
+        double rawTips = s.nightRevenue * tipRate;
+        double cappedTips = Math.min(rawTips, s.nightRevenue * 0.25);
+        
+        s.tipsEarnedTonight = Math.max(0.0, cappedTips);
+        s.tipsPotWeek += s.tipsEarnedTonight;
+    }
+
     private void showEndOfNightReport() {
         int covers = s.servedPuntersThisService.size();
         double profit = s.nightRevenue - s.nightRoundCostsTotal;
@@ -5994,8 +6086,10 @@ public class Simulation {
                 .append(" | Unserved: ").append(s.nightUnserved)
                 .append("\nSales: ").append(s.nightSales)
                 .append(" | Revenue GBP ").append(String.format("%.0f", s.nightRevenue))
-                .append(" | Costs GBP ").append(String.format("%.0f", s.nightRoundCostsTotal))
+                .append(" | Tips GBP ").append(String.format("%.2f", s.tipsEarnedTonight))
+                .append("\nCosts GBP ").append(String.format("%.0f", s.nightRoundCostsTotal))
                 .append(" | Profit GBP ").append(String.format("%.0f", profit))
+                .append(" | Tips pot GBP ").append(String.format("%.2f", s.tipsPotWeek))
                 .append("\nBest wine: ").append(bestWine)
                 .append(" | Best food: ").append(bestFood)
                 .append("\nEvents: ").append(s.nightEvents)

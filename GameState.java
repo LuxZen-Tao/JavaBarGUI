@@ -343,7 +343,12 @@ public class GameState implements java.io.Serializable {
     public int kitchenQualityBonus = 0;
     public double refundRiskReductionPct = 0.0;
     public double staffMisconductReductionPct = 0.0;
-    public double tipsThisWeek = 0.0;
+    
+    // Tips Pot + Payday Split System
+    public double tipsPotWeek = 0.0;           // Accumulates tips across the week
+    public double tipsEarnedTonight = 0.0;     // Convenience field for nightly reports
+    public int tipSplitPercent = 60;           // Player-selected % of tips to staff (0-100)
+    
     public double upgradeIncidentChanceMultiplier = 1.0;
     public double upgradeMoraleStabilityPct = 0.0;
     public double upgradeRepMitigationPct = 0.0;
