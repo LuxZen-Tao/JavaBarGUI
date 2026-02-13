@@ -1810,10 +1810,20 @@ public class Simulation {
 
         showEndOfNightReport();
 
-        if (s.nightUnserved == 0 && s.nightFoodUnserved == 0) {
+        // M2_NO_EMPTY_SHELVES: Check actual inventory levels at end of service
+        boolean wineInventoryOK = !s.rack.isEmpty();
+        boolean foodInventoryOK = !s.foodRack.isEmpty();
+        if (wineInventoryOK && foodInventoryOK) {
             s.noStockoutStreakNights++;
         } else {
             s.noStockoutStreakNights = 0;
+        }
+        
+        // M1_OPEN_FOR_BUSINESS: Count completed nights without bankruptcy
+        if (!s.bankruptcyDeclared && !s.businessCollapsed) {
+            s.openForBusinessNights++;
+        } else {
+            s.openForBusinessNights = 0;
         }
         boolean calmNight = s.nightFights == 0;
         if (calmNight) {
