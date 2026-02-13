@@ -1264,6 +1264,8 @@ public class Simulation {
         s.foodSpoiledLastNight = 0;
         s.nightRefunds = 0;
         s.nightFights = 0;
+        s.punterKickedOffFromNeglect = 0;
+        s.punterLeftBecauseBroke = 0;
         s.nightItemSales.clear();
         s.pendingFoodOrders.clear();
         s.happyHourBacklashShown = false;
@@ -1713,6 +1715,10 @@ public class Simulation {
         boolean isNormalClose = reason != null && reason.toLowerCase().contains("closing time");
         boolean isGameOver = reason != null && reason.toLowerCase().contains("licence") || (reason != null && reason.toLowerCase().contains("game over"));
 
+        // Track if service ran full 20 rounds for milestone M3_NO_ONE_LEAVES_ANGRY
+        s.serviceCompletedRounds = s.roundInNight;
+        s.lastServiceRanFullRounds = (s.roundInNight >= s.closingRound);
+
         if (early && !isNormalClose && !isGameOver) {
             int remaining = s.closingRound - s.roundInNight;
             int repPenalty = earlyClosePenaltyForRemaining(remaining);
@@ -1834,10 +1840,13 @@ public class Simulation {
         if (s.dayIndex == 0) {
             endOfWeek();
             s.weekCount++;
+            s.paydayWindowClosed = false;
             recomputeActivityAvailability();
             if (weekStartHook != null) weekStartHook.accept(s.weekCount);
+            milestones.onNewWeekStart();
         }
 
+        milestones.onServiceClose();
         milestones.onNightEnd();
         recomputeActivityAvailability();
         audioManager.onNightEnd();

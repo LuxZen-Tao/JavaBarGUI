@@ -138,6 +138,11 @@ public class GameState implements java.io.Serializable {
     public int nightFights = 0;
     public int nightRefunds = 0;
     public int nightFoodUnserved = 0;
+    public int serviceCompletedRounds = 0;
+    public int punterKickedOffFromNeglect = 0;
+    public int punterLeftBecauseBroke = 0;
+    public boolean lastServiceRanFullRounds = false;
+    public boolean paydayWindowClosed = false;
     public double nightRefundTotal = 0.0;
     public double weekRefundTotal = 0.0;
     public double reportRefundTotal = 0.0;

@@ -87,6 +87,7 @@ public class PunterSystem {
             boolean fightTriggered = p.escalateIfStaying();
             if (fightTriggered && bouncerIntervenes()) {
                 // Bouncer diffuses it into "storming out" instead of a fight
+                    s.punterKickedOffFromNeglect++;
                     p.leaveBar();
                     log.info("  - " + p.getName() + " storms out (bouncer prevents a fight).");
                     continue;
@@ -95,6 +96,7 @@ public class PunterSystem {
             if (fightTriggered) {
                 if (mitigateFightWithStaff()) {
                     log.info("  - Staff defuse " + p.getName() + " before it escalates.");
+                    s.punterKickedOffFromNeglect++;
                     p.leaveBar();
                     continue;
                 }
@@ -105,6 +107,7 @@ public class PunterSystem {
             }
 
             if (p.isBanned()) {
+                s.punterKickedOffFromNeglect++;
                 kickOut(p, 0, "3 rounds no service / can't buy");
             }
         }
@@ -124,6 +127,7 @@ public class PunterSystem {
         if (p.getWallet() < 3.0) {
             log.neg("  - Wallet < 3. Leaves early.");
             eco.applyRep(-1, "Broke punter leaves");
+            s.punterLeftBecauseBroke++;
             p.leaveBar();
             return;
         }
