@@ -13,7 +13,7 @@ public class PubLevelCountTests {
         testNineMilestonesReachesLevel3();
         testSameMilestoneDoesNotDoubleCount();
         testSaveLoadPreservesCountAndLevel();
-        testLevelSkippingAllowed();
+        testChainLevelingPrevented();
         testProgressionSummaryDisplaysCount();
         System.out.println("All PubLevelCountTests passed.");
         System.exit(0);
@@ -49,9 +49,11 @@ public class PubLevelCountTests {
         state.achievedMilestones.add(MilestoneSystem.Milestone.M2_NO_EMPTY_SHELVES);
         state.milestonesAchievedCount = 2;
         
+        // Need to spend 2 weeks at level 0 before leveling up
+        state.weeksAtCurrentLevel = 2;
         levelSystem.updatePubLevel(state);
         
-        assert state.pubLevel == 1 : "Pub level should be 1 with 2 milestones, got " + state.pubLevel;
+        assert state.pubLevel == 1 : "Pub level should be 1 with 2 milestones and 2 weeks, got " + state.pubLevel;
     }
 
     /**
@@ -69,9 +71,16 @@ public class PubLevelCountTests {
         state.achievedMilestones.add(MilestoneSystem.Milestone.M5_CALM_HOUSE);
         state.milestonesAchievedCount = 5;
         
+        // Need to level from 0 to 1 first, then 1 to 2
+        state.weeksAtCurrentLevel = 2;
+        levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 1 : "Should reach level 1 first";
+        
+        // Now spend 3 weeks at level 1 to reach level 2
+        state.weeksAtCurrentLevel = 3;
         levelSystem.updatePubLevel(state);
         
-        assert state.pubLevel == 2 : "Pub level should be 2 with 5 milestones, got " + state.pubLevel;
+        assert state.pubLevel == 2 : "Pub level should be 2 with 5 milestones and 3 weeks at level 1, got " + state.pubLevel;
     }
 
     /**
@@ -93,9 +102,21 @@ public class PubLevelCountTests {
         state.achievedMilestones.add(MilestoneSystem.Milestone.M9_KNOWN_FOR_SOMETHING);
         state.milestonesAchievedCount = 9;
         
+        // Level 0 -> 1 (need 2 weeks at level 0)
+        state.weeksAtCurrentLevel = 2;
+        levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 1 : "Should reach level 1 first";
+        
+        // Level 1 -> 2 (need 3 weeks at level 1)
+        state.weeksAtCurrentLevel = 3;
+        levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 2 : "Should reach level 2 next";
+        
+        // Level 2 -> 3 (need 4 weeks at level 2)
+        state.weeksAtCurrentLevel = 4;
         levelSystem.updatePubLevel(state);
         
-        assert state.pubLevel == 3 : "Pub level should be 3 with 9 milestones, got " + state.pubLevel;
+        assert state.pubLevel == 3 : "Pub level should be 3 with 9 milestones and 4 weeks at level 2, got " + state.pubLevel;
     }
 
     /**
@@ -141,6 +162,12 @@ public class PubLevelCountTests {
         state.prestigeMilestones.addAll(state.achievedMilestones);
         state.milestonesAchievedCount = 5;
         
+        // Simulate progression through levels with time gates
+        state.weeksAtCurrentLevel = 2;
+        levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 1 : "Should reach level 1 first";
+        
+        state.weeksAtCurrentLevel = 3;
         levelSystem.updatePubLevel(state);
         assert state.pubLevel == 2 : "Initial pub level should be 2";
         
@@ -156,18 +183,26 @@ public class PubLevelCountTests {
     }
 
     /**
-     * Test that achieving milestones allows skipping multiple levels if count jumps.
+     * Test that chain-leveling is prevented - must progress one level at a time.
      */
-    private static void testLevelSkippingAllowed() {
+    private static void testChainLevelingPrevented() {
         GameState state = GameFactory.newGame();
         PubLevelSystem levelSystem = new PubLevelSystem();
         
         // Directly set count to 14 (enough for level 4)
         state.milestonesAchievedCount = 14;
         
+        // Even with enough milestones, can only level up one at a time
+        state.weeksAtCurrentLevel = 2;
         levelSystem.updatePubLevel(state);
         
-        assert state.pubLevel == 4 : "Pub level should be 4 with 14 milestones, got " + state.pubLevel;
+        assert state.pubLevel == 1 : "Should level to 1 first, got " + state.pubLevel;
+        assert state.weeksAtCurrentLevel == 0 : "Week counter should reset";
+        
+        // Need to wait again for next level
+        state.weeksAtCurrentLevel = 3;
+        levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 2 : "Should level to 2 next, got " + state.pubLevel;
     }
 
     /**
@@ -179,12 +214,21 @@ public class PubLevelCountTests {
         
         // Set count to 3 (between levels 1 and 2)
         state.milestonesAchievedCount = 3;
+        
+        // Level up to 1 first
+        state.weeksAtCurrentLevel = 2;
         levelSystem.updatePubLevel(state);
+        assert state.pubLevel == 1 : "Should be at level 1";
+        
+        // Now check progression summary for level 1 -> 2
+        state.weeksAtCurrentLevel = 1;  // 1 week at level 1, need 3 total
         
         String summary = levelSystem.progressionSummary(state);
         
-        assert summary.contains("3") : "Summary should show current count 3";
-        assert summary.contains("5") : "Summary should show next threshold 5";
-        assert summary.contains("Milestones") : "Summary should mention milestones";
+        assert summary.contains("3") : "Summary should show current count 3, got: " + summary;
+        assert summary.contains("5") : "Summary should show next threshold 5, got: " + summary;
+        assert summary.contains("Milestones") : "Summary should mention milestones, got: " + summary;
+        assert summary.contains("Weeks") : "Summary should mention weeks, got: " + summary;
+        assert summary.contains("1 / 3") : "Summary should show 1/3 weeks, got: " + summary;
     }
 }

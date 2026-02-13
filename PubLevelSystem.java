@@ -22,21 +22,44 @@ public class PubLevelSystem {
         return cumulative;
     }
 
+    /**
+     * Minimum weeks required at a level before progressing to the next level.
+     * Level 0: 2 weeks, Level 1: 3 weeks, Level 2: 4 weeks, Level 3: 5 weeks, Level 4: 6 weeks
+     */
+    public static int weeksRequiredForLevel(int level) {
+        return level + 2;  // Level 0 = 2 weeks, Level 1 = 3 weeks, etc.
+    }
+
+    /**
+     * Update pub level based on both milestone count and time gate.
+     * Level-up only occurs when BOTH conditions are met:
+     * 1. Milestone threshold reached
+     * 2. Minimum weeks at current level completed
+     */
     public void updatePubLevel(GameState s) {
         int count = s.milestonesAchievedCount;
-        int level = 0;
+        int currentLevel = s.pubLevel;
+        int newLevel = currentLevel;
         
-        // Check each level threshold and assign highest met level
-        // Allow skipping multiple levels if count jumps
-        for (int i = 1; i <= MAX_LEVEL; i++) {
-            if (count >= thresholdForLevel(i)) {
-                level = i;
-            } else {
+        // Check each level threshold and find highest eligible level
+        // Must meet BOTH milestone AND week requirements
+        for (int i = currentLevel + 1; i <= MAX_LEVEL; i++) {
+            if (count >= thresholdForLevel(i) && s.weeksAtCurrentLevel >= weeksRequiredForLevel(currentLevel)) {
+                newLevel = i;
+                // Only level up one at a time to prevent chain-leveling
                 break;
             }
         }
 
-        s.pubLevel = level;
+        // If level changed, reset week counter and apply bonuses
+        if (newLevel > currentLevel) {
+            s.pubLevel = newLevel;
+            s.weeksAtCurrentLevel = 0;
+            applyLevelBonuses(s, newLevel);
+        }
+    }
+
+    private void applyLevelBonuses(GameState s, int level) {
         s.pubLevelServeCapBonus = level * 1;
         s.pubLevelBarCapBonus = level * 2;
         s.pubLevelTrafficBonusPct = level * 0.05;
@@ -54,20 +77,42 @@ public class PubLevelSystem {
     }
 
     public boolean meetsLevelRequirement(GameState s, int targetLevel) {
+        // For prestige eligibility, only check milestone requirements
         return s.milestonesAchievedCount >= thresholdForLevel(targetLevel);
+    }
+
+    /**
+     * Check if player can level up to the next level.
+     * Requires both milestone threshold AND minimum weeks at current level.
+     */
+    public boolean canLevelUp(GameState s) {
+        int next = s.pubLevel + 1;
+        if (next > MAX_LEVEL) return false;
+        
+        boolean hasMilestones = s.milestonesAchievedCount >= thresholdForLevel(next);
+        boolean hasWeeks = s.weeksAtCurrentLevel >= weeksRequiredForLevel(s.pubLevel);
+        
+        return hasMilestones && hasWeeks;
     }
 
     public String progressionSummary(GameState s) {
         int next = Math.min(MAX_LEVEL, s.pubLevel + 1);
         if (next <= s.pubLevel) return "Max pub level reached.";
         
-        int current = s.milestonesAchievedCount;
-        int needed = thresholdForLevel(next);
+        int currentMilestones = s.milestonesAchievedCount;
+        int neededMilestones = thresholdForLevel(next);
+        int currentWeeks = s.weeksAtCurrentLevel;
+        int neededWeeks = weeksRequiredForLevel(s.pubLevel);
         
         StringBuilder sb = new StringBuilder();
         sb.append("Next level requirements (Lv ").append(next).append("):\n");
-        sb.append(" - Milestones: ").append(current).append(" / ").append(needed);
-        if (current >= needed) {
+        sb.append(" - Milestones: ").append(currentMilestones).append(" / ").append(neededMilestones);
+        if (currentMilestones >= neededMilestones) {
+            sb.append(" [✓]");
+        }
+        sb.append("\n");
+        sb.append(" - Weeks at level: ").append(currentWeeks).append(" / ").append(neededWeeks);
+        if (currentWeeks >= neededWeeks) {
             sb.append(" [✓]");
         }
         sb.append("\n");
@@ -75,31 +120,57 @@ public class PubLevelSystem {
     }
 
     private List<String> levelRequirementsText(GameState s, int level) {
-        int current = s.milestonesAchievedCount;
-        int needed = thresholdForLevel(level);
-        String status = current >= needed ? "[✓]" : "[ ]";
-        return List.of(status + " Milestones: " + current + " / " + needed);
+        java.util.List<String> requirements = new java.util.ArrayList<>();
+        int currentMilestones = s.milestonesAchievedCount;
+        int neededMilestones = thresholdForLevel(level);
+        String milestoneStatus = currentMilestones >= neededMilestones ? "[✓]" : "[ ]";
+        requirements.add(milestoneStatus + " Milestones: " + currentMilestones + " / " + neededMilestones);
+        
+        if (level > s.pubLevel) {
+            int currentWeeks = s.weeksAtCurrentLevel;
+            int neededWeeks = weeksRequiredForLevel(s.pubLevel);
+            String weekStatus = currentWeeks >= neededWeeks ? "[✓]" : "[ ]";
+            requirements.add(weekStatus + " Weeks: " + currentWeeks + " / " + neededWeeks);
+        }
+        
+        return requirements;
     }
 
     public String compactNextLevelBadge(GameState s) {
         int next = Math.min(MAX_LEVEL, s.pubLevel + 1);
         if (next <= s.pubLevel) return "Max level";
         
-        int current = s.milestonesAchievedCount;
-        int needed = thresholdForLevel(next);
+        int currentMilestones = s.milestonesAchievedCount;
+        int neededMilestones = thresholdForLevel(next);
+        int currentWeeks = s.weeksAtCurrentLevel;
+        int neededWeeks = weeksRequiredForLevel(s.pubLevel);
         
-        if (current >= needed) return "Ready to level up";
-        return "Next: Milestones " + current + "/" + needed;
+        boolean hasMilestones = currentMilestones >= neededMilestones;
+        boolean hasWeeks = currentWeeks >= neededWeeks;
+        
+        if (hasMilestones && hasWeeks) return "Ready to level up";
+        if (!hasMilestones && !hasWeeks) return "Next: M " + currentMilestones + "/" + neededMilestones + ", W " + currentWeeks + "/" + neededWeeks;
+        if (!hasMilestones) return "Next: Milestones " + currentMilestones + "/" + neededMilestones;
+        return "Next: Weeks " + currentWeeks + "/" + neededWeeks;
     }
 
     private List<String> compactLevelRequirements(GameState s, int level) {
         List<String> unmet = new java.util.ArrayList<>();
-        int current = s.milestonesAchievedCount;
-        int needed = thresholdForLevel(level);
+        int currentMilestones = s.milestonesAchievedCount;
+        int neededMilestones = thresholdForLevel(level);
         
-        if (current < needed) {
-            unmet.add("Milestones " + current + "/" + needed);
+        if (currentMilestones < neededMilestones) {
+            unmet.add("Milestones " + currentMilestones + "/" + neededMilestones);
         }
+        
+        if (level > s.pubLevel) {
+            int currentWeeks = s.weeksAtCurrentLevel;
+            int neededWeeks = weeksRequiredForLevel(s.pubLevel);
+            if (currentWeeks < neededWeeks) {
+                unmet.add("Weeks " + currentWeeks + "/" + neededWeeks);
+            }
+        }
+        
         return unmet;
     }
 

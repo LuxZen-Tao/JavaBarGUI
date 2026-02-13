@@ -2618,6 +2618,10 @@ public class Simulation {
         s.goldenQuarterWeekStreak = goldenWeek ? s.goldenQuarterWeekStreak + 1 : 0;
 
         milestones.onWeekEnd();
+        
+        // Increment weeks at current level before checking for level-up
+        s.weeksAtCurrentLevel++;
+        
         if (s.bankruptcyLockWeeksRemaining > 0) s.bankruptcyLockWeeksRemaining--;
         applyPersistentUpgrades();
         applyDebtSpiralPenalties();
