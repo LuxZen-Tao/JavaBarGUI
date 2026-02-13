@@ -18,9 +18,13 @@ Think of drivers as your pub's vital signs—they tell you what's working and wh
 **Example**: `Drivers -> Service: workload 0.27 (-), avgSpeed 57 (+), quality 63 (-)`
 
 **What This Tells You**:
-- **Workload 0.27 (-)**: Your staff is under-utilized (27% capacity). The (-) means lower workload is good for service
-- **avgSpeed 57 (+)**: Your staff's average service speed is 57 (moderate). The (+) means higher speed would worsen service (because speed-focused staff can be risky)
-- **Quality 63 (-)**: Your staff's average service quality is 63 (decent). The (-) means higher quality would improve service
+- **Workload 0.27 (-)**: Your staff is under-utilized (27% capacity). The (-) means workload is below critical threshold (good)
+- **avgSpeed 57 (+)**: Your staff's average service speed is 57 (moderate). The (+) means speed is below 60 (could be improved)
+- **Quality 63 (-)**: Your staff's average service quality is 63 (decent). The (-) means quality is at/above 60 (already good)
+
+**Symbol Meanings**:
+- **Workload**: (-) = below 1.0 (good), (+) = above 1.0 (overloaded, bad)
+- **Performance Metrics**: (-) = at/above 60 (already good), (+) = below 60 (needs improvement)
 
 ### 2. Stability Drivers
 **Purpose**: Explain operational chaos, fights, misconduct, and staff morale
@@ -30,9 +34,13 @@ Think of drivers as your pub's vital signs—they tell you what's working and wh
 **Example**: `Drivers -> Stability: workload 0.27 (-), composure 76 (-), reliability 57 (+)`
 
 **What This Tells You**:
-- **Workload 0.27 (-)**: Low workload reduces stress and chaos risk. The (-) means lower workload is good for stability
-- **Composure 76 (-)**: Your staff's average composure is 76 (good). The (-) means higher composure would reduce chaos
-- **Reliability 57 (+)**: Your staff's average reliability is 57 (moderate). The (+) means higher reliability would reduce misconduct
+- **Workload 0.27 (-)**: Low workload reduces stress and chaos risk. The (-) means workload is below 1.0 (good)
+- **Composure 76 (-)**: Your staff's average composure is 76 (good). The (-) means composure is at/above 60 (already good)
+- **Reliability 57 (+)**: Your staff's average reliability is 57 (moderate). The (+) means reliability is below 60 (needs improvement)
+
+**Symbol Meanings**: Same as Service drivers
+- **Workload**: (-) = below 1.0 (good), (+) = above 1.0 (overloaded, bad)
+- **Performance Metrics**: (-) = at/above 60 (already good), (+) = below 60 (needs improvement)
 
 ---
 
@@ -337,17 +345,17 @@ Think of drivers as your pub's vital signs—they tell you what's working and wh
 3. Accept short-term cash strain for long-term stability
 
 ### Example 2: Poor Quality Staff
-**Drivers**: `Service: workload 0.85 (-), avgSpeed 75 (+), quality 42 (+)`
+**Drivers**: `Service: workload 0.85 (-), avgSpeed 75 (-), quality 42 (+)`
 
 **Analysis**:
-- Workload is fine
-- Speed is high (Speed Demons?)
-- Quality is poor (< 50) → expect refunds
+- Workload is fine (below 1.0)
+- Speed is high (75 >= 60, already good)
+- Quality is poor (42 < 60, needs improvement) → expect refunds
 
 **Action Plan**:
-1. Replace Speed Demons with Experienced or Charisma bartenders
-2. Wait for level-ups to improve skill
-3. Accept lower capacity for better quality
+1. Replace low-skill staff with Experienced or Charisma bartenders
+2. Wait for level-ups to improve skill (skill drives quality)
+3. Accept transition period with lower speed for better quality
 
 ### Example 3: Chaos and Morale Crisis
 **Drivers**: `Stability: workload 1.2 (+), composure 48 (+), reliability 38 (+)`
