@@ -216,7 +216,7 @@ public class ReportSystem {
     private static String fmt2(double d){return String.format("%.2f",d);} 
 
     private static double weeklyMinDueEstimate(GameState s) {
-        double wages = s.wagesAccruedThisWeek + (s.tipsThisWeek * 0.50);
+        double wages = s.wagesAccruedThisWeek; // Tips handled separately, not part of wages
         double rent = s.rentAccruedThisWeek;
         double security = s.securityUpkeepAccruedThisWeek;
         double inn = s.innMaintenanceAccruedWeekly;

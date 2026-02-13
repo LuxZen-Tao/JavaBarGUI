@@ -61,6 +61,8 @@ public class WineBarGUI {
     private JDialog paydayDialog;
     private JPanel paydayListPanel;
     private JLabel paydaySummaryLabel;
+    private JSlider tipSplitSlider;
+    private JLabel tipSplitPreviewLabel;
     private JDialog kitchenSupplierDialog;
     private JPanel kitchenSupplierListPanel;
     private JLabel kitchenSupplierNoticeLabel;
@@ -1586,11 +1588,21 @@ public class WineBarGUI {
 
             paydayListPanel = new JPanel();
             paydayListPanel.setLayout(new BoxLayout(paydayListPanel, BoxLayout.Y_AXIS));
-            paydayDialog.add(new JScrollPane(paydayListPanel), BorderLayout.CENTER);
+            
+            // Create a combined center panel with bills and tips section
+            JPanel centerPanel = new JPanel(new BorderLayout());
+            centerPanel.add(new JScrollPane(paydayListPanel), BorderLayout.CENTER);
+            
+            // Tips distribution panel
+            JPanel tipsPanel = createTipsDistributionPanel();
+            centerPanel.add(tipsPanel, BorderLayout.SOUTH);
+            
+            paydayDialog.add(centerPanel, BorderLayout.CENTER);
 
             JButton apply = new JButton("Apply Payments");
             apply.addActionListener(e -> {
                 sim.applyPaydayPayments();
+                sim.applyTipSplit();
                 refreshAll();
                 refreshAllMenus();
                 refreshPaydayDialog();
@@ -1624,12 +1636,68 @@ public class WineBarGUI {
         }
 
         sim.applyPaydayPayments();
+        sim.applyTipSplit();
         refreshAll();
         refreshAllMenus();
     }
 
     private boolean isWeekEndPaydayClose() {
         return !state.paydayBills.isEmpty() && state.dayIndex == 0;
+    }
+    
+    private JPanel createTipsDistributionPanel() {
+        JPanel panel = new JPanel(new BorderLayout(6, 6));
+        panel.setBorder(BorderFactory.createTitledBorder("Tips Distribution"));
+        
+        // Info panel
+        JPanel infoPanel = new JPanel(new GridLayout(3, 1, 4, 4));
+        infoPanel.setBorder(new EmptyBorder(6, 10, 6, 10));
+        
+        JLabel tipsPotLabel = new JLabel("Tips pot this week: GBP " + money2(state.tipsPotWeek));
+        tipsPotLabel.setFont(tipsPotLabel.getFont().deriveFont(Font.BOLD));
+        infoPanel.add(tipsPotLabel);
+        
+        tipSplitPreviewLabel = new JLabel();
+        updateTipSplitPreview();
+        infoPanel.add(tipSplitPreviewLabel);
+        
+        JLabel tooltipLabel = new JLabel("<html><i>Higher staff share improves morale and stability; lower share increases tension.</i></html>");
+        tooltipLabel.setForeground(new Color(100, 100, 100));
+        infoPanel.add(tooltipLabel);
+        
+        panel.add(infoPanel, BorderLayout.NORTH);
+        
+        // Slider panel
+        JPanel sliderPanel = new JPanel(new BorderLayout(6, 6));
+        sliderPanel.setBorder(new EmptyBorder(0, 10, 10, 10));
+        
+        JLabel sliderLabel = new JLabel("Staff Share of Tips (%):");
+        sliderPanel.add(sliderLabel, BorderLayout.NORTH);
+        
+        tipSplitSlider = new JSlider(0, 100, state.tipSplitPercent);
+        tipSplitSlider.setMajorTickSpacing(20);
+        tipSplitSlider.setMinorTickSpacing(10);
+        tipSplitSlider.setPaintTicks(true);
+        tipSplitSlider.setPaintLabels(true);
+        tipSplitSlider.addChangeListener(e -> {
+            state.tipSplitPercent = tipSplitSlider.getValue();
+            updateTipSplitPreview();
+        });
+        sliderPanel.add(tipSplitSlider, BorderLayout.CENTER);
+        
+        panel.add(sliderPanel, BorderLayout.CENTER);
+        
+        return panel;
+    }
+    
+    private void updateTipSplitPreview() {
+        if (tipSplitPreviewLabel == null) return;
+        double toStaff = state.tipsPotWeek * (state.tipSplitPercent / 100.0);
+        double toHouse = state.tipsPotWeek - toStaff;
+        tipSplitPreviewLabel.setText(String.format(
+            "To staff (%d%%): GBP %s  |  To house: GBP %s",
+            state.tipSplitPercent, money2(toStaff), money2(toHouse)
+        ));
     }
 
     private void refreshPaydayDialog() {
