@@ -1,4 +1,5 @@
 public class LegacyBonuses  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
 
     public int inventoryCapBonus = 0;
     public int innRoomBonus = 0;

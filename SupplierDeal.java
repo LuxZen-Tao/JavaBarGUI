@@ -1,4 +1,5 @@
 public class SupplierDeal  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
 
     public enum Type { DISCOUNT, SHORTAGE }
 

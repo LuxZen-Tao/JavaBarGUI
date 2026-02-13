@@ -1,4 +1,5 @@
 public class CreditLine  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private final String id;
     private final String lenderName;
     private final double limit;

@@ -1,6 +1,7 @@
 import java.util.UUID;
 
 public class SupplierInvoice  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     public enum Status { OPEN, DUE, OVERDUE, PAID }
 
     private final String invoiceId;

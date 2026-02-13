@@ -1,4 +1,5 @@
 public class LoanSharkAccount  implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private boolean open;
     private double balance;
     private double apr;

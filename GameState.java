@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 public class GameState implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
 
     // time
     public int weekCount = 1;
