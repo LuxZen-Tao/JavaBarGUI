@@ -125,7 +125,12 @@ public class MilestoneSystem {
     public void onRepChanged() { evaluateMilestones(EvaluationReason.REPUTATION_CHANGE); }
     public void onNightEnd() { evaluateMilestones(EvaluationReason.NIGHT_END); }
     public void onWeekEnd() { evaluateMilestones(EvaluationReason.WEEK_END); }
-    public void onPaydayResolved() { evaluateMilestones(EvaluationReason.PAYDAY); }
+    public void onPaydayResolved() { 
+        s.paydayWindowClosed = true;
+        evaluateMilestones(EvaluationReason.PAYDAY); 
+    }
+    public void onServiceClose() { evaluateMilestones(EvaluationReason.NIGHT_END); }
+    public void onNewWeekStart() { evaluateMilestones(EvaluationReason.WEEK_END); }
     public void onActivityScheduled(PubActivity activity) {
         if (activity != null && activity.getRequiredIdentity() != null) {
             s.weekActivityIdentityCategories.add(activity.getRequiredIdentity());
@@ -142,6 +147,17 @@ public class MilestoneSystem {
     public void evaluateMilestones(EvaluationReason reason) {
         for (MilestoneDefinition def : definitions) {
             if (s.achievedMilestones.contains(def.id())) continue;
+            
+            // M3_NO_ONE_LEAVES_ANGRY should only be evaluated on service close (NIGHT_END)
+            if (def.id() == Milestone.M3_NO_ONE_LEAVES_ANGRY && reason != EvaluationReason.NIGHT_END) {
+                continue;
+            }
+            
+            // M4_PAYROLL_GUARDIAN should only be evaluated on new week start (WEEK_END)
+            if (def.id() == Milestone.M4_PAYROLL_GUARDIAN && reason != EvaluationReason.WEEK_END) {
+                continue;
+            }
+            
             if (isMet(def.id())) {
                 grant(def, reason);
             }
@@ -154,8 +170,14 @@ public class MilestoneSystem {
         return switch (id) {
             case M1_OPEN_FOR_BUSINESS -> s.nightCount >= 3 && !s.businessCollapsed && !s.bankruptcyDeclared;
             case M2_NO_EMPTY_SHELVES -> s.noStockoutStreakNights >= 2;
-            case M3_NO_ONE_LEAVES_ANGRY -> s.nightRefunds == 0 && s.nightUnserved == 0 && s.nightFoodUnserved == 0;
-            case M4_PAYROLL_GUARDIAN -> s.wagesPaidLastWeek && s.rentAccruedThisWeek <= 0.01;
+            case M3_NO_ONE_LEAVES_ANGRY -> 
+                s.lastServiceRanFullRounds 
+                && s.punterKickedOffFromNeglect == 0 
+                && s.punterLeftBecauseBroke == 0;
+            case M4_PAYROLL_GUARDIAN -> 
+                s.paydayWindowClosed 
+                && s.wagesPaidLastWeek 
+                && s.rentAccruedThisWeek <= 0.01;
             case M5_CALM_HOUSE -> s.calmNightsStreak >= 3 && s.calmNightsWithActivityStreak >= 1;
             case M6_MARGIN_WITH_MANNERS -> s.weekPriceMultiplierSamples > 0
                     && (s.weekPriceMultiplierSum / s.weekPriceMultiplierSamples) >= 1.15
