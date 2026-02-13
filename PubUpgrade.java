@@ -24,11 +24,11 @@ public enum PubUpgrade {
 
     KITCHEN("Kitchen Upgrade I", 600, 0.10, 1, 2,
             2, 0, 10, 0, 1, 0, 0, 0, 0, 1,
-            0.00, 0.00, 0.03, 0.00, 0.00, 0.00),
+            0.00, 0.00, 0.03, 0.00, 0.00, 0.00, 10),
 
     KITCHEN_EQUIPMENT("Kitchen Upgrade III", 360, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 10),
 
     HYGIENE_TRAINING("Hygiene Training", 300, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -60,7 +60,7 @@ public enum PubUpgrade {
 
     NEW_KITCHEN_PLAN("Kitchen Upgrade II", 480, 0.00, 0, 0,
             0, 0, 0, 10, 0, 0, 0, 0, 0, 1,
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 10),
 
     CHEF_TRAINING("Chef Training", 340, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
@@ -73,7 +73,7 @@ public enum PubUpgrade {
 
     WINE_CELLAR("Wine Cellar", 520, 0.04, 0, 1,
             0, 0, 50, 0, 0, 0, 0, 0, 0, 0,
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 5),
 
     CELLAR_EXPANSION_I("Cellar Expansion I", 240, 0.00, 0, 0,
             0, 0, 25, 0, 0, 0, 0, 0, 0, 0,
@@ -290,6 +290,7 @@ public enum PubUpgrade {
     private final double tipBonusPct;
     private final double eventDamageReductionPct;
     private final double riskReductionPct;
+    private final int dailyRentDelta;
     private final String chainKey;
     private final int tier;
 
@@ -314,6 +315,36 @@ public enum PubUpgrade {
                double tipBonusPct,
                double eventDamageReductionPct,
                double riskReductionPct) {
+        this(label, cost, trafficBonusPct, repDriftPerRound, eventBonusChance,
+                barCapBonus, serveCapBonus, rackCapBonus, foodRackCapBonus,
+                securityBonus, staffCapBonus, bouncerCapBonus, managerCapBonus,
+                chefCapBonus, kitchenQualityBonus, refundRiskReductionPct,
+                staffMisconductReductionPct, wageEfficiencyPct, tipBonusPct,
+                eventDamageReductionPct, riskReductionPct, 0);
+    }
+
+    PubUpgrade(String label,
+               double cost,
+               double trafficBonusPct,
+               int repDriftPerRound,
+               int eventBonusChance,
+               int barCapBonus,
+               int serveCapBonus,
+               int rackCapBonus,
+               int foodRackCapBonus,
+               int securityBonus,
+               int staffCapBonus,
+               int bouncerCapBonus,
+               int managerCapBonus,
+               int chefCapBonus,
+               int kitchenQualityBonus,
+               double refundRiskReductionPct,
+               double staffMisconductReductionPct,
+               double wageEfficiencyPct,
+               double tipBonusPct,
+               double eventDamageReductionPct,
+               double riskReductionPct,
+               int dailyRentDelta) {
 
         this.label = label;
         this.cost = cost;
@@ -338,6 +369,7 @@ public enum PubUpgrade {
         this.tipBonusPct = tipBonusPct;
         this.eventDamageReductionPct = eventDamageReductionPct;
         this.riskReductionPct = riskReductionPct;
+        this.dailyRentDelta = dailyRentDelta;
         TierInfo tierInfo = TierInfo.fromName(name());
         this.chainKey = tierInfo.chainKey();
         this.tier = tierInfo.tier();
@@ -363,6 +395,7 @@ public enum PubUpgrade {
         if (tipBonusPct > 0) extras.append(" | tips +").append((int) (tipBonusPct * 100)).append("%");
         if (eventDamageReductionPct > 0) extras.append(" | event dmg -").append((int) (eventDamageReductionPct * 100)).append("%");
         if (riskReductionPct > 0) extras.append(" | chaos -").append((int) (riskReductionPct * 100)).append("%");
+        if (dailyRentDelta != 0) extras.append(" | rent ").append(dailyRentDelta > 0 ? "+" : "").append("£").append(dailyRentDelta).append("/day");
 
         return label
                 + " | GBP " + String.format("%.0f", cost)
@@ -395,6 +428,7 @@ public enum PubUpgrade {
     public double getTipBonusPct() { return tipBonusPct; }
     public double getEventDamageReductionPct() { return eventDamageReductionPct; }
     public double getRiskReductionPct() { return riskReductionPct; }
+    public int getDailyRentDelta() { return dailyRentDelta; }
     public String getChainKey() { return chainKey; }
     public int getTier() { return tier; }
 

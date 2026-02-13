@@ -4905,8 +4905,28 @@ public class Simulation {
             minTotal += bill.getMinDue();
             fullTotal += bill.getFullDue();
         }
+
+        int daysElapsed = Math.max(0, Math.min(7, s.dayIndex));
+        double baseDaily = Math.max(0, s.baseDailyRent);
+        double capDaily = s.barCapStepRentDelta();
+        double upgradesDaily = s.upgradesDailyRentDeltaTotal();
+        double roomsDaily = s.roomsDailyRent();
+        double totalDaily = s.dailyRent();
+
         sb.append("Weekly minimum due: GBP ").append(fmt2(minTotal)).append("\n");
         sb.append("Weekly full due:    GBP ").append(fmt2(fullTotal)).append("\n");
+        sb.append("\nRent breakdown:\n");
+        sb.append("  Base rent (daily): GBP ").append(fmt2(baseDaily)).append("\n");
+        sb.append("  Bar cap rent (daily): +GBP ").append(fmt2(capDaily)).append("\n");
+        sb.append("  Building upgrades rent (daily): ")
+                .append(upgradesDaily >= 0 ? "+GBP " : "-GBP ")
+                .append(fmt2(Math.abs(upgradesDaily))).append("\n");
+        sb.append("  Rooms rent (daily): GBP ").append(fmt2(roomsDaily)).append("\n");
+        sb.append("  Total daily rent: GBP ").append(fmt2(totalDaily)).append("\n");
+        sb.append("  Rent due at payday (week, ").append(daysElapsed).append(" day(s) elapsed): GBP ")
+                .append(fmt2(totalDaily * daysElapsed)).append("\n");
+        sb.append("  Rent accrued this week (actual): GBP ").append(fmt2(s.rentAccruedThisWeek)).append("\n");
+
         sb.append("Last resolution: min ").append(s.metMinimumsLastWeek ? "MET" : "MISSED")
                 .append(" | streak ").append(s.consecutiveWeeksUnpaidMin)
                 .append(" | tier ").append(s.debtSpiralTier)
