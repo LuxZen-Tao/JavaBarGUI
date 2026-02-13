@@ -2,6 +2,11 @@
 
 **Welcome, Landlord!** This guide will help you master the art of running a successful pub in this sophisticated management simulation. Whether you're just starting out or looking to optimize your operations, this guide covers everything you need to know.
 
+**📚 Specialized Guides:**
+- **[Driver Mechanics Guide](DRIVER_MECHANICS_GUIDE.md)** — Deep dive into service/stability drivers and staff performance metrics
+- **[Game Description](GAME_DESCRIPTION.md)** — Detailed system mechanics and design philosophy
+- **[Developer Guide](DEVELOPER_GUIDE.md)** — Technical reference for modders
+
 ---
 
 ## Table of Contents
@@ -191,6 +196,13 @@ Manages hiring, roles, morale, wages, and retention.
 - Never miss wages; the morale hit is devastating
 - Balance quality vs quantity; one great bartender > two mediocre ones
 - Track departure risk; low morale leads to unexpected quits
+
+**📊 Understanding Staff Performance:**
+See **[Driver Mechanics Guide](DRIVER_MECHANICS_GUIDE.md)** for a complete breakdown of:
+- Service Drivers (workload, avgSpeed, quality) and how they affect refunds and capacity
+- Stability Drivers (workload, composure, reliability) and how they affect chaos and misconduct
+- How to read driver feedback in nightly logs
+- Strategies for optimizing each performance metric
 
 ---
 
