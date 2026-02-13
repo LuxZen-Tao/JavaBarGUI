@@ -9,6 +9,7 @@ public class WageRentTests {
         testWeeklyMinDueIncludesRentAndWages();
         testBarCapStepRentScaling();
         testUpgradeDailyRentDeltas();
+        testInnTierRentScaling();
         testCombinedRentStacking();
         testPaydayRentDueTracksDailyAccrual();
         System.out.println("All WageRentTests passed.");
@@ -99,10 +100,10 @@ public class WageRentTests {
         assert closeTo(state.barCapStepRentDelta(), 0.0) : "+4 cap should not add a rent step.";
 
         state.upgradeBarCapBonus = 5;
-        assert closeTo(state.barCapStepRentDelta(), 20.0) : "+5 cap should add £20/day.";
+        assert closeTo(state.barCapStepRentDelta(), 10.0) : "+5 cap should add £10/day.";
 
         state.upgradeBarCapBonus = 10;
-        assert closeTo(state.barCapStepRentDelta(), 40.0) : "+10 cap should add £40/day.";
+        assert closeTo(state.barCapStepRentDelta(), 20.0) : "+10 cap should add £20/day.";
     }
 
     private static void testUpgradeDailyRentDeltas() {
@@ -118,6 +119,22 @@ public class WageRentTests {
         assert closeTo(state.upgradesDailyRentDeltaTotal(), 15.0) : "Upgrade deltas should sum across installed upgrades.";
     }
 
+    private static void testInnTierRentScaling() {
+        GameState state = GameFactory.newGame();
+
+        state.innTier = 0;
+        assert closeTo(state.innTierRent(), 0.0) : "No inn should have zero inn tier rent.";
+
+        state.innTier = 1;
+        assert closeTo(state.innTierRent(), 10.0) : "Inn tier 1 should add £10/day.";
+
+        state.innTier = 2;
+        assert closeTo(state.innTierRent(), 20.0) : "Inn tier 2 should add £20/day.";
+
+        state.innTier = 3;
+        assert closeTo(state.innTierRent(), 30.0) : "Inn tier 3 should add £30/day.";
+    }
+
     private static void testCombinedRentStacking() {
         GameState state = GameFactory.newGame();
         state.upgradeBarCapBonus = 10;
@@ -125,14 +142,15 @@ public class WageRentTests {
         state.ownedUpgrades.add(PubUpgrade.KITCHEN);
 
         double expectedBase = 60.0;
-        double expectedCap = 40.0;
+        double expectedCap = 20.0;
         double expectedUpgrade = 15.0;
         double expectedRooms = 0.0;
+        double expectedInnTier = 0.0;
 
         assert closeTo(state.getEffectiveDailyBaseRent(), expectedBase + expectedCap + expectedUpgrade)
                 : "Effective base daily rent should include base + bar-cap steps + upgrade deltas.";
-        assert closeTo(state.dailyRent(), expectedBase + expectedCap + expectedUpgrade + expectedRooms)
-                : "Total daily rent should include base-side total plus rooms.";
+        assert closeTo(state.dailyRent(), expectedBase + expectedCap + expectedUpgrade + expectedRooms + expectedInnTier)
+                : "Total daily rent should include base-side total plus rooms plus inn tier.";
     }
 
     private static void testPaydayRentDueTracksDailyAccrual() {
