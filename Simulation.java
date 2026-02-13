@@ -1694,11 +1694,12 @@ public class Simulation {
         }
 
         if (s.isSecurityTaskActive()) {
-            s.activeSecurityTaskRoundsRemaining--;
+            if (s.activeSecurityTaskRoundsRemaining > 0) {
+                s.activeSecurityTaskRoundsRemaining--;
+            }
             if (s.activeSecurityTaskRoundsRemaining <= 0) {
                 s.activeSecurityTask = null;
                 s.activeSecurityTaskRound = -999;
-                s.activeSecurityTaskRoundsRemaining = 0;
             }
         }
 

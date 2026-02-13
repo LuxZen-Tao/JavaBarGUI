@@ -157,7 +157,7 @@ public class GameState implements java.io.Serializable {
     public int weekFoodOrders = 0;
     public double weeklyRepDeltaAbs = 0.0;
     public double weeklyRepDeltaNet = 0.0;
-    public int weekMinReputation = 10; // Track minimum reputation during the week for Stormproof milestone
+    public int weekMinReputation = 10; // Track minimum reputation during the week for Stormproof milestone (initialized to match starting reputation)
     public int weekPositiveEvents = 0;
     public int weekNegativeEvents = 0;
     public double weekChaosTotal = 0.0;

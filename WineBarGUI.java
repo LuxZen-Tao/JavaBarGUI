@@ -3354,16 +3354,11 @@ public class WineBarGUI {
         RumorInstance featuredRumor = findFeaturedRumor();
         String rumorLine = featuredRumor != null ? featuredRumor.type().getLabel() : "None";
         
-        // Add rival pub info
+        // Add rival pub info - show first district rival as main competitor
         String rivalInfo = "";
         if (FeatureFlags.FEATURE_RIVALS) {
-            List<RivalPub> rivals = List.of(
-                new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
-                new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
-                new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
-            );
-            if (!rivals.isEmpty()) {
-                RivalPub topRival = rivals.get(0); // Show first rival as main competitor
+            RivalPub topRival = getMainRivalForDisplay();
+            if (topRival != null) {
                 rivalInfo = "<br>Rival: " + topRival.getName();
             }
         }
@@ -3373,6 +3368,22 @@ public class WineBarGUI {
                 + "<br>Rumor: " + rumorLine 
                 + rivalInfo
                 + "</html>";
+    }
+    
+    /**
+     * Returns the main rival pub for display purposes.
+     * Uses first rival from district as primary competitor.
+     * In future, this could be enhanced to select based on stance or market pressure.
+     */
+    private RivalPub getMainRivalForDisplay() {
+        // Hard-coded district rivals matching Simulation.defaultDistrictRivals()
+        // Consider extracting to shared configuration in future refactoring
+        List<RivalPub> rivals = List.of(
+            new RivalPub("The Copper Fox", 2, 1, 1, "noisy"),
+            new RivalPub("Pearl Street Tap", 0, 2, 2, "upscale"),
+            new RivalPub("North Lane Inn", 1, 1, 0, "mixed")
+        );
+        return rivals.isEmpty() ? null : rivals.get(0);
     }
 
     private RumorInstance findFeaturedRumor() {
