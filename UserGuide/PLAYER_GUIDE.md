@@ -40,6 +40,7 @@ java Main
 - **Chaos**: High chaos causes fights, theft, and staff morale problems.
 - **Staff Morale**: Low morale leads to poor service and departures.
 - **Inventory**: Balance between stockouts and waste.
+- **Trading Standards Violations**: Most dangerous metric—9+ violations = game over.
 
 ---
 
@@ -95,6 +96,7 @@ You can fail through:
 - **Debt Spiral**: Loan shark penalties escalate into unsustainable costs
 - **Reputation Collapse**: Sustained negative sentiment drives away all customers
 - **Staff Exodus**: Complete loss of workforce due to low morale
+- **Trading Standards Closure**: 9+ underage service violations in a single week triggers instant game over
 
 ### The Path to Prestige
 - **Early Game (Nights 1-20)**: Survive and stabilize
@@ -177,8 +179,10 @@ Manages hiring, roles, morale, wages, and retention.
 - **Bartenders**: Serve drinks, most important for throughput
 - **Servers**: Serve food and assist with service capacity
 - **Kitchen Staff**: Prepare food orders
-- **Security/Bouncers**: Reduce fight/theft incidents
+- **Security/Bouncers**: Reduce fight/theft incidents, check IDs (affects Trading Standards)
 - **Managers**: Improve efficiency and morale recovery
+- **Marshalls**: Inn operations, reduce inn event severity by 25%
+- **Duty Managers**: Inn operations, reduce inn event severity by 50%
 
 **Key Metrics:**
 - **Quality**: Individual staff skill (affects service speed and quality)
@@ -264,25 +268,27 @@ Sets your price multiplier (0.80x to 1.40x base prices), affecting margins and c
 ### 6. Security System
 
 **What It Does:**
-Controls fight/theft prevention, bouncer quality, surveillance, and incident response.
+Controls fight/theft prevention, bouncer quality, surveillance, incident response, and Trading Standards compliance.
 
 **Security Components:**
-- **Bouncer Quality**: Base 0-3 (from upgrades), affects intervention success
+- **Bouncer Quality**: Base 0-3 (from upgrades), affects intervention success and ID checking
 - **Security Policy**: Stance from RELAXED to HARDLINE (affects deterrence vs atmosphere)
+- **Security Tasks**: 15+ task types across 4 categories (SOFT, BALANCED, STRICT, staffing)
 - **CCTV**: Improves theft detection and deterrence
 - **Reinforced Doors**: Reduces break-in risk
 - **Lighting**: Deters sketchy behavior
 
 **Policy Options:**
-- **Relaxed**: Low deterrence, good atmosphere, higher incident risk
+- **Relaxed**: Low deterrence, good atmosphere, higher incident risk, poor ID checking
 - **Standard**: Balanced approach, suitable for most nights
-- **Vigilant**: Higher deterrence, slight atmosphere cost
-- **Hardline**: Maximum deterrence, may feel oppressive
+- **Vigilant**: Higher deterrence, slight atmosphere cost, better ID checking
+- **Hardline**: Maximum deterrence, best ID checking, may feel oppressive
 
 **Incident Types:**
 - **Fights**: Reputation hit, potential injuries, chaos spike
 - **Theft**: Cash loss, staff morale hit
 - **Refunds**: Customer dissatisfaction, revenue loss
+- **Underage Service Violations**: Trading Standards penalties (see section 15)
 
 **How to Master It:**
 - Invest in security early; reactive spending is less efficient
@@ -290,6 +296,7 @@ Controls fight/theft prevention, bouncer quality, surveillance, and incident res
 - Bouncer quality scales better than policy alone
 - Security stabilizes staff morale by preventing chaos
 - CCTV provides passive benefits with no atmosphere cost
+- **CRITICAL**: Good security prevents Trading Standards violations (game-ending at 9+)
 
 ---
 
@@ -299,16 +306,19 @@ Controls fight/theft prevention, bouncer quality, surveillance, and incident res
 Scheduled events (karaoke, quiz nights, DJ sets, etc.) to drive traffic and shape identity.
 
 **Activity Categories:**
-- **Social**: Karaoke, Open Mic (community vibe)
-- **Entertainment**: DJ sets, Live Music (energy and volume)
-- **Competitive**: Quiz Night, Darts Tournament (engagement)
-- **Specialty**: Charity Night, Brewery Takeover (premium experiences)
-- **Family**: Family Lunch (daytime revenue, different demographic)
+- **Social**: Karaoke, Open Mic, Quiz Night (community vibe)
+- **Entertainment**: DJ Night, Live Band Night, Acoustic Set (energy and volume)
+- **Competitive**: Darts Tournament, Pool Tournament (engagement)
+- **Specialty**: Charity Night, Brewery Takeover, Wine Tasting, Tasting Menu (premium experiences)
+- **Family**: Family Lunch, Sunday Roast (daytime revenue, different demographic)
+- **Food-Focused**: Food Service Night, Special Menu (quality emphasis)
+- **Cultural**: Poetry Night, Art Show (artsy identity)
 
 **Mechanics:**
 - **Cost**: £60-220 depending on scale
-- **Crowd Boost**: Attracts additional customers
+- **Crowd Boost**: Attracts 10-40% additional customers
 - **Identity Reinforcement**: Repeated activities strengthen pub identity
+- **Effectiveness Multipliers**: Pub level (up to 1.25x) and identity alignment (up to 1.60x)
 - **Prep Requirements**: Need adequate staff, stock, security for the crowd surge
 
 **How to Master It:**
@@ -317,15 +327,17 @@ Scheduled events (karaoke, quiz nights, DJ sets, etc.) to drive traffic and shap
 - Use activities strategically to build identity
 - Don't over-schedule; budget and bandwidth matter
 - Track which activities work for your crowd
+- Identity-aligned activities are 60% more effective
 
 **Activity Unlocks:**
-- M1 (Open For Business): Karaoke
+- M1 (Open For Business): Karaoke, Open Mic
 - M2 (No Empty Shelves): Cocktail Promo
-- M4 (Payroll Guardian): Quiz Night
-- M5 (Calm House): Open Mic
-- M9 (Known For Something): Charity Night
-- M10 (Mixed Crowd Whisperer): Family Lunch
-- M11 (Narrative Recovery): Brewery Takeover
+- M4 (Payroll Guardian): Quiz Night, Food Service Night
+- M5 (Calm House): DJ Night, Live Band Night
+- M9 (Known For Something): Charity Night, Wine Tasting
+- M10 (Mixed Crowd Whisperer): Family Lunch, Sunday Roast
+- M11 (Narrative Recovery): Brewery Takeover, Tasting Menu
+- Additional unlocks via upgrades (Pool Table → Pool Tournament, etc.)
 
 ---
 
@@ -341,11 +353,20 @@ Active cooldown abilities you can play during service rounds for immediate impac
 - **Tier 4**: M17 (Golden Quarter)
 - **Tier 5**: M19 (Headliner Venue)
 
-**Action Types:**
-- **Crowd Management**: "Buy a Round" (morale boost), "VIP Treatment" (reputation gain)
-- **Staff Support**: "Rally the Team" (temporary morale), "Comped Meals" (staff appreciation)
-- **Security**: "Show of Force" (immediate deterrence), "Smooth Talk" (defuse tension)
-- **Identity**: Actions aligned with your pub's personality have bonus effects
+**Action Types** (15+ actions):
+- **Crowd Management**: "Buy a Round", "Work the Room", "VIP Treatment"
+- **Staff Support**: "Rally the Team", "Comped Meals", "Staff Pep Talk"
+- **Security**: "Show of Force", "Smooth Talk", "Tight Door"
+- **Marketing**: "Run a Special", "Flash Sale", "Happy Hour"
+- **Reputation**: "Plant a Rumor", "Counter Rumor"
+- **Rival Actions**: "Sabotage Rival" (risky but can shift market pressure)
+
+**Action Mechanics:**
+- **Cost**: Cash cost per use (varies by action)
+- **Execution Time**: Most actions resolve over 1-2 rounds
+- **Effect Range**: Targeted (single customer/staff), Area (multiple), or Broadcast (whole venue)
+- **Cooldown**: Actions have cooldown periods before reuse
+- **State Tracking**: PENDING → EXECUTING → RESOLVED
 
 **How to Master It:**
 - Save actions for high-leverage moments (critical rounds, chaos spikes)
@@ -362,17 +383,24 @@ Active cooldown abilities you can play during service rounds for immediate impac
 Tracks your pub's personality based on weekly behavior patterns.
 
 **Identity Categories:**
-- **Community Hub**: Social activities, moderate pricing, family-friendly
-- **Sports Bar**: TVs, competitive events, high energy
-- **Premium Venue**: High pricing, quality focus, sophisticated crowd
-- **Underground Spot**: Edgy vibe, music-focused, alternative crowd
-- **Traditional Pub**: Classic offerings, stable operation, neighborhood favorite
+- **Rowdy**: High-energy, tolerates chaos, rough crowd, loud vibe
+- **Respectable**: Quality-focused, orderly, professional operation
+- **Artsy**: Creative activities, sophisticated crowd, cultural events
+- **Underground**: Edgy vibe, music-focused, alternative crowd, late-night energy
+- **Family-Friendly**: Daytime focus, food quality, welcoming atmosphere, low chaos
+- **Unknown**: No clear identity (default starting state)
+
+**Identity Calculation:**
+- Based on 4-week rolling history of behavior
+- Tracks: profit margins, refunds, fights, food quality, morale, pricing, activities
+- Dynamic system—identity shifts based on recent operational patterns
 
 **Identity Benefits:**
 - **Cohesion Bonus**: Aligned choices compound reputation faster
 - **Customer Fit**: Identity attracts matching customer segments
 - **Sentiment Resilience**: Strong identity buffers negative rumors
-- **Action Synergy**: Landlord actions aligned with identity work better
+- **Action Synergy**: Landlord actions aligned with identity work better (12% bonus)
+- **NPC Reactions**: VIPs and rivals respond to your identity
 
 **How to Build Identity:**
 - Make consistent choices across pricing, activities, music, upgrades
@@ -390,9 +418,12 @@ Tracks your pub's personality based on weekly behavior patterns.
 Models public perception through word-of-mouth, online reviews, and narrative momentum.
 
 **Rumor Generation:**
-- Weekly rumor tone: NEGATIVE, MIXED, or POSITIVE
+- **6 Rumor Topics**: Staff Gossip, Theft, Favoritism, Food Quality, Price Fairness, Safety
+- **2 Source Types**: STAFF (internal) or PUNTERS (customer-facing)
+- **3 Sentiment Types**: NEGATIVE, NEUTRAL, or POSITIVE
 - Based on service quality, incidents, staff morale, activity success
 - Spreads through neighborhood affecting future demand
+- Featured rumor appears in HUD and weekly reports
 
 **Sentiment Mechanics:**
 - Current sentiment affects customer arrival volume and tier mix
@@ -417,7 +448,20 @@ Models public perception through word-of-mouth, online reviews, and narrative mo
 ### 11. Milestone System
 
 **What It Does:**
-19 milestones across 5 tiers that unlock capabilities and reward achievement.
+19 milestones across 5 tiers that unlock capabilities and reward achievement. Also gates pub level progression via time-gated requirements.
+
+**Pub Level Progression** (Time-Gated):
+- **Level 0→1**: 2 milestones + 2 weeks minimum
+- **Level 1→2**: 5 cumulative milestones + 3 weeks minimum
+- **Level 2→3**: 9 cumulative milestones + 4 weeks minimum
+- **Level 3→4**: 14 cumulative milestones + 5 weeks minimum
+- **Level 4→5**: 20 cumulative milestones + 6 weeks minimum
+
+**Why Time-Gating Matters:**
+- Prevents power-gaming by forcing strategic patience
+- Ensures you experience full system complexity at each tier
+- Milestone achievements alone aren't enough—must prove sustained operation
+- Pub level affects upgrade unlocks, activity effectiveness (up to 1.25x), and prestige
 
 **All Milestones:**
 
@@ -510,10 +554,82 @@ Unlockable room operations providing additional nightly revenue.
 - Keep cleanliness above 75% minimum
 - Inn is a second business line; ensure pub is stable first
 - Good inn operations provide steady cash flow buffer
+- Employ Marshalls and Duty Managers to reduce event severity
 
 ---
 
-### 14. Music & Ambience System
+### 14. Inn Events System
+
+**What It Does:**
+Random events trigger when rooms are booked, creating narrative moments and operational challenges.
+
+**Event Mechanics:**
+- **Frequency**: Based on Inn Reputation
+  - Low Inn Rep: 30-40% chance per booked room
+  - High Inn Rep: 5-10% chance per booked room
+- **Event Tone**: Based on Inn Reputation
+  - Low Rep: 85% negative, 15% positive
+  - High Rep: 75% positive, 25% negative
+
+**Event Types:**
+- **Positive Events** (10+ types): Generous tips, positive reviews, referrals, quiet guests → Reputation +2 to +8, sometimes cash bonuses
+- **Negative Events** (10+ types): Damages, theft, noise complaints, bad reviews → Reputation -3 to -12, cash penalties £10-50
+
+**Staff Mitigation:**
+- **Marshalls**: Reduce event severity by 25%
+- **Duty Managers**: Reduce event severity by 50%
+- Both reduce negative event impact significantly
+
+**How to Master It:**
+- Build inn reputation early to reduce negative event frequency
+- Hire Marshalls and Duty Managers to mitigate event impacts
+- Monitor events in night reports
+- Bad events compound if inn reputation stays low
+- Good events can boost overall venue reputation
+
+---
+
+### 15. Trading Standards System
+
+**What It Does:**
+Tracks underage service violations with escalating penalties, including potential game-ending consequences.
+
+**Violation Tracking:**
+- Violations occur when staff fail to check IDs properly
+- Counter resets weekly at payday
+- Visible in HUD security badge with warning symbol (⚠️) when violations ≥ 2
+
+**Penalty Tiers:**
+- **Tier 1** (2-4 violations): -30 Reputation penalty at week end
+- **Tier 2** (5-8 violations): -50 Reputation + £300 fine at week end
+- **Tier 3** (9+ violations): **GAME OVER** - Trading Standards shuts down your pub
+
+**Mitigation Factors:**
+- **Security Level**: Each point reduces violation chance by 5%
+- **Bouncer Quality**: 
+  - Quality 1: -3% violations
+  - Quality 2: -5% violations
+  - Quality 3: -8% violations
+- **Security Policy**: Strict door policy reduces violations by ~15%
+- **CCTV**: Additional deterrent effect
+
+**How to Master It:**
+- Invest in security infrastructure early
+- Use VIGILANT or HARDLINE security policy on busy nights
+- Hire quality bouncers (Quality 2-3)
+- Monitor violation count in HUD
+- Never let violations reach 7+ (approaching game over)
+- Security investment pays for itself by avoiding £300 fines
+
+**Critical Warnings:**
+- Trading Standards violations are THE most dangerous failure state
+- Unlike bankruptcy or reputation loss, Tier 3 is instant game over
+- Violations can accumulate faster on high-volume nights
+- Low security + high crowd = high violation risk
+
+---
+
+### 16. Music & Ambience System
 
 **What It Does:**
 Sets venue soundtrack/vibe to influence atmosphere and customer fit.
@@ -536,7 +652,7 @@ Sets venue soundtrack/vibe to influence atmosphere and customer fit.
 
 ---
 
-### 15. Seasonal Effects System
+### 17. Seasonal Effects System
 
 **What It Does:**
 Calendar-based demand modifiers affecting customer mix and behavior.
@@ -561,7 +677,7 @@ Calendar-based demand modifiers affecting customer mix and behavior.
 
 ---
 
-### 16. Rival System (District Competition)
+### 18. Rival System (District Competition)
 
 **What It Does:**
 Simulates competing bars in your neighborhood affecting your business.
@@ -586,7 +702,7 @@ Simulates competing bars in your neighborhood affecting your business.
 
 ---
 
-### 17. Reports & Observation System
+### 19. Reports & Observation System
 
 **What It Does:**
 Converts simulation outcomes into readable diagnostics and trend analysis.
@@ -681,13 +797,15 @@ Converts simulation outcomes into readable diagnostics and trend analysis.
 3. **Build cash buffer**: Target 2-3 weeks operating expense reserve
 4. **Stabilize staff**: Hire adequate coverage, protect morale
 5. **Learn your customers**: Understand tier behaviors
+6. **Invest in security early**: Prevents Trading Standards violations (game-ending at 9+)
 
 ### Mid Game (Nights 21-60)
 1. **Establish identity**: Choose direction and commit
 2. **Unlock strategically**: Pursue milestones that solve bottlenecks
 3. **Manage debt carefully**: Use credit for timing, not losses
-4. **Invest in security**: Chaos prevention pays compound returns
+4. **Invest in security**: Chaos prevention and Trading Standards compliance pay compound returns
 5. **Track trends**: Weekly reports > nightly wins
+6. **Monitor Trading Standards**: Keep violations below 5 to avoid major penalties
 
 ### Late Game (Nights 60+)
 1. **Optimize operations**: Fine-tune pricing, staffing, stock
@@ -702,6 +820,7 @@ Converts simulation outcomes into readable diagnostics and trend analysis.
 - **Systems interconnect**: Poor staffing causes security issues causes reputation loss
 - **Trends > spikes**: One bad night isn't doom; patterns matter
 - **Identity multiplies**: Aligned decisions compound exponentially
+- **Trading Standards is game-ending**: 9+ violations = instant game over; prioritize security investment
 
 ### Common Pitfalls to Avoid
 1. **Debt spiral**: Borrowing to cover losses instead of fixing operations
@@ -711,6 +830,7 @@ Converts simulation outcomes into readable diagnostics and trend analysis.
 5. **Random pricing**: Changing multiplier every night
 6. **Forcing milestones**: Pursuing achievements that don't match your situation
 7. **Neglecting reports**: Flying blind on trends
+8. **Ignoring Trading Standards**: Letting violations accumulate to 7-8 (approaching game over)
 
 ---
 
