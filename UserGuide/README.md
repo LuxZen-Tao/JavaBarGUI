@@ -24,22 +24,25 @@ Read the **[Player Guide](PLAYER_GUIDE.md)** for complete gameplay instructions,
 ## What Makes This Game Unique
 
 ### Deep System Integration
-- **17+ interconnected systems**: Economy, Staff, Customers, Security, Reputation, VIPs, Rivals, Seasons, and more
+- **18+ interconnected systems**: Economy, Staff, Customers, Security, Reputation, VIPs, Rivals, Seasons, Trading Standards, Inn Events, and more
 - **Compound decision-making**: Your choices echo across multiple systems with delayed consequences
 - **Anti-fragility rewards**: Build resilience through cash reserves, staff redundancy, and supplier trust
+- **Regulatory compliance**: Trading Standards system tracks violations with escalating penalties (game-ending at Tier 3)
 
 ### Progression & Mastery
 - **19 achievement milestones** across 5 tiers unlock capabilities and rewards
 - **Named VIP regulars** with loyalty arcs and personality-based preferences
-- **Pub identity system**: Consistent strategic direction compounds exponentially
+- **Pub identity system** (6 identity types): Consistent strategic direction compounds exponentially
+- **Time-gated pub levels**: Progression requires both milestone completion AND minimum weeks at each level
 - **Multiple victory paths**: Safe-growth, high-risk leverage, reputation-first, or specialist strategies
 
 ### Realistic Business Simulation
 - **Weekly cash flow management**: Wages, rent, debt service, supplier invoices
 - **Staff morale & retention**: Low morale causes departures and misconduct
 - **Customer behavior modeling**: 4 tiers from Lowlife to Big Spender with varied spending and trouble levels
-- **Security risk**: Fights, theft, and chaos cascade into reputation and morale damage
+- **Security risk**: Fights, theft, chaos, and underage service violations cascade into reputation and morale damage
 - **Seasonal effects**: Tourist waves, exam seasons, winter slumps affect demand
+- **Inn events system**: Random events when rooms are booked, with frequency tied to reputation
 
 ---
 
@@ -63,21 +66,25 @@ Read the **[Player Guide](PLAYER_GUIDE.md)** for complete gameplay instructions,
 ## Key Features
 
 ### Systems at a Glance
-- ✅ **Economy**: Cash flow, credit lines, debt, credit score tracking
+- ✅ **Economy**: Cash flow, credit lines, debt, credit score tracking, loan shark escalation
 - ✅ **Customers**: Dynamic generation with names, tiers, behaviors, descriptors
 - ✅ **VIP System**: 3 named regulars with loyalty arcs (ADVOCATE/BACKLASH consequences)
-- ✅ **Staff**: Hiring, morale, wages, retention across 5 roles
+- ✅ **Staff**: Hiring, morale, wages, retention across 7 roles (Bartenders, Servers, Kitchen, Security, Managers, Marshalls, Duty Managers)
 - ✅ **Inventory**: Wine and food management with spoilage and capacity
-- ✅ **Security**: Bouncer quality, policies, CCTV, incident prevention
-- ✅ **Activities**: 9+ event types (karaoke, quiz nights, DJ sets, etc.)
-- ✅ **Upgrades**: 40+ infrastructure improvements (kitchen, cellar, security, etc.)
+- ✅ **Security**: Bouncer quality, policies, CCTV, incident prevention, 15+ security tasks
+- ✅ **Trading Standards**: Underage service violation tracking with 3-tier penalties (game-ending at Tier 3)
+- ✅ **Activities**: 20+ event types (Live Band, Quiz Night, DJ sets, Karaoke, Tasting Menu, etc.)
+- ✅ **Upgrades**: 40+ infrastructure improvements across 8 categories (kitchen, cellar, security, etc.)
 - ✅ **Milestones**: 19 achievement-based unlocks across 5 tiers
-- ✅ **Identity**: Pub personality system (Community Hub, Sports Bar, Premium Venue, etc.)
-- ✅ **Rumors & Sentiment**: Public perception with truth-pressure mechanics
-- ✅ **Rivals**: District competition affecting market conditions
-- ✅ **Seasons**: Calendar effects on demand and customer mix
-- ✅ **Inn Expansion**: Secondary lodging revenue stream (3-12 rooms)
-- ✅ **Reports**: Nightly, weekly, and 4-week trend analysis
+- ✅ **Identity**: Pub personality system with 6 identity types (Rowdy, Respectable, Artsy, Underground, Family-Friendly, Unknown)
+- ✅ **Rumors & Sentiment**: Public perception with 6 rumor topics and truth-pressure mechanics
+- ✅ **Rivals**: District competition with 5 stance types affecting market conditions
+- ✅ **Seasons**: Calendar effects on demand and customer mix with 4 seasonal periods
+- ✅ **Inn Expansion**: Secondary lodging revenue stream (3-12 rooms) with event system
+- ✅ **Inn Events**: Random events tied to bookings (frequency & tone based on reputation)
+- ✅ **Pub Levels**: Time-gated progression (0-5) requiring milestones + minimum weeks at each level
+- ✅ **Landlord Actions**: 15+ active abilities with cooldown timers and identity alignment
+- ✅ **Reports**: Nightly, weekly, and 4-week trend analysis with Mission Control dashboard
 
 ---
 
@@ -120,21 +127,32 @@ There's no single "win screen"—success is measured through compounding metrics
 ## What's New in v3
 
 This build includes:
+- **Trading Standards System**: Tracks underage service violations with 3-tier penalties (game-ending at Tier 3)
+- **Inn Events System**: Random events when rooms are booked, frequency and tone tied to inn reputation
+- **Time-Gated Pub Levels**: Progression now requires milestone completion AND minimum weeks at each level (2→5→9→14→20 milestones + 2-6 weeks)
+- **Enhanced Staff System**: Marshalls & Duty Managers for inn operations, full staff attribute system
+- **Expanded Security**: 15+ security tasks across 4 categories, ID checking affects Trading Standards violations
+- **Extended Activities**: 20+ pub activities including Live Band Night, Tasting Menu, Food Service Night
 - **Expanded banking & debt gameplay**: Credit lines, invoice timing, loan shark escalation
 - **Deeper security system**: Policy tuning, phased task resolution, morale links
-- **VIP system**: Named regulars with loyalty arcs and consequence triggers
-- **Richer identity + rumor pipeline**: Weekly behavior shapes pub personality and perception
-- **Active landlord actions**: Cooldown-based tactical abilities with tier unlocks
+- **VIP system**: Named regulars with 4 archetypes and loyalty arcs with consequence triggers
+- **Richer identity system**: 6 identity types with 4-week rolling history and dynamic shifts
+- **Rumor system enhancements**: 6 rumor topics with STAFF/PUNTER sources and sentiment tracking
+- **Active landlord actions**: 15+ cooldown-based tactical abilities with effect ranges
 - **Music profile management**: Venue ambience affects customer fit and identity
 - **Seasonal effects**: Calendar-based demand modifiers (tourist waves, winter slumps, etc.)
-- **Rival system**: District competition creates market pressure
+- **Rival system**: District competition with 5 stance types creating market pressure
 - **Improved reports**: Trend analysis and cross-system diagnostics
 
-### Recent Fixes (Latest Commit)
+### Recent Fixes & Improvements
+- ✅ **Trading Standards implementation**: Complete violation tracking and penalty system
+- ✅ **Inn Events implementation**: Full event pipeline with reputation-based frequency and tone
+- ✅ **Time-gate implementation**: Pub level progression with week requirements
 - ✅ **Restored punter name system**: Added `names/` directory with 110+ first names and 110+ last names
 - ✅ **Fixed milestone bugs**: M8 (Order Restored) and M11 (Narrative Recovery) flag resets
 - ✅ **Enabled feature flags**: VIPs, Seasons, and Rivals now active by default
-- ✅ **Complete documentation**: Player Guide, Game Description, Developer Guide
+- ✅ **Complete documentation**: Player Guide, Game Description, Developer Guide, Driver Mechanics Guide
+- ✅ **CodeQL clean**: 0 security vulnerabilities detected
 
 ---
 
@@ -145,15 +163,16 @@ This build includes:
 - **Framework**: Pure Java Swing (no external dependencies)
 - **Design**: Hub-and-spoke with central GameState container
 - **Persistence**: Java Serialization for save/load
-- **Lines of Code**: ~30,000+ across 100+ classes
+- **Lines of Code**: ~35,000+ across 120+ classes
+- **Test Coverage**: 8+ comprehensive test suites for major systems
 
 ### Key Classes
 - `Main.java` - Entry point
 - `GameFactory.java` - New game initialization
-- `GameState.java` - Central data container (~600 fields)
+- `GameState.java` - Central data container (~700 fields)
 - `Simulation.java` - Orchestrator connecting all systems
 - `WineBarGUI.java` - Swing UI and event handlers
-- System classes: `EconomySystem`, `PunterSystem`, `StaffSystem`, `VIPSystem`, etc.
+- System classes: `EconomySystem`, `PunterSystem`, `StaffSystem`, `VIPSystem`, `SecuritySystem`, etc.
 
 ### Compilation
 No build system required—simple javac compilation:
@@ -230,7 +249,16 @@ See **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** for complete technical document
 
 ## Version History
 
-### v3.0 (Current)
+### v3.1 (Current - February 2026)
+- **Trading Standards System**: Underage service violation tracking with 3-tier penalties
+- **Inn Events System**: Random events tied to bookings with reputation-based frequency
+- **Time-Gated Pub Levels**: Milestone + week requirements for level progression
+- **Enhanced Staff**: Marshalls & Duty Managers for inn operations
+- **Expanded Activities**: 20+ activity types with identity alignment
+- **Extended Security**: 15+ security tasks across 4 categories
+- Bug fixes and comprehensive documentation updates
+
+### v3.0 (2025)
 - VIP system with named regulars and loyalty arcs
 - Seasonal calendar effects
 - District rival competition

@@ -30,12 +30,13 @@
 ### Code Organization
 - **Single Package**: All .java files in project root
 - **No Package Declarations**: Simplifies compilation and classpath
-- **File Count**: ~100+ Java files
-- **LOC**: ~30,000+ lines of game logic
+- **File Count**: ~120+ Java files
+- **LOC**: ~35,000+ lines of game logic
+- **Test Coverage**: 8+ comprehensive test suites
 
 ### Architecture Pattern
 **Hub-and-Spoke with Central State**:
-- `GameState.java` = central data store (~600 fields)
+- `GameState.java` = central data store (~700 fields)
 - `Simulation.java` = orchestrator connecting all systems
 - Individual system files = specialized logic modules
 - `WineBarGUI.java` = UI layer, event handlers, display logic
@@ -567,9 +568,159 @@ public double theftRisk() {
 }
 ```
 
+**Trading Standards Integration**:
+```java
+// Check ID effectiveness affects violation rate
+public double getIDCheckEffectiveness() {
+    double effectiveness = 0.50;  // Base 50%
+    
+    // Security level bonus
+    effectiveness += s.getSecurityLevel() * 0.05;  // +5% per level
+    
+    // Bouncer quality bonus
+    int bouncerQuality = s.getBouncerQuality();
+    if (bouncerQuality == 1) effectiveness += 0.03;
+    if (bouncerQuality == 2) effectiveness += 0.05;
+    if (bouncerQuality == 3) effectiveness += 0.08;
+    
+    // Policy bonus
+    if (currentPolicy == SecurityPolicy.VIGILANT) effectiveness += 0.10;
+    if (currentPolicy == SecurityPolicy.HARDLINE) effectiveness += 0.15;
+    
+    return Math.min(0.95, effectiveness);  // Cap at 95%
+}
+```
+
 ---
 
-### 10. NameGenerator.java
+### 10. TradingStandardsSystem (Integrated in SecuritySystem)
+**Purpose**: Track underage service violations and enforce regulatory compliance.
+
+**Violation Tracking**:
+```java
+// In GameState
+public int tradingStandardsViolations;  // Resets weekly
+
+// Violation check during service
+public void checkUnderageService(Punter p) {
+    if (p.isUnderage()) {  // Random chance per customer
+        double checkSuccess = security.getIDCheckEffectiveness();
+        if (random.nextDouble() > checkSuccess) {
+            s.tradingStandardsViolations++;
+            log.append("⚠️ Trading Standards violation detected!");
+        }
+    }
+}
+```
+
+**Weekly Penalty Evaluation**:
+```java
+public void evaluateTradingStandards() {
+    int violations = s.tradingStandardsViolations;
+    
+    if (violations >= 9) {
+        // TIER 3: GAME OVER
+        triggerGameOver("Trading Standards Closure");
+        return;
+    }
+    
+    if (violations >= 5) {
+        // TIER 2: Major penalty
+        s.reputation -= 50;
+        eco.deductCash(300, "Trading Standards Fine");
+        log.append("⚠️ Trading Standards Tier 2 Penalty!");
+    } else if (violations >= 2) {
+        // TIER 1: Minor penalty
+        s.reputation -= 30;
+        log.append("⚠️ Trading Standards Tier 1 Penalty");
+    }
+    
+    // Reset for next week
+    s.tradingStandardsViolations = 0;
+}
+```
+
+**Critical Design Note**: Trading Standards is the ONLY instant game-over condition (besides bankruptcy). This creates mandatory security investment pressure.
+
+---
+
+### 11. Inn Events System (Integrated in InnSystem)
+**Purpose**: Generate narrative events when rooms are booked, frequency tied to inn reputation.
+
+**Event Generation**:
+```java
+public void generateInnEvents() {
+    int bookedRooms = getBookedRoomCount();
+    
+    for (int i = 0; i < bookedRooms; i++) {
+        double eventChance = calculateEventChance();
+        if (random.nextDouble() < eventChance) {
+            InnEvent event = generateEvent();
+            applyEvent(event);
+        }
+    }
+}
+
+private double calculateEventChance() {
+    double innRep = s.innReputation;
+    // Low rep: 30-40% chance
+    // High rep: 5-10% chance
+    return 0.40 - (innRep / 100.0) * 0.30;
+}
+```
+
+**Event Tone Distribution**:
+```java
+private InnEvent generateEvent() {
+    double innRep = s.innReputation;
+    boolean isPositive;
+    
+    if (innRep < 40) {
+        // Low rep: 85% negative
+        isPositive = random.nextDouble() > 0.85;
+    } else if (innRep > 70) {
+        // High rep: 75% positive
+        isPositive = random.nextDouble() < 0.75;
+    } else {
+        // Mid rep: 50/50
+        isPositive = random.nextDouble() < 0.50;
+    }
+    
+    return isPositive ? selectPositiveEvent() : selectNegativeEvent();
+}
+```
+
+**Staff Mitigation**:
+```java
+private void applyEvent(InnEvent event) {
+    int repDelta = event.reputationDelta;
+    int cashDelta = event.cashDelta;
+    
+    // Marshall reduces severity by 25%
+    if (hasMarshall()) {
+        repDelta = (int)(repDelta * 0.75);
+        cashDelta = (int)(cashDelta * 0.75);
+    }
+    
+    // Duty Manager reduces severity by 50%
+    if (hasDutyManager()) {
+        repDelta = (int)(repDelta * 0.50);
+        cashDelta = (int)(cashDelta * 0.50);
+    }
+    
+    s.reputation += repDelta;
+    eco.adjustCash(cashDelta, event.description);
+    log.append(event.description);
+}
+```
+
+**Event Types**:
+- **Positive**: Tips, reviews, referrals, quiet guests (+2 to +8 rep, cash bonuses)
+- **Negative**: Damages, theft, complaints, bad reviews (-3 to -12 rep, £10-50 penalties)
+
+---
+
+### 12. NameGenerator.java
 **Purpose**: Load and provide random punter names.
 
 **Resource Loading**:
@@ -999,9 +1150,13 @@ return List.of();  // Empty if disabled
 
 **Examples**:
 - `VIPSystemTests.java` - VIP loyalty and arc tests
-- `MilestoneSystemTests.java` - Milestone condition tests  (hypothetical, not confirmed in repo)
+- `MilestoneSystemTests.java` - Milestone condition tests
 - `RivalSystemTests.java` - Rival system integration tests
 - `SaveLoadReliabilityTests.java` - Serialization round-trip tests
+- `TradingStandardsTests.java` - Trading Standards violation and penalty tests
+- `InnSystemTests.java` - Inn events and reputation tests
+- `SecurityPhase1Tests.java` / `SecurityPhase2Tests.java` - Security task resolution
+- `CheckIDsSecurityTests.java` - ID checking and Trading Standards integration
 
 ### Test Execution
 
