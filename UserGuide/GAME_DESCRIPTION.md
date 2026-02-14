@@ -567,11 +567,11 @@ You can lose through:
 
 ### Example: Identity Compounding
 1. Schedule social activities (karaoke, quiz night) repeatedly
-2. Identity trends toward "Community Hub"
-3. Community Hub attracts REGULAR tier customers
-4. Use moderate pricing (1.05-1.15x) matching community expectations
-5. Community Hub landlord actions (+12% effectiveness) smooth rough edges
-6. VIPs with SERVICE preference thrive in community atmosphere
+2. Identity trends toward "Respectable" or "Family-Friendly"
+3. This identity attracts REGULAR and DECENT tier customers
+4. Use moderate pricing (1.05-1.15x) matching expectations
+5. Identity-aligned landlord actions (+12% effectiveness) smooth rough edges
+6. VIPs with SERVICE preference thrive in this atmosphere
 7. Achieve M9 (Known For Something) milestone
 8. Reputation compounds faster with identity cohesion
 9. Strong identity buffers negative rumors

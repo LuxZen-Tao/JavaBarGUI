@@ -69,7 +69,7 @@ Read the **[Player Guide](PLAYER_GUIDE.md)** for complete gameplay instructions,
 - ✅ **Economy**: Cash flow, credit lines, debt, credit score tracking, loan shark escalation
 - ✅ **Customers**: Dynamic generation with names, tiers, behaviors, descriptors
 - ✅ **VIP System**: 3 named regulars with loyalty arcs (ADVOCATE/BACKLASH consequences)
-- ✅ **Staff**: Hiring, morale, wages, retention across 6 roles (including Marshalls & Duty Managers)
+- ✅ **Staff**: Hiring, morale, wages, retention across 7 roles (Bartenders, Servers, Kitchen, Security, Managers, Marshalls, Duty Managers)
 - ✅ **Inventory**: Wine and food management with spoilage and capacity
 - ✅ **Security**: Bouncer quality, policies, CCTV, incident prevention, 15+ security tasks
 - ✅ **Trading Standards**: Underage service violation tracking with 3-tier penalties (game-ending at Tier 3)
