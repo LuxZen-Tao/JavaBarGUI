@@ -34,6 +34,7 @@ You can lose through:
 - **Debt Spiral**: Loan shark penalties become unsustainable
 - **Reputation Collapse**: No customers want to visit
 - **Staff Exodus**: Complete workforce loss
+- **Trading Standards Closure**: 9+ underage service violations in a single week (instant game over)
 
 ---
 
@@ -147,8 +148,10 @@ You can lose through:
 - **Bartender**: Primary drink service (most critical for throughput)
 - **Server**: Food and drink assistance
 - **Kitchen**: Food preparation (requires kitchen unlock)
-- **Security/Bouncer**: Fight and theft prevention
+- **Security/Bouncer**: Fight and theft prevention, ID checking (affects Trading Standards)
 - **Manager**: Efficiency boost and morale support
+- **Marshall**: Inn operations, reduces inn event severity by 25%
+- **Duty Manager**: Inn operations, reduces inn event severity by 50%
 
 **Staff Attributes**:
 - **Quality**: Individual skill level (affects speed and effectiveness)
@@ -212,11 +215,12 @@ You can lose through:
 ---
 
 ### 7. Security System
-**Purpose**: Prevent fights, theft, and operational chaos through deterrence and response
+**Purpose**: Prevent fights, theft, operational chaos, and Trading Standards violations through deterrence and response
 
 **Security Components**:
 - **Bouncer Quality**: 0-3 (from upgrades)
 - **Security Policy**: RELAXED, STANDARD, VIGILANT, HARDLINE
+- **Security Tasks**: 15+ tasks across 4 categories (SOFT, BALANCED, STRICT, staffing)
 - **CCTV**: Passive deterrence and theft detection
 - **Reinforced Doors**: Break-in prevention
 - **Lighting**: Deters sketchy behavior
@@ -225,35 +229,44 @@ You can lose through:
 - **Fights**: Reputation loss, chaos spike, potential injuries
 - **Theft**: Cash loss, staff morale damage
 - **Break-ins**: Large cash loss, security policy override
+- **Underage Service Violations**: Trading Standards penalties (see Trading Standards System)
 
 **Chaos Metric** (0-100):
 - **<25**: Calm operations
 - **25-60**: Normal risk
 - **60+**: High-chaos state (triggers recovery milestone when dropped back to <25)
 
-**Strategic Value**: Security investment prevents cascading failures. Chaos damages morale, morale damages service, bad service damages reputation.
+**Trading Standards Mitigation**:
+- Security Level: -5% violations per security level
+- Bouncer Quality 1-3: -3% to -8% violations
+- Strict Security Policy: -15% violations
+
+**Strategic Value**: Security investment prevents cascading failures. Chaos damages morale, morale damages service, bad service damages reputation. **Most critically**: Good security prevents game-ending Trading Standards violations.
 
 ---
 
 ### 8. Activities & Programming System
 **Purpose**: Schedule events to drive traffic, revenue, and pub identity
 
-**Activity Types**:
-- **Social**: Karaoke, Open Mic (community building)
-- **Entertainment**: DJ sets, Live Music (high energy)
-- **Competitive**: Quiz Night, Darts Tournament (engagement)
-- **Specialty**: Charity Night, Brewery Takeover (premium experiences)
-- **Family**: Family Lunch (daytime revenue, different demographic)
+**Activity Types** (20+ activities):
+- **Social**: Karaoke, Open Mic, Quiz Night (community building)
+- **Entertainment**: DJ Night, Live Band Night, Acoustic Set (high energy)
+- **Competitive**: Darts Tournament, Pool Tournament (engagement)
+- **Specialty**: Charity Night, Brewery Takeover, Wine Tasting, Tasting Menu (premium experiences)
+- **Family**: Family Lunch, Sunday Roast (daytime revenue, different demographic)
+- **Food-Focused**: Food Service Night, Special Menu (quality emphasis)
+- **Cultural**: Poetry Night, Art Show (artsy identity)
 
 **Activity Mechanics**:
 - **Cost**: £60-220 depending on scale
 - **Crowd Boost**: Attracts 10-40% additional customers
 - **Identity Impact**: Repeated activities strengthen pub identity
+- **Effectiveness Multipliers**: Pub level (up to 1.25x) and identity alignment (up to 1.60x)
 - **Requirements**: Adequate stock, staff, security to handle surge
 
 **Unlock Progression**: Most activities locked behind milestones (rewards operational excellence).
 
-**Strategic Use**: Activities are force multipliers—amplify strengths or expose weaknesses. Don't schedule activities you can't operationally support.
+**Strategic Use**: Activities are force multipliers—amplify strengths or expose weaknesses. Don't schedule activities you can't operationally support. Identity-aligned activities are 60% more effective.
 
 ---
 
@@ -262,11 +275,20 @@ You can lose through:
 
 **Mechanic**: Spend action (limited uses, cooldown timers) during service for immediate effect.
 
-**Action Categories**:
-- **Crowd**: "Buy a Round" (morale), "VIP Treatment" (reputation)
-- **Staff**: "Rally the Team" (temporary morale), "Comped Meals" (appreciation)
-- **Security**: "Show of Force" (deterrence), "Smooth Talk" (defuse)
-- **Identity-Aligned**: Actions matching pub identity have bonus effects
+**Action Categories** (15+ actions):
+- **Crowd**: "Buy a Round", "Work the Room", "VIP Treatment"
+- **Staff**: "Rally the Team", "Comped Meals", "Staff Pep Talk"
+- **Security**: "Show of Force", "Smooth Talk", "Tight Door"
+- **Marketing**: "Run a Special", "Flash Sale", "Happy Hour"
+- **Reputation**: "Plant a Rumor", "Counter Rumor"
+- **Rival Actions**: "Sabotage Rival" (risky but can shift market pressure)
+
+**Action Mechanics**:
+- **Cost**: Cash cost per use (varies by action)
+- **Execution Time**: Most actions resolve over 1-2 rounds
+- **Effect Range**: Targeted (single customer/staff), Area (multiple), or Broadcast (whole venue)
+- **Cooldown**: Actions have cooldown periods before reuse
+- **State Tracking**: PENDING → EXECUTING → RESOLVED
 
 **Tier Unlock**:
 - Tier 1: Start
@@ -283,14 +305,16 @@ You can lose through:
 **Purpose**: Track and reward consistent strategic direction through personality archetype
 
 **Identity Types**:
-- **Community Hub**: Social focus, moderate pricing, family-friendly
-- **Sports Bar**: High energy, competitive events, TV-centric
-- **Premium Venue**: Quality and sophistication focus
-- **Underground Spot**: Edgy, music-driven, alternative vibe
-- **Traditional Pub**: Classic operation, neighborhood favorite
+- **Rowdy**: High-energy, tolerates chaos, rough crowd, loud vibe
+- **Respectable**: Quality-focused, orderly, professional operation
+- **Artsy**: Creative activities, sophisticated crowd, cultural events
+- **Underground**: Edgy vibe, music-focused, alternative crowd, late-night energy
+- **Family-Friendly**: Daytime focus, food quality, welcoming atmosphere, low chaos
+- **Unknown**: No clear identity (default starting state)
 
 **Identity Mechanics**:
-- **Weekly Calculation**: Based on activities, pricing, upgrades, music profile
+- **4-Week Rolling Calculation**: Based on profit margins, refunds, fights, food quality, morale, pricing, activities
+- **Dynamic System**: Identity shifts based on recent operational patterns
 - **Dominant Identity**: Held for multiple weeks creates streak
 - **Cohesion Bonus**: Aligned decisions compound reputation faster
 
@@ -298,6 +322,8 @@ You can lose through:
 - Attracts matching customer segments
 - Improves sentiment resilience
 - Landlord actions aligned with identity have +12% effectiveness
+- Activity effectiveness bonuses up to 1.60x
+- VIPs and rivals respond to your identity
 - Milestone M9 (Known For Something) rewards 2-week identity hold
 
 **Strategic Value**: Identity is a multiplier system. Random choices produce linear results; aligned choices compound exponentially.
@@ -308,9 +334,12 @@ You can lose through:
 **Purpose**: Model public perception, word-of-mouth, and narrative momentum
 
 **Rumor Generation**:
-- Weekly tone: NEGATIVE, MIXED, POSITIVE
+- **6 Rumor Topics**: Staff Gossip, Theft, Favoritism, Food Quality, Price Fairness, Safety
+- **2 Source Types**: STAFF (internal) or PUNTERS (customer-facing)
+- **3 Sentiment Types**: NEGATIVE, NEUTRAL, POSITIVE
 - Based on service quality, incidents, morale, activity outcomes
 - Spreads through neighborhood affecting future demand
+- Featured rumor appears in HUD and weekly reports
 
 **Sentiment Layers**:
 - **Short-term**: Weekly rumors (can be volatile)
@@ -327,7 +356,16 @@ You can lose through:
 ---
 
 ### 12. Milestone System
-**Purpose**: Gate unlocks and progression through 19 achievement milestones across 5 tiers
+**Purpose**: Gate unlocks and progression through 19 achievement milestones across 5 tiers. Also gates pub level progression.
+
+**Pub Level Time-Gating**:
+- **Level 0→1**: 2 milestones + 2 weeks minimum
+- **Level 1→2**: 5 cumulative milestones + 3 weeks minimum
+- **Level 2→3**: 9 cumulative milestones + 4 weeks minimum
+- **Level 3→4**: 14 cumulative milestones + 5 weeks minimum
+- **Level 4→5**: 20 cumulative milestones + 6 weeks minimum
+
+**Why Time-Gating**: Prevents power-gaming, ensures sustained operational experience at each tier, adds strategic patience requirement. Pub level affects upgrade unlocks and activity effectiveness multipliers (up to 1.25x).
 
 **Tier Structure**:
 - **Tier 1** (M1-M4): Survival and basics
@@ -387,15 +425,79 @@ You can lose through:
 
 **Operational Complexity**:
 - Shares staff pool with pub (cleaning staff required)
+- Marshalls and Duty Managers reduce inn event severity
 - Price volatility (frequent changes) damages inn reputation
 - Neglected cleanliness hurts overall reputation
 - Adds fixed costs and management burden
+- Random events trigger when rooms are booked (see Inn Events System)
 
 **Strategic Value**: Inn provides steady cash flow buffer when managed well, but it's essentially a second business line. Ensure pub is stable first.
 
 ---
 
-### 15. Seasonal Effects System
+### 15. Inn Events System
+**Purpose**: Add narrative depth and operational challenges to inn operations
+
+**Event Frequency**:
+- Based on Inn Reputation
+- Low Inn Rep: 30-40% chance per booked room
+- High Inn Rep: 5-10% chance per booked room
+
+**Event Tone Distribution**:
+- Low Rep: 85% negative, 15% positive
+- High Rep: 75% positive, 25% negative
+
+**Positive Events** (10+ types):
+- Generous tips, positive reviews, referrals, quiet guests
+- Effects: Reputation +2 to +8, sometimes cash bonuses
+
+**Negative Events** (10+ types):
+- Room damages, theft, noise complaints, bad reviews
+- Effects: Reputation -3 to -12, cash penalties £10-50
+
+**Staff Mitigation**:
+- Marshalls: Reduce event severity by 25%
+- Duty Managers: Reduce event severity by 50%
+- Both significantly reduce negative event impact
+
+**Strategic Implications**: Build inn reputation early to reduce negative event frequency. Hire Marshalls and Duty Managers to mitigate impacts. Bad events compound if inn reputation stays low.
+
+---
+
+### 16. Trading Standards System
+**Purpose**: Track regulatory compliance with underage service violations
+
+**Violation Tracking**:
+- Violations occur when staff fail ID checks
+- Counter resets weekly at payday
+- Visible in HUD security badge with warning symbol (⚠️) when violations ≥ 2
+
+**Penalty Tiers**:
+- **Tier 1** (2-4 violations): -30 Reputation at week end
+- **Tier 2** (5-8 violations): -50 Reputation + £300 fine at week end
+- **Tier 3** (9+ violations): **INSTANT GAME OVER** - Trading Standards shuts down your pub
+
+**Mitigation Factors**:
+- Security Level: -5% violation chance per security level
+- Bouncer Quality:
+  - Quality 1: -3% violations
+  - Quality 2: -5% violations
+  - Quality 3: -8% violations
+- Security Policy: Strict door policy reduces violations by ~15%
+- CCTV: Additional deterrent effect
+
+**Critical Warnings**:
+- Trading Standards violations are THE most dangerous failure state
+- Unlike bankruptcy or reputation loss, Tier 3 is instant game over (no recovery possible)
+- Violations can accumulate rapidly on high-volume nights
+- Low security + high crowd volume = extreme violation risk
+- Security investment mandatory for long-term survival
+
+**Strategic Priority**: Trading Standards compliance should be a TOP priority from early game. Security infrastructure pays for itself by preventing £300 fines and game-ending closures.
+
+---
+
+### 17. Seasonal Effects System
 **Purpose**: Calendar-based demand modifiers creating realistic annual cycles
 
 **Season Tags**:
@@ -414,7 +516,7 @@ You can lose through:
 
 ---
 
-### 16. Rival System (District Competition)
+### 18. Rival System (District Competition)
 **Purpose**: Simulate competitive neighborhood bars affecting market conditions
 
 **Rival Stances** (weekly):
@@ -433,7 +535,7 @@ You can lose through:
 
 ---
 
-### 17. Reports & Observation System
+### 19. Reports & Observation System
 **Purpose**: Convert raw simulation data into actionable intelligence
 
 **Report Types**:
@@ -534,14 +636,17 @@ Core loop is simple (serve customers, pay bills). Depth emerges from system inte
 ## Technical Details
 
 ### Platform
-- **Language**: Java (JDK 16+, uses records)
+- **Language**: Java (JDK 17+, uses records)
 - **Framework**: Java Swing (no external dependencies)
 - **Architecture**: Single-package compilation, all systems in one codebase
+- **Lines of Code**: ~35,000+ across 120+ classes
+- **Test Coverage**: 8+ comprehensive test suites
 
 ### Save System
 - Full game state serialization
 - Save/load via `GameStatePersistence` and `SaveManager`
-- ~600 persistent fields in `GameState` object
+- ~700 persistent fields in `GameState` object
+- Backward compatible with existing saves
 
 ### Performance
 - Turn-based, no real-time pressure
