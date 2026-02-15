@@ -24,10 +24,11 @@ public class PubLevelSystem {
 
     /**
      * Minimum weeks required at a level before progressing to the next level.
-     * Level 0: 2 weeks, Level 1: 3 weeks, Level 2: 4 weeks, Level 3: 5 weeks, Level 4: 6 weeks
+     * Level 0: 1 week (intro week), Level 1: 3 weeks, Level 2: 4 weeks, Level 3: 5 weeks, Level 4: 6 weeks
      */
     public static int weeksRequiredForLevel(int level) {
-        return level + 2;  // Level 0 = 2 weeks, Level 1 = 3 weeks, etc.
+        if (level == 0) return 1;  // Level 0 = 1 week (intro week)
+        return level + 2;  // Level 1 = 3 weeks, Level 2 = 4 weeks, etc.
     }
 
     /**

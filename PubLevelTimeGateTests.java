@@ -6,7 +6,7 @@ import javax.swing.JTextPane;
  */
 public class PubLevelTimeGateTests {
     public static void main(String[] args) {
-        testLevel0To1RequiresTwoWeeks();
+        Level0ToLevel1_MinWeeksIsOne();
         testMilestonesEarlyDoesNotLevelUp();
         testBothConditionsMustBeMet();
         testWeekCounterResetsOnLevelUp();
@@ -17,9 +17,9 @@ public class PubLevelTimeGateTests {
     }
 
     /**
-     * Test that leveling from 0 to 1 requires 2 milestones AND 2 weeks at level 0.
+     * Test that leveling from 0 to 1 requires 2 milestones AND 1 week at level 0 (intro week).
      */
-    private static void testLevel0To1RequiresTwoWeeks() {
+    private static void Level0ToLevel1_MinWeeksIsOne() {
         GameState state = GameFactory.newGame();
         PubLevelSystem levelSystem = new PubLevelSystem();
         
@@ -28,20 +28,15 @@ public class PubLevelTimeGateTests {
         state.achievedMilestones.add(MilestoneSystem.Milestone.M2_NO_EMPTY_SHELVES);
         state.milestonesAchievedCount = 2;
         
-        // After 0 weeks, should not level up (need 2 weeks)
+        // After 0 weeks, should not level up (need 1 week)
         state.weeksAtCurrentLevel = 0;
         levelSystem.updatePubLevel(state);
         assert state.pubLevel == 0 : "Should stay at level 0 with 0 weeks, got " + state.pubLevel;
         
-        // After 1 week, should still not level up
+        // After 1 week, should level up
         state.weeksAtCurrentLevel = 1;
         levelSystem.updatePubLevel(state);
-        assert state.pubLevel == 0 : "Should stay at level 0 with 1 week, got " + state.pubLevel;
-        
-        // After 2 weeks, should level up
-        state.weeksAtCurrentLevel = 2;
-        levelSystem.updatePubLevel(state);
-        assert state.pubLevel == 1 : "Should level up to 1 with 2 weeks, got " + state.pubLevel;
+        assert state.pubLevel == 1 : "Should level up to 1 with 1 week, got " + state.pubLevel;
         assert state.weeksAtCurrentLevel == 0 : "Week counter should reset after level-up, got " + state.weeksAtCurrentLevel;
     }
 
@@ -92,12 +87,12 @@ public class PubLevelTimeGateTests {
         
         // Case 2: Has milestones but not weeks
         state.milestonesAchievedCount = 2;
-        state.weeksAtCurrentLevel = 1;  // Need 2 for level 1
+        state.weeksAtCurrentLevel = 0;  // Need 1 for level 1
         levelSystem.updatePubLevel(state);
         assert state.pubLevel == 0 : "Should stay at 0 without weeks, got " + state.pubLevel;
         
         // Case 3: Has both
-        state.weeksAtCurrentLevel = 2;
+        state.weeksAtCurrentLevel = 1;
         levelSystem.updatePubLevel(state);
         assert state.pubLevel == 1 : "Should level up with both conditions, got " + state.pubLevel;
     }
