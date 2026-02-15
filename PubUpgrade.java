@@ -264,7 +264,11 @@ public enum PubUpgrade {
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
     INN_WING_5("Inn Wing (Tier 5)", 3500, 0.00, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00);
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
+    LATE_NIGHT_LICENCE("Late Night Licence", 850, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0, null, 0, 5);
             
 
     private final String label;
@@ -293,6 +297,7 @@ public enum PubUpgrade {
     private final int dailyRentDelta;
     private final String chainKey;
     private final int tier;
+    private final int roundCapBonus;
 
     PubUpgrade(String label,
                double cost,
@@ -320,7 +325,7 @@ public enum PubUpgrade {
                 securityBonus, staffCapBonus, bouncerCapBonus, managerCapBonus,
                 chefCapBonus, kitchenQualityBonus, refundRiskReductionPct,
                 staffMisconductReductionPct, wageEfficiencyPct, tipBonusPct,
-                eventDamageReductionPct, riskReductionPct, 0);
+                eventDamageReductionPct, riskReductionPct, 0, null, 0, 0);
     }
 
     PubUpgrade(String label,
@@ -345,6 +350,39 @@ public enum PubUpgrade {
                double eventDamageReductionPct,
                double riskReductionPct,
                int dailyRentDelta) {
+        this(label, cost, trafficBonusPct, repDriftPerRound, eventBonusChance,
+                barCapBonus, serveCapBonus, rackCapBonus, foodRackCapBonus,
+                securityBonus, staffCapBonus, bouncerCapBonus, managerCapBonus,
+                chefCapBonus, kitchenQualityBonus, refundRiskReductionPct,
+                staffMisconductReductionPct, wageEfficiencyPct, tipBonusPct,
+                eventDamageReductionPct, riskReductionPct, dailyRentDelta, null, 0, 0);
+    }
+
+    PubUpgrade(String label,
+               double cost,
+               double trafficBonusPct,
+               int repDriftPerRound,
+               int eventBonusChance,
+               int barCapBonus,
+               int serveCapBonus,
+               int rackCapBonus,
+               int foodRackCapBonus,
+               int securityBonus,
+               int staffCapBonus,
+               int bouncerCapBonus,
+               int managerCapBonus,
+               int chefCapBonus,
+               int kitchenQualityBonus,
+               double refundRiskReductionPct,
+               double staffMisconductReductionPct,
+               double wageEfficiencyPct,
+               double tipBonusPct,
+               double eventDamageReductionPct,
+               double riskReductionPct,
+               int dailyRentDelta,
+               String chainKeyOverride,
+               int tierOverride,
+               int roundCapBonus) {
 
         this.label = label;
         this.cost = cost;
@@ -370,9 +408,10 @@ public enum PubUpgrade {
         this.eventDamageReductionPct = eventDamageReductionPct;
         this.riskReductionPct = riskReductionPct;
         this.dailyRentDelta = dailyRentDelta;
+        this.roundCapBonus = roundCapBonus;
         TierInfo tierInfo = TierInfo.fromName(name());
-        this.chainKey = tierInfo.chainKey();
-        this.tier = tierInfo.tier();
+        this.chainKey = (chainKeyOverride != null) ? chainKeyOverride : tierInfo.chainKey();
+        this.tier = (tierOverride > 0) ? tierOverride : tierInfo.tier();
     }
 
     @Override
@@ -389,6 +428,7 @@ public enum PubUpgrade {
         if (managerCapBonus > 0) extras.append(" | managers +").append(managerCapBonus);
         if (chefCapBonus > 0) extras.append(" | chefs +").append(chefCapBonus);
         if (kitchenQualityBonus > 0) extras.append(" | food +").append(kitchenQualityBonus);
+        if (roundCapBonus > 0) extras.append(" | rounds +").append(roundCapBonus);
         if (refundRiskReductionPct > 0) extras.append(" | refunds -").append((int) (refundRiskReductionPct * 100)).append("%");
         if (staffMisconductReductionPct > 0) extras.append(" | misconduct -").append((int) (staffMisconductReductionPct * 100)).append("%");
         if (wageEfficiencyPct > 0) extras.append(" | wages -").append((int) (wageEfficiencyPct * 100)).append("%");
@@ -431,6 +471,7 @@ public enum PubUpgrade {
     public int getDailyRentDelta() { return dailyRentDelta; }
     public String getChainKey() { return chainKey; }
     public int getTier() { return tier; }
+    public int getRoundCapBonus() { return roundCapBonus; }
 
     public boolean isKitchenRelated() {
         return switch (this) {

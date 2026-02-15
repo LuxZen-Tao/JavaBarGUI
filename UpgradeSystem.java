@@ -44,7 +44,8 @@ public class UpgradeSystem {
             double incidentChanceMultiplier,
             double moraleStabilityPct,
             double repMitigationPct,
-            double lossSeverityMultiplier
+            double lossSeverityMultiplier,
+            int roundCapBonus
     ) {}
 
     private final GameState s;
@@ -71,6 +72,7 @@ public class UpgradeSystem {
         double tipBonus = 0.0;
         double eventDmgReduction = 0.0;
         double riskReduction = 0.0;
+        int roundCap = 0;
 
         for (PubUpgrade u : s.ownedUpgrades) {
             trafficPct += u.getTrafficBonusPct();
@@ -92,6 +94,7 @@ public class UpgradeSystem {
             tipBonus += u.getTipBonusPct();
             eventDmgReduction += u.getEventDamageReductionPct();
             riskReduction += u.getRiskReductionPct();
+            roundCap += u.getRoundCapBonus();
         }
 
         refundReduction = clamp(refundReduction, 0.0, 0.40);
@@ -153,7 +156,8 @@ public class UpgradeSystem {
                 incidentMult,
                 moraleStability,
                 repMitigation,
-                lossSeverityMult
+                lossSeverityMult,
+                roundCap
         );
     }
 
@@ -198,6 +202,7 @@ public class UpgradeSystem {
         append(sb, up.getBouncerCapBonus() > 0, "+" + up.getBouncerCapBonus() + " bouncer cap");
         append(sb, up.getManagerCapBonus() > 0, "+" + up.getManagerCapBonus() + " manager cap");
         append(sb, up.getChefCapBonus() > 0, "+" + up.getChefCapBonus() + " chef cap");
+        append(sb, up.getRoundCapBonus() > 0, "+" + up.getRoundCapBonus() + " round cap");
         append(sb, up.getKitchenQualityBonus() > 0, "+" + up.getKitchenQualityBonus() + " kitchen quality");
         append(sb, up.getDailyRentDelta() != 0, (up.getDailyRentDelta() > 0 ? "+£" : "-£")
                 + Math.abs(up.getDailyRentDelta()) + "/day rent");

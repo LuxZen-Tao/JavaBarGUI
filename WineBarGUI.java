@@ -3355,7 +3355,7 @@ public class WineBarGUI {
                 : "";
         timePhaseLabel.setText("Time: " + state.getCurrentTime() + " | Phase: " + state.getCurrentPhase() + " | Music: " + state.currentMusicProfile.getLabel());
         roundLabel.setText(state.nightOpen
-                ? ("Service OPEN  Round " + state.roundInNight + "/" + state.closingRound
+                ? ("Service OPEN  Round " + state.roundInNight + "/" + state.getClosingRound()
                 + " | Bar " + state.nightPunters.size() + "/" + state.maxBarOccupancy)
                 : ("Service CLOSED  Ready" + closedSuffix));
 

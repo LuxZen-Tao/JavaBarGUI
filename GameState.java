@@ -22,10 +22,22 @@ public class GameState implements java.io.Serializable {
     public int nightCount = 0;
     public boolean nightOpen = false;
     public int roundInNight = 0;
-    public final int closingRound = 20;
+    private static final int BASE_CLOSING_ROUND = 20;
     public static final LocalTime OPENING_TIME = LocalTime.of(11, 0);
     public static final LocalTime NORMAL_CLOSING_TIME = LocalTime.of(23, 0);
     public static final int MINUTES_PER_ROUND = 36;
+
+    public int getClosingRound() {
+        return BASE_CLOSING_ROUND + getUpgradeRoundCapBonus();
+    }
+
+    private int getUpgradeRoundCapBonus() {
+        int bonus = 0;
+        for (PubUpgrade u : ownedUpgrades) {
+            bonus += u.getRoundCapBonus();
+        }
+        return bonus;
+    }
 
     // economy
     public double cash = 100.0;
@@ -584,7 +596,7 @@ public class GameState implements java.io.Serializable {
     }
 
     public boolean isNightClosingTimeReached() {
-        return roundInNight >= closingRound || !getCurrentTime().isBefore(NORMAL_CLOSING_TIME);
+        return roundInNight >= getClosingRound() || !getCurrentTime().isBefore(NORMAL_CLOSING_TIME);
     }
     public LocalDate currentDate() { return START_DATE.plusDays(dayCounter); }
     public String dateString() { return currentDate().format(DATE_FORMAT); }
@@ -658,7 +670,7 @@ public class GameState implements java.io.Serializable {
     }
 
     public int currentRoundIndex() {
-        return dayCounter * closingRound + roundInNight;
+        return dayCounter * getClosingRound() + roundInNight;
     }
 
     public boolean isSecurityTaskActive() {

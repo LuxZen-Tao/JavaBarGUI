@@ -654,7 +654,7 @@ public class Simulation {
     }
 
     private int currentRoundIndex() {
-        return s.dayCounter * s.closingRound + s.roundInNight;
+        return s.dayCounter * s.getClosingRound() + s.roundInNight;
     }
 
     private int rollScaled(int min, int max, double scale) {
@@ -1332,7 +1332,7 @@ public class Simulation {
         s.innPriceSegments.clear();
         s.innPriceChangesThisNight = 0;
         if (s.innUnlocked) {
-            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.closingRound, s.roomPrice));
+            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.getClosingRound(), s.roomPrice));
         }
 
         if (s.scheduledActivity != null && s.absDayIndex() >= s.scheduledActivity.startAbsDayIndex()) {
@@ -1382,20 +1382,20 @@ public class Simulation {
         if (!s.nightOpen || !s.innUnlocked) return;
 
         if (s.innPriceSegments.isEmpty()) {
-            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.closingRound, previousPrice));
+            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.getClosingRound(), previousPrice));
         }
 
         if (s.roundInNight == 0) {
-            s.innPriceSegments.set(0, new GameState.InnPriceSegment(1, s.closingRound, nextPrice));
+            s.innPriceSegments.set(0, new GameState.InnPriceSegment(1, s.getClosingRound(), nextPrice));
         } else {
-            int endRound = Math.min(s.roundInNight, s.closingRound);
+            int endRound = Math.min(s.roundInNight, s.getClosingRound());
             int lastIndex = s.innPriceSegments.size() - 1;
             GameState.InnPriceSegment last = s.innPriceSegments.get(lastIndex);
             int adjustedEnd = Math.max(last.startRound(), endRound);
             s.innPriceSegments.set(lastIndex, new GameState.InnPriceSegment(last.startRound(), adjustedEnd, last.rateApplied()));
-            int startRound = Math.min(adjustedEnd + 1, s.closingRound);
-            if (startRound <= s.closingRound) {
-                s.innPriceSegments.add(new GameState.InnPriceSegment(startRound, s.closingRound, nextPrice));
+            int startRound = Math.min(adjustedEnd + 1, s.getClosingRound());
+            if (startRound <= s.getClosingRound()) {
+                s.innPriceSegments.add(new GameState.InnPriceSegment(startRound, s.getClosingRound(), nextPrice));
             }
         }
 
@@ -1564,7 +1564,7 @@ public class Simulation {
         s.foodDisappointmentThisRound = 0;
         s.foodDisappointmentPopupShown = false;
         s.staffIncidentThisRound = false;
-        log.header("- Round " + s.roundInNight + "/" + s.closingRound + " -");
+        log.header("- Round " + s.roundInNight + "/" + s.getClosingRound() + " -");
         s.roundItemSales.clear();
 
         processSupplierDeliveries();
@@ -1777,16 +1777,16 @@ public class Simulation {
         if (!s.nightOpen) return;
 
         //  Early close penalty (strategy pressure)
-        boolean early = s.roundInNight < s.closingRound;
+        boolean early = s.roundInNight < s.getClosingRound();
         boolean isNormalClose = reason != null && reason.toLowerCase().contains("closing time");
         boolean isGameOver = reason != null && reason.toLowerCase().contains("licence") || (reason != null && reason.toLowerCase().contains("game over"));
 
         // Track if service ran full 20 rounds for milestone M3_NO_ONE_LEAVES_ANGRY
         s.serviceCompletedRounds = s.roundInNight;
-        s.lastServiceRanFullRounds = (s.roundInNight >= s.closingRound);
+        s.lastServiceRanFullRounds = (s.roundInNight >= s.getClosingRound());
 
         if (early && !isNormalClose && !isGameOver) {
-            int remaining = s.closingRound - s.roundInNight;
+            int remaining = s.getClosingRound() - s.roundInNight;
             int repPenalty = earlyClosePenaltyForRemaining(remaining);
             s.lastEarlyCloseRoundsRemaining = Math.max(0, remaining);
             s.lastEarlyCloseRepPenalty = repPenalty;
@@ -1913,7 +1913,7 @@ public class Simulation {
                 s.chaosRecoveryPending = false;
             }
         }
-        double nearCapacityTarget = s.maxBarOccupancy * s.closingRound * 0.65;
+        double nearCapacityTarget = s.maxBarOccupancy * s.getClosingRound() * 0.65;
         if (s.nightSales >= nearCapacityTarget && s.nightUnserved <= 2 && s.nightRefunds <= 1) {
             s.nearCapacityServiceNightsThisWeek++;
         }
@@ -1968,7 +1968,7 @@ public class Simulation {
         s.lastInnHousekeepingNeeded = roomsBooked;
 
         if (s.innPriceSegments.isEmpty()) {
-            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.closingRound, s.roomPrice));
+            s.innPriceSegments.add(new GameState.InnPriceSegment(1, s.getClosingRound(), s.roomPrice));
         }
 
         s.currentNightInnBookings.clear();
@@ -3905,7 +3905,7 @@ public class Simulation {
                 + "\nPrice volatility: " + fmt2(s.weekPriceMultiplierAbsDelta);
 
         String operations = "Service: " + (s.nightOpen ? "OPEN" : "CLOSED")
-                + "\nRound: " + s.roundInNight + "/" + s.closingRound
+                + "\nRound: " + s.roundInNight + "/" + s.getClosingRound()
                 + "\nServe cap: " + serveCap
                 + "\nBar cap: " + s.maxBarOccupancy
                 + "\nTraffic multiplier: x" + fmt2(trafficMult)
@@ -3975,7 +3975,7 @@ public class Simulation {
                 "Weekly Costs (Due at Payday): GBP " + fmt2(weeklyMinDueTotal()),
                 "Week " + s.weekCount + "  " + s.dayName() + " | Service " + s.nightCount,
                 s.nightOpen
-                        ? ("Service OPEN  Round " + s.roundInNight + "/" + s.closingRound
+                        ? ("Service OPEN  Round " + s.roundInNight + "/" + s.getClosingRound()
                         + " | Bar " + s.nightPunters.size() + "/" + s.maxBarOccupancy)
                         : "Service CLOSED  Ready",
                 "Security: " + sec,
@@ -6011,7 +6011,7 @@ public class Simulation {
     }
 
     private int absoluteRoundIndex() {
-        return s.dayCounter * s.closingRound + s.roundInNight;
+        return s.dayCounter * s.getClosingRound() + s.roundInNight;
     }
 
 
