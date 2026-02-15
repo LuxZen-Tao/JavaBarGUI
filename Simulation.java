@@ -654,7 +654,7 @@ public class Simulation {
     }
 
     private int currentRoundIndex() {
-        return s.dayCounter * s.getClosingRound() + s.roundInNight;
+        return s.currentRoundIndex();
     }
 
     private int rollScaled(int min, int max, double scale) {
@@ -6011,7 +6011,7 @@ public class Simulation {
     }
 
     private int absoluteRoundIndex() {
-        return s.dayCounter * s.getClosingRound() + s.roundInNight;
+        return s.currentRoundIndex();
     }
 
 

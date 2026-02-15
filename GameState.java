@@ -670,7 +670,7 @@ public class GameState implements java.io.Serializable {
     }
 
     public int currentRoundIndex() {
-        return dayCounter * getClosingRound() + roundInNight;
+        return dayCounter * BASE_CLOSING_ROUND + roundInNight;
     }
 
     public boolean isSecurityTaskActive() {
