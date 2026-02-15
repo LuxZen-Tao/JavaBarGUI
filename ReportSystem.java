@@ -46,7 +46,8 @@ public class ReportSystem {
         sb.append("\n");
 
         sb.append("Sales:   ").append(s.reportSales).append("\n");
-        sb.append("Events:  ").append(s.reportEvents).append("\n\n");
+        sb.append("Events:  ").append(s.reportEvents).append("\n");
+        sb.append("Staff Events: ").append(s.reportStaffEvents).append("\n\n");
 
         sb.append("Cash start: ").append(fmt2(s.reportStartCash)).append("\n");
         sb.append("Cash now:   ").append(fmt2(s.cash)).append(" ( ").append(fmt2(cashDelta)).append(")\n");
@@ -206,6 +207,7 @@ public class ReportSystem {
         if (other > 0) sb.append("  Other:      ").append(fmt2(other)).append("\n");
         sb.append("\nSales:   ").append(s.reportSales).append("\n");
         sb.append("Events:  ").append(s.reportEvents).append("\n");
+        sb.append("Staff Events: ").append(s.reportStaffEvents).append("\n");
 
         return sb.toString();
     }
