@@ -9,6 +9,8 @@ public class LandlordActionTests {
         testIdentityChanceBias();
         testBalancedOutcomePolarity();
         testActionsPanelSmoke();
+        testLandlordAction_CooldownScalesWithUse();
+        testLandlordAction_CostApplied();
         System.out.println("All LandlordActionTests passed.");
         System.exit(0);
     }
@@ -107,5 +109,68 @@ public class LandlordActionTests {
         Simulation sim = newSimulation(state);
         LandlordActionsPanel panel = new LandlordActionsPanel(sim, state, id -> {});
         assert panel.getActionRowCount() == 3 : "Actions panel should render three options.";
+    }
+
+    private static void testLandlordAction_CooldownScalesWithUse() {
+        GameState state = GameFactory.newGame();
+        state.pubLevel = 1;
+        state.cash = 1000.0;  // Ensure enough cash
+        state.nightOpen = true;
+        state.roundInNight = 1;
+        Simulation sim = newSimulation(state);
+        LandlordActionDef action = sim.getAvailableActionsForCurrentTier().get(0);
+        
+        // First use - baseline cooldown
+        LandlordActionResolution firstResult = sim.resolveLandlordAction(action.getId());
+        assert !firstResult.blocked() : "First use should not be blocked.";
+        int firstCooldown = state.landlordActionStates.get(action.getId()).getCooldownRemaining();
+        int baseCooldown = action.getCooldownRounds();
+        assert firstCooldown == baseCooldown : "First use should have base cooldown: expected " + baseCooldown + " but got " + firstCooldown;
+        
+        // Wait out the cooldown
+        for (int i = 0; i < firstCooldown + 1; i++) {
+            state.lastLandlordActionRound = -999;  // Reset per-round lock
+            sim.playRound();
+        }
+        
+        // Second use - should have higher cooldown
+        state.lastLandlordActionRound = -999;
+        LandlordActionResolution secondResult = sim.resolveLandlordAction(action.getId());
+        assert !secondResult.blocked() : "Second use should not be blocked after cooldown.";
+        int secondCooldown = state.landlordActionStates.get(action.getId()).getCooldownRemaining();
+        assert secondCooldown > firstCooldown : "Second use cooldown (" + secondCooldown + ") should be greater than first (" + firstCooldown + ")";
+        
+        // Verify scaling formula: cooldown = baseCooldown * (1.0 + min(1.0, usesCount * 0.1))
+        // After first use, usesCount = 1, so expected = baseCooldown * 1.1
+        int expectedSecondCooldown = (int) Math.ceil(baseCooldown * 1.1);
+        assert secondCooldown == expectedSecondCooldown : "Second cooldown should be " + expectedSecondCooldown + " but got " + secondCooldown;
+    }
+
+    private static void testLandlordAction_CostApplied() {
+        GameState state = GameFactory.newGame();
+        state.pubLevel = 1;
+        state.cash = 100.0;
+        state.nightOpen = true;
+        state.roundInNight = 1;
+        Simulation sim = newSimulation(state);
+        LandlordActionDef action = sim.getAvailableActionsForCurrentTier().get(0);
+        
+        double cashBefore = state.cash;
+        int expectedCost = action.getBaseCost();
+        
+        LandlordActionResolution result = sim.resolveLandlordAction(action.getId());
+        assert !result.blocked() : "Action should not be blocked with sufficient cash.";
+        
+        double cashAfter = state.cash;
+        double actualCost = cashBefore - cashAfter;
+        
+        assert Math.abs(actualCost - expectedCost) < 0.01 : "Cost should be " + expectedCost + " but " + actualCost + " was deducted.";
+        
+        // Test insufficient cash
+        state.cash = 5.0;  // Less than action cost
+        state.lastLandlordActionRound = -999;  // Reset per-round lock
+        LandlordActionResolution blockedResult = sim.resolveLandlordAction(action.getId());
+        assert blockedResult.blocked() : "Action should be blocked with insufficient cash.";
+        assert blockedResult.message().contains("Insufficient cash") : "Blocked message should mention insufficient cash.";
     }
 }
