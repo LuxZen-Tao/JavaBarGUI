@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class Simulation {
     private static final double INN_DEFAULT_ROOM_PRICE = 45.0;
-    private static final double INN_MAINTENANCE_PER_ROOM = 2.6;
+    private static final double INN_MAINTENANCE_PER_ROOM = 3.9;
     private static final double INN_USAGE_CLEANLINESS_DECAY = 1.3;
     private static final double INN_CLEAN_RECOVERY = 2.0;
     private static final int INN_PRICE_VOLATILITY_THRESHOLD = 2;
