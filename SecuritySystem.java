@@ -1,6 +1,6 @@
 // SecuritySystem.java
 public class SecuritySystem {
-    public static final double SECURITY_UPKEEP_PER_LEVEL = 1.575;
+    public static final double SECURITY_UPKEEP_PER_LEVEL = 1.89;
     private static final double BOUNCER_COST_MULTIPLIER = 1.10;
 
     private final GameState s;
