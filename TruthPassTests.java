@@ -18,8 +18,9 @@ public class TruthPassTests {
     private static void testEarlyClosePenaltyFormula() {
         GameState state = GameFactory.newGame();
         Simulation sim = newSimulation(state);
-        assert sim.earlyClosePenaltyForRemaining(20) == -40 : "R=20 should yield -40 rep.";
-        assert sim.earlyClosePenaltyForRemaining(5) == -10 : "R=5 should yield -10 rep.";
+        assert sim.earlyClosePenaltyForRemaining(20) == -3 : "R=20 should yield rounded -3 rep.";
+        assert sim.earlyClosePenaltyForRemaining(5) == -3 : "R=5 should yield rounded -3 rep.";
+        assert sim.earlyClosePenaltyForRemaining(0) == 0 : "R=0 should yield 0 rep.";
     }
 
     private static void testChaosStreakAmplification() {
@@ -67,12 +68,12 @@ public class TruthPassTests {
     private static void testMissionControlContainsFormulaAndStreak() {
         GameState state = GameFactory.newGame();
         Simulation sim = newSimulation(state);
-        state.lastEarlyCloseRepPenalty = -10;
+        state.lastEarlyCloseRepPenalty = -3;
         state.lastEarlyCloseRoundsRemaining = 5;
         state.posStreak = 2;
         state.negStreak = 1;
         MetricsSnapshot snapshot = sim.buildMetricsSnapshot();
-        assert snapshot.security.contains("repPenalty = -2 * roundsRemaining") : "Mission Control should show early-close formula.";
+        assert snapshot.security.contains("repPenalty = -2.5") : "Mission Control should show early-close formula.";
         assert snapshot.security.contains("Chaos streaks") : "Mission Control should show chaos streak info.";
     }
 }
