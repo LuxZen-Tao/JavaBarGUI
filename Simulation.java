@@ -1420,8 +1420,12 @@ public class Simulation {
         return BouncerQuality.HIGH;
     }
 
+    static final double EARLY_CLOSE_REP_PENALTY = -2.5;
+
     int earlyClosePenaltyForRemaining(int roundsRemaining) {
-        return -2 * Math.max(0, roundsRemaining);
+        if (Math.max(0, roundsRemaining) == 0) return 0;
+        // Reputation is integer-backed, so early close uses a consistent rounded mapping.
+        return (int) Math.round(EARLY_CLOSE_REP_PENALTY);
     }
 
     void applyChaosClassificationForTest(boolean badRound) {
@@ -1769,7 +1773,9 @@ public class Simulation {
             s.lastEarlyCloseRoundsRemaining = Math.max(0, remaining);
             s.lastEarlyCloseRepPenalty = repPenalty;
             eco.applyRep(repPenalty, "Closed early (" + remaining + " rounds left)");
-            String eventLine = "Closed early: -" + Math.abs(repPenalty) + " rep (" + remaining + " rounds remaining)";
+            String eventLine = "Closed early: " + repPenalty
+                    + " rep (spec " + EARLY_CLOSE_REP_PENALTY + ", "
+                    + remaining + " rounds remaining)";
             log.action(" " + eventLine);
             s.earlyClosePenaltyLog.addFirst(eventLine);
             while (s.earlyClosePenaltyLog.size() > 8) s.earlyClosePenaltyLog.removeLast();
@@ -5016,7 +5022,8 @@ public class Simulation {
                 .append(" | good ").append(fmt1(CHAOS_GOOD_DELTA_1)).append("/")
                 .append(fmt1(CHAOS_GOOD_DELTA_2)).append("/").append(fmt1(CHAOS_GOOD_DELTA_3))
                 .append(" | cap ").append(CHAOS_STREAK_CAP).append("\n");
-        sb.append("Early close formula: repPenalty = -2 * roundsRemaining\n");
+        sb.append("Early close formula: repPenalty = ").append(EARLY_CLOSE_REP_PENALTY)
+                .append(" (rounded to int)\n");
         sb.append("Last early close: ").append(s.lastEarlyCloseRepPenalty)
                 .append(" rep (R=").append(s.lastEarlyCloseRoundsRemaining).append(")\n");
 
