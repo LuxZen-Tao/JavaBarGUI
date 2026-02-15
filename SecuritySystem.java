@@ -54,7 +54,7 @@ public class SecuritySystem {
 
     public void upgradeBaseSecurity() {
         double cost = nextUpgradeCost();
-        if (!eco.tryPay(cost, TransactionType.UPGRADE, "Security upgrade", CostTag.UPGRADE)) return;
+        if (!eco.tryPayCashOnly(cost, TransactionType.UPGRADE, "Security upgrade", CostTag.UPGRADE)) return;
         s.baseSecurityLevel++;
         log.action("Upgraded base security to " + s.baseSecurityLevel + ".");
     }
@@ -87,7 +87,7 @@ public class SecuritySystem {
         int variance = (int)Math.round(30 * BOUNCER_COST_MULTIPLIER);
         double scale = 1.0 + (0.10 * s.bouncersHiredTonight);
         double nightPay = (basePay + s.random.nextInt(variance + 1)) * scale;
-        if (!eco.tryPay(nightPay, TransactionType.WAGES, "Bouncer (tonight)", CostTag.BOUNCER)) return;
+        if (!eco.tryPayCashOnly(nightPay, TransactionType.WAGES, "Bouncer (tonight)", CostTag.BOUNCER)) return;
 
         s.bouncerNightPay = nightPay;
         s.nightRoundCostsTotal += s.bouncerNightPay;

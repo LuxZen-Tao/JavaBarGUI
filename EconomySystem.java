@@ -104,6 +104,35 @@ public class EconomySystem {
         return false;
     }
 
+    /**
+     * Cash-only payment method for security purchases.
+     * Security purchases (base security upgrades, bouncer hires) require cash - credit not accepted.
+     * @return true if payment succeeded (sufficient cash), false otherwise
+     */
+    public boolean tryPayCashOnly(double amount, TransactionType type, String description, CostTag tag) {
+        if (amount <= 0) return true;
+
+        if (s.cash >= amount) {
+            s.cash -= amount;
+            s.reportCosts += amount;
+            s.weekCosts += amount;
+            s.addReportCost(tag, amount);
+            java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+            segments.add(new UILogger.Segment("Paid ", UILogger.Tone.INFO));
+            segments.add(new UILogger.Segment("GBP " + fmt(amount), UILogger.Tone.MONEY));
+            segments.add(new UILogger.Segment(" (cash) - " + description, UILogger.Tone.INFO));
+            log.appendLogSegments(segments);
+            return true;
+        }
+
+        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
+        segments.add(new UILogger.Segment("Insufficient cash: need ", UILogger.Tone.NEG));
+        segments.add(new UILogger.Segment("GBP " + fmt(amount), UILogger.Tone.MONEY));
+        segments.add(new UILogger.Segment(" cash for " + description + " (credit not accepted).", UILogger.Tone.NEG));
+        log.appendLogSegments(segments);
+        return false;
+    }
+
     private CreditLine selectCreditLineForShortfall(double shortfall, String description) {
         java.util.List<CreditLine> options = new java.util.ArrayList<>();
         for (CreditLine line : s.creditLines.getOpenLines()) {
