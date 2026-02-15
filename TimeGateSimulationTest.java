@@ -40,18 +40,10 @@ public class TimeGateSimulationTest {
         // Grant 2 milestones for level 1
         state.milestonesAchievedCount = 2;
         
-        // Try to level up - should fail, need 2 weeks
+        // Now should level up (only need 1 week at level 0)
         PubLevelSystem levelSystem = new PubLevelSystem();
         levelSystem.updatePubLevel(state);
-        assert state.pubLevel == 0 : "Should not level up with only 1 week";
-        
-        // Simulate second week passing
-        state.weeksAtCurrentLevel++;
-        assert state.weeksAtCurrentLevel == 2 : "Week counter should be 2 after second week";
-        
-        // Now should level up
-        levelSystem.updatePubLevel(state);
-        assert state.pubLevel == 1 : "Should level up to 1 after 2 weeks";
+        assert state.pubLevel == 1 : "Should level up to 1 after 1 week";
         assert state.weeksAtCurrentLevel == 0 : "Week counter should reset after level up";
     }
 
@@ -64,7 +56,7 @@ public class TimeGateSimulationTest {
         
         // Set up conditions for level up
         state.milestonesAchievedCount = 2;
-        state.weeksAtCurrentLevel = 2;
+        state.weeksAtCurrentLevel = 1;  // Level 0 needs 1 week
         
         // Level up should work
         levelSystem.updatePubLevel(state);
