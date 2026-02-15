@@ -504,6 +504,7 @@ public class PunterSystem {
                 }
 
                 applyOverpricingConsequences(p, chosen, sellPrice, chosen.getBasePrice());
+                maybeApplyFairTradingStrike(sellPrice, chosen.getBasePrice());
 
                 double tips = sellPrice * tipRate * tipMult;
                 if (tips > 0) {
@@ -856,6 +857,9 @@ public class PunterSystem {
     private static final int TIER_1_REP_LOSS = -30;
     private static final int TIER_2_REP_LOSS = -50;
     private static final double TIER_2_FINE = 300.0;
+    private static final double FAIR_TRADING_THRESHOLD_PCT = 0.25;
+    private static final double FAIR_TRADING_STRIKE_CHANCE = 0.20;
+    private static final String FAIR_TRADING_STRIKE_REASON = "Unfair Commercial Practices (Fair Trading)";
     
     /**
      * Handles underage punters with Trading Standards system.
@@ -939,6 +943,25 @@ public class PunterSystem {
             case BALANCED_DOOR -> POLICY_BALANCED_REDUCTION;
             case FRIENDLY_WELCOME -> 0.0;
         };
+    }
+
+    static boolean isWithinFairTradingThreshold(double finalSellPrice, double basePrice) {
+        if (basePrice <= 0.0) return false;
+        double lowerBound = basePrice * (1.0 - FAIR_TRADING_THRESHOLD_PCT);
+        double upperBound = basePrice * (1.0 + FAIR_TRADING_THRESHOLD_PCT);
+        return finalSellPrice >= lowerBound && finalSellPrice <= upperBound;
+    }
+
+    void maybeApplyFairTradingStrike(double finalSellPrice, double basePrice) {
+        if (!s.happyHour || s.strikeRolledThisRound) return;
+        if (!isWithinFairTradingThreshold(finalSellPrice, basePrice)) return;
+
+        s.strikeRolledThisRound = true;
+        if (s.random.nextDouble() < FAIR_TRADING_STRIKE_CHANCE) {
+            s.tradingStandardsCounter++;
+            log.neg("  - " + FAIR_TRADING_STRIKE_REASON + " +1 (now " + s.tradingStandardsCounter + ")");
+            evaluateTradingStandardsTier();
+        }
     }
     
     /**

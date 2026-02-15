@@ -812,6 +812,10 @@ public class Simulation {
     public void toggleHappyHour(boolean on) {
         if (!s.nightOpen && on) { log.neg(" Happy Hour can only be toggled while the pub is OPEN."); return; }
         s.happyHour = on;
+        if (on) {
+            // Happy Hour defaults to a visible half-price baseline (0.50 * base price).
+            s.priceMultiplier = 1.00;
+        }
         log.action(on ? " Happy Hour ON - prices halved, traffic may spike." : " Happy Hour OFF");
     }
 
@@ -1561,6 +1565,7 @@ public class Simulation {
         int fightsBefore = s.nightFights;
         int refundsBefore = s.nightRefunds;
         s.happyHourCheatRepHitThisRound = false;
+        s.strikeRolledThisRound = false;
         s.foodDisappointmentThisRound = 0;
         s.foodDisappointmentPopupShown = false;
         s.staffIncidentThisRound = false;

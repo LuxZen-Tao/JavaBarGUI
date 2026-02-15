@@ -3406,6 +3406,11 @@ public class WineBarGUI {
             kitchenSupplierBtn.setToolTipText(null);
         }
         happyHourBtn.setEnabled(state.nightOpen);
+        priceLabel.setText("Price x" + String.format("%.2f", state.priceMultiplier));
+        int sliderValue = (int) Math.round(state.priceMultiplier * 100);
+        if (priceSlider.getValue() != sliderValue) {
+            priceSlider.setValue(sliderValue);
+        }
         musicProfileBox.setSelectedItem(state.currentMusicProfile);
         musicProfileBox.setToolTipText(sim.currentMusicTooltip());
 
