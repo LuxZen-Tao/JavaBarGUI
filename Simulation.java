@@ -1463,6 +1463,14 @@ public class Simulation {
         if (securityTaskTier() < task.getTier()) {
             return new SecurityTaskAvailability(false, "Locked: Base Security " + tierRequirement(task.getTier()));
         }
+        // Prerequisite: Must have locks upgrade (any reinforced door tier)
+        if (s.reinforcedDoorTier() == 0) {
+            return new SecurityTaskAvailability(false, "Need locks upgrade (Reinforced Door).");
+        }
+        // Prerequisite: Must have bouncer or marshalls
+        if (s.bouncersHiredTonight == 0 && s.marshallCount() == 0) {
+            return new SecurityTaskAvailability(false, "Need Bouncer hired or Marshalls hired.");
+        }
         if (s.currentRoundIndex() == s.lastSecurityTaskRound) {
             return new SecurityTaskAvailability(false, "Only 1 task per round.");
         }
