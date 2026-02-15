@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 public class Simulation {
+    private static final double SICKNESS_HIGH_CHAOS_THRESHOLD = 62.0;
+    private static final int SICKNESS_HIGH_CHAOS_EXPOSURE_TURNS = 4;
+
     private static final double INN_DEFAULT_ROOM_PRICE = 45.0;
     private static final double INN_MAINTENANCE_PER_ROOM = 3.9;
     private static final double INN_USAGE_CLEANLINESS_DECAY = 1.3;
@@ -1721,6 +1724,11 @@ public class Simulation {
         s.chaos = recomputeChaos(barCount, demand, serveCap, unserved, fightsThisRound, refundsThisRound, eventsThisRound)
                 + staff.chaosPressureDelta(workloadProfile) + modifiers.chaosDelta();
         s.chaos = Math.max(0.0, Math.min(100.0, s.chaos));
+        if (s.chaos >= SICKNESS_HIGH_CHAOS_THRESHOLD) {
+            s.chaosConsecutiveHighTurns++;
+        } else {
+            s.chaosConsecutiveHighTurns = 0;
+        }
 
         checkHighRepScandal();
 
@@ -5565,12 +5573,28 @@ public class Simulation {
         s.rollingFatigueStress = Math.max(0.0, Math.min(50.0, (s.rollingFatigueStress * 0.8) + gain));
     }
 
-    private void maybeTriggerSickCall() {
+    double sickCallChance() {
         double chance = 0.03;
         chance += Math.max(0.0, (55.0 - s.teamMorale) / 600.0);
         chance += Math.max(0.0, (s.lastNightChaosPeak - 45.0) / 500.0);
         chance += Math.max(0.0, s.rollingFatigueStress / 700.0);
-        chance = Math.min(0.28, chance);
+
+        // High predicted tip split makes call-ins less likely.
+        if (s.tipSplitPercent > 70) {
+            chance *= 0.58;
+        }
+
+        // Sickness rises when morale is low and chaos has stayed high for multiple rounds.
+        if (s.teamMorale < 50.0 && s.chaosConsecutiveHighTurns >= SICKNESS_HIGH_CHAOS_EXPOSURE_TURNS) {
+            int extraTurns = s.chaosConsecutiveHighTurns - SICKNESS_HIGH_CHAOS_EXPOSURE_TURNS;
+            chance += 0.045 + Math.min(0.08, extraTurns * 0.01);
+        }
+
+        return Math.min(0.28, chance);
+    }
+
+    private void maybeTriggerSickCall() {
+        double chance = sickCallChance();
         if (s.random.nextDouble() >= chance) return;
 
         java.util.List<Staff> pool = new java.util.ArrayList<>();
