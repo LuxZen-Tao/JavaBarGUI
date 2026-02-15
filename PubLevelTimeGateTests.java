@@ -6,7 +6,7 @@ import javax.swing.JTextPane;
  */
 public class PubLevelTimeGateTests {
     public static void main(String[] args) {
-        Level0ToLevel1_MinWeeksIsOne();
+        level0ToLevel1_MinWeeksIsOne();
         testMilestonesEarlyDoesNotLevelUp();
         testBothConditionsMustBeMet();
         testWeekCounterResetsOnLevelUp();
@@ -19,7 +19,7 @@ public class PubLevelTimeGateTests {
     /**
      * Test that leveling from 0 to 1 requires 2 milestones AND 1 week at level 0 (intro week).
      */
-    private static void Level0ToLevel1_MinWeeksIsOne() {
+    private static void level0ToLevel1_MinWeeksIsOne() {
         GameState state = GameFactory.newGame();
         PubLevelSystem levelSystem = new PubLevelSystem();
         
