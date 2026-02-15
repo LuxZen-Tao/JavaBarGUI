@@ -748,24 +748,24 @@ public class GameState implements java.io.Serializable {
     }
 
     public String supplierTrustLabel() {
-        if (creditScore >= 700) return "Good";
-        if (creditScore >= 550) return "Neutral";
-        if (creditScore >= 450) return "Poor";
-        return "Very Poor";
+        return getSupplierTrustLevel().getLabel();
+    }
+
+    public SupplierTrustLevel getSupplierTrustLevel() {
+        return SupplierTrustLevel.fromCreditScore(creditScore);
+    }
+
+    public double supplierTrustPriceMultiplier() {
+        return getSupplierTrustLevel().getPriceMultiplier();
     }
 
     public double supplierCreditCap() {
         if (supplierCreditCapOverride > 0.0) {
             return supplierCreditCapOverride;
         }
-        double base;
-        if (creditScore >= 700) base = 3200.0;
-        else if (creditScore >= 600) base = 2500.0;
-        else if (creditScore >= 500) base = 1800.0;
-        else base = 1200.0;
-        double trustMult = Math.max(0.6, 1.0 - (supplierTrustPenalty * 3.0));
+        double base = getSupplierTrustLevel().getCreditCap();
         double levelMult = 1.0 + (0.08 * pubLevel);
-        return base * trustMult * levelMult + legacy.supplierTradeCreditBonus;
+        return base * levelMult + legacy.supplierTradeCreditBonus;
     }
 
     public int debtSpiralTierFromStreak() {

@@ -51,7 +51,7 @@ public class SupplierSystem {
         }
     }
 
-    /** Cost used when buying from supplier. Includes rep pricing + deal pricing. */
+    /** Cost used when buying from supplier. Includes rep pricing + deal pricing + trust multiplier. */
     public double supplierBuyCost(Wine w, double repMult) {
         double base = w.getBaseCost() * repMult;
         double cost = (s.supplierDeal == null) ? base : s.supplierDeal.applyToCost(w, base);
@@ -59,6 +59,8 @@ public class SupplierSystem {
         if (s.premiumSupplierCatalogUnlocked && w.getCategory() == WineCategory.PREMIUM_BOTTLE) {
             cost *= 0.94;
         }
+        // Apply trust-based multiplier
+        cost *= s.supplierTrustPriceMultiplier();
         return cost * s.supplierPriceMultiplier();
     }
 
