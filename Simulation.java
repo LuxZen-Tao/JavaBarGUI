@@ -4313,6 +4313,7 @@ public class Simulation {
         s.reportCosts = 0;
         s.reportSales = 0;
         s.reportEvents = 0;
+        s.reportStaffEvents = 0;
         s.reportRefundTotal = 0.0;
         s.reportCostBreakdown.clear();
         s.opCostBaseThisWeek = 0.0;
@@ -6051,6 +6052,10 @@ public class Simulation {
                 s.staffIncidentThisRound,
                 staffChangeRecent
         );
+        
+        // Update staff observation line
+        updateStaffObservation();
+        
         ObservationEngine.ObservationResult result = observationEngine.nextObservation(s, ctx);
         if (result == null) return;
         String note = "[" + s.getCurrentPhase() + " | " + s.currentMusicProfile.getLabel() + "]";
@@ -6063,6 +6068,12 @@ public class Simulation {
         s.observationLine = trimObservationLine(result.text() + " " + note);
         s.lastObservationRound = roundIndex;
         s.lastObservationPriceMultiplier = s.priceMultiplier;
+    }
+
+    private void updateStaffObservation() {
+        // Generate staff relationship observation for the HUD
+        StaffRelationshipSystem relSystem = new StaffRelationshipSystem(s);
+        s.staffObservationLine = relSystem.generateStaffObservation();
     }
 
     private int absoluteRoundIndex() {

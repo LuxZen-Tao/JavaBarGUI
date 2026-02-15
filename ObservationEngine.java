@@ -180,6 +180,13 @@ public class ObservationEngine {
             "Inn security felt tighter with marshalls on."
     );
 
+    private static final List<String> STAFF_RELATIONSHIP_LINES = List.of(
+            "Staff chemistry seems strong tonight.",
+            "The team's working together smoothly.",
+            "Good energy between the staff.",
+            "Staff dynamics are keeping things flowing."
+    );
+
     public record ObservationContext(
             int roundIndex,
             int barCount,
@@ -251,6 +258,12 @@ public class ObservationEngine {
                 && s.dayCounter != s.lastMarshallObservationDay && s.random.nextInt(100) < 12);
         addIf(candidates, Category.WEATHER, s.currentWeather != null && !majorEvent
                 && s.dayCounter != s.lastWeatherObservationDay && s.random.nextInt(100) < 14);
+        
+        // Add staff relationship observation if available
+        if (s.staffObservationLine != null && !s.staffObservationLine.isBlank() && !majorEvent) {
+            addIf(candidates, Category.STAFF_RELATIONSHIP, s.random.nextInt(100) < 12);
+        }
+        
         boolean recentSecurityEvent = (ctx.roundIndex - s.lastSecurityEventRound) <= 1;
         if (recentSecurityEvent) {
             if (s.activeSecurityTask != null) addIf(candidates, Category.TASK, true);
@@ -308,6 +321,9 @@ public class ObservationEngine {
                 s.lastMarshallObservationDay = s.dayCounter;
                 yield pick(MARSHALL_LINES, s);
             }
+            case STAFF_RELATIONSHIP -> (s.staffObservationLine != null && !s.staffObservationLine.isBlank()) 
+                ? s.staffObservationLine 
+                : pick(STAFF_RELATIONSHIP_LINES, s);
             case VIBE -> pick(VIBE_LINES, s);
         };
         return formatWithName(pickObservationName(s), line);
@@ -369,6 +385,7 @@ public class ObservationEngine {
         BOUNCER_PRESENCE,
         WEATHER,
         MARSHALLS,
+        STAFF_RELATIONSHIP,
         VIBE
     }
 }
