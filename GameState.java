@@ -22,10 +22,22 @@ public class GameState implements java.io.Serializable {
     public int nightCount = 0;
     public boolean nightOpen = false;
     public int roundInNight = 0;
-    public final int closingRound = 20;
+    private static final int BASE_CLOSING_ROUND = 20;
     public static final LocalTime OPENING_TIME = LocalTime.of(11, 0);
     public static final LocalTime NORMAL_CLOSING_TIME = LocalTime.of(23, 0);
     public static final int MINUTES_PER_ROUND = 36;
+
+    public int getClosingRound() {
+        return BASE_CLOSING_ROUND + getUpgradeRoundCapBonus();
+    }
+
+    private int getUpgradeRoundCapBonus() {
+        int bonus = 0;
+        for (PubUpgrade u : ownedUpgrades) {
+            bonus += u.getRoundCapBonus();
+        }
+        return bonus;
+    }
 
     // economy
     public double cash = 100.0;
@@ -585,7 +597,7 @@ public class GameState implements java.io.Serializable {
     }
 
     public boolean isNightClosingTimeReached() {
-        return roundInNight >= closingRound || !getCurrentTime().isBefore(NORMAL_CLOSING_TIME);
+        return roundInNight >= getClosingRound() || !getCurrentTime().isBefore(NORMAL_CLOSING_TIME);
     }
     public LocalDate currentDate() { return START_DATE.plusDays(dayCounter); }
     public String dateString() { return currentDate().format(DATE_FORMAT); }
@@ -658,8 +670,14 @@ public class GameState implements java.io.Serializable {
         return 0.0;
     }
 
+    /**
+     * Returns the absolute round index for task tracking and event scheduling.
+     * Uses BASE_CLOSING_ROUND (20) instead of getClosingRound() to maintain
+     * stable indexing across save/load cycles even when round cap upgrades
+     * like Late Night Licence change the actual closing round.
+     */
     public int currentRoundIndex() {
-        return dayCounter * closingRound + roundInNight;
+        return dayCounter * BASE_CLOSING_ROUND + roundInNight;
     }
 
     public boolean isSecurityTaskActive() {
@@ -749,21 +767,23 @@ public class GameState implements java.io.Serializable {
     }
 
     public String supplierTrustLabel() {
-        if (creditScore >= 700) return "Good";
-        if (creditScore >= 550) return "Neutral";
-        if (creditScore >= 450) return "Poor";
-        return "Very Poor";
+        return getSupplierTrustLevel().getLabel();
+    }
+
+    public SupplierTrustLevel getSupplierTrustLevel() {
+        return SupplierTrustLevel.fromCreditScore(creditScore);
+    }
+
+    public double supplierTrustPriceMultiplier() {
+        return getSupplierTrustLevel().getPriceMultiplier();
     }
 
     public double supplierCreditCap() {
         if (supplierCreditCapOverride > 0.0) {
             return supplierCreditCapOverride;
         }
-        double base;
-        if (creditScore >= 700) base = 3200.0;
-        else if (creditScore >= 600) base = 2500.0;
-        else if (creditScore >= 500) base = 1800.0;
-        else base = 1200.0;
+        double base = getSupplierTrustLevel().getCreditCap();
+        // Apply trust penalty (e.g., from late payments, defaults)
         double trustMult = Math.max(0.6, 1.0 - (supplierTrustPenalty * 3.0));
         double levelMult = 1.0 + (0.08 * pubLevel);
         return base * trustMult * levelMult + legacy.supplierTradeCreditBonus;
