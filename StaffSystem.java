@@ -1,3 +1,4 @@
+import java.util.List;
 import java.util.Random;
 
 public class StaffSystem {
@@ -460,6 +461,18 @@ public class StaffSystem {
             log.event(" " + st.getName() + " levelled up to " + st.getLevel() + ".");
         }
         updateTeamMorale();
+
+        // Update staff relationships and generate narrative events
+        handleStaffRelationships(log);
+    }
+
+    private void handleStaffRelationships(UILogger log) {
+        StaffRelationshipSystem relSystem = new StaffRelationshipSystem(s);
+        List<StaffNarrativeEvent> events = relSystem.weeklyRelationshipUpdate(log);
+        
+        // Add events to the game state
+        s.staffNarrativeEvents.addAll(events);
+        s.reportStaffEvents += events.size();
     }
 
     private int levelsFromChaos(Random r, double volatility) {

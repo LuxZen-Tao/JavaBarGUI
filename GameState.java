@@ -292,6 +292,12 @@ public class GameState implements java.io.Serializable {
     public int marshallCap = 2;
     public final List<BouncerQuality> marshalls = new ArrayList<>();
 
+    // staff relationships and narrative events (separate from misconduct)
+    public final List<StaffRelationship> staffRelationships = new ArrayList<>();
+    public final List<StaffNarrativeEvent> staffNarrativeEvents = new ArrayList<>();
+    public int reportStaffEvents = 0;  // Counter for staff narrative events in current report
+    public String staffObservationLine = null;  // Current staff observation for HUD
+
     // inn system
     public boolean innUnlocked = false;
     public int innTier = 0;
