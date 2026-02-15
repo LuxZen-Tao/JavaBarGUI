@@ -345,6 +345,7 @@ public class GameState implements java.io.Serializable {
     public final List<Staff> sickStaffTonight = new ArrayList<>();
     public double teamFatigue = 0.0;
     public double rollingFatigueStress = 0.0;
+    public int chaosConsecutiveHighTurns = 0;
     public int lastEarlyCloseCheckNight = -1;
     public int lastMusicProfileChangeRound = -999;
 
