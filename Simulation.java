@@ -517,17 +517,31 @@ public class Simulation {
             return LandlordActionResolution.blocked(def, availability.reason());
         }
 
+        // Check if player has enough cash
+        if (s.cash < def.getBaseCost()) {
+            return LandlordActionResolution.blocked(def, "Insufficient cash (need GBP " + def.getBaseCost() + ")");
+        }
+
         LandlordActionState actionState = s.landlordActionStates.get(def.getId());
         if (actionState == null) {
             actionState = new LandlordActionState();
             s.landlordActionStates.put(def.getId(), actionState);
         }
 
+        // Deduct cost from cash
+        s.cash -= def.getBaseCost();
+        log.neg("Cash -GBP " + def.getBaseCost() + " - Landlord action: " + def.getName());
+
+        // Compute effect scaling based on uses count (mild scaling: +5% per use, capped at +50%)
+        int usesCount = actionState.getUsesCount();
+        double effectScale = 1.0 + Math.min(0.5, usesCount * 0.05);
+
         double chance = computeActionChance(def);
         boolean success = s.random.nextDouble() < chance;
         LandlordActionEffectRange range = success ? def.getSuccessRange() : def.getFailureRange();
         int trafficRounds = success ? def.getSuccessTrafficRounds() : def.getFailureTrafficRounds();
-        double scale = computeOutcomeScale(def, success, s.landlordIdentityScore);
+        double baseScale = computeOutcomeScale(def, success, s.landlordIdentityScore);
+        double scale = baseScale * effectScale;
 
         int repDelta = rollScaled(range.repMin(), range.repMax(), scale);
         int moraleDelta = rollScaled(range.moraleMin(), range.moraleMax(), scale);
@@ -549,8 +563,12 @@ public class Simulation {
 
         updateLandlordIdentity(def.getCategory(), success);
 
-        actionState.setCooldownRemaining(def.getCooldownRounds());
+        // Apply scaled cooldown based on uses count (mild scaling: +10% per use, capped at +100%)
+        double cooldownScale = 1.0 + Math.min(1.0, usesCount * 0.1);
+        int scaledCooldown = (int) Math.ceil(def.getCooldownRounds() * cooldownScale);
+        actionState.setCooldownRemaining(scaledCooldown);
         actionState.setLastUsedRound(currentRoundIndex());
+        actionState.incrementUsesCount();
         s.lastLandlordActionRound = currentRoundIndex();
 
         String outcome = success ? "succeeded" : "fell flat";

@@ -6,6 +6,7 @@ public class LandlordActionDef {
     private final String description;
     private final double baseChance;
     private final int cooldownRounds;
+    private final int baseCost;
     private final LandlordActionEffectRange successRange;
     private final LandlordActionEffectRange failureRange;
     private final int successTrafficRounds;
@@ -18,6 +19,7 @@ public class LandlordActionDef {
                              String description,
                              double baseChance,
                              int cooldownRounds,
+                             int baseCost,
                              LandlordActionEffectRange successRange,
                              LandlordActionEffectRange failureRange,
                              int successTrafficRounds,
@@ -29,6 +31,7 @@ public class LandlordActionDef {
         this.description = description;
         this.baseChance = baseChance;
         this.cooldownRounds = cooldownRounds;
+        this.baseCost = baseCost;
         this.successRange = successRange;
         this.failureRange = failureRange;
         this.successTrafficRounds = successTrafficRounds;
@@ -61,6 +64,10 @@ public class LandlordActionDef {
 
     public int getCooldownRounds() {
         return cooldownRounds;
+    }
+
+    public int getBaseCost() {
+        return baseCost;
     }
 
     public LandlordActionEffectRange getSuccessRange() {

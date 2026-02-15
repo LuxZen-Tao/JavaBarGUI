@@ -2,10 +2,12 @@ public class LandlordActionState  implements java.io.Serializable {
     private static final long serialVersionUID = 1L;
     private int cooldownRemaining;
     private int lastUsedRound;
+    private int usesCount;
 
     public LandlordActionState() {
         this.cooldownRemaining = 0;
         this.lastUsedRound = -999;
+        this.usesCount = 0;
     }
 
     public int getCooldownRemaining() {
@@ -22,5 +24,17 @@ public class LandlordActionState  implements java.io.Serializable {
 
     public void setLastUsedRound(int lastUsedRound) {
         this.lastUsedRound = lastUsedRound;
+    }
+
+    public int getUsesCount() {
+        return usesCount;
+    }
+
+    public void setUsesCount(int usesCount) {
+        this.usesCount = usesCount;
+    }
+
+    public void incrementUsesCount() {
+        this.usesCount++;
     }
 }
