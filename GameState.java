@@ -669,6 +669,12 @@ public class GameState implements java.io.Serializable {
         return 0.0;
     }
 
+    /**
+     * Returns the absolute round index for task tracking and event scheduling.
+     * Uses BASE_CLOSING_ROUND (20) instead of getClosingRound() to maintain
+     * stable indexing across save/load cycles even when round cap upgrades
+     * like Late Night Licence change the actual closing round.
+     */
     public int currentRoundIndex() {
         return dayCounter * BASE_CLOSING_ROUND + roundInNight;
     }
@@ -776,8 +782,10 @@ public class GameState implements java.io.Serializable {
             return supplierCreditCapOverride;
         }
         double base = getSupplierTrustLevel().getCreditCap();
+        // Apply trust penalty (e.g., from late payments, defaults)
+        double trustMult = Math.max(0.6, 1.0 - (supplierTrustPenalty * 3.0));
         double levelMult = 1.0 + (0.08 * pubLevel);
-        return base * levelMult + legacy.supplierTradeCreditBonus;
+        return base * trustMult * levelMult + legacy.supplierTradeCreditBonus;
     }
 
     public int debtSpiralTierFromStreak() {

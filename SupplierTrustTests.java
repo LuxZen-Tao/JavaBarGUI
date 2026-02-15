@@ -87,8 +87,9 @@ public class SupplierTrustTests {
     private static void testCreditCapByTrustLevel() {
         GameState state = GameFactory.newGame();
 
-        // Test each trust level's cap
+        // Test each trust level's cap (with no penalties)
         state.creditScore = 400; // Very Poor
+        state.supplierTrustPenalty = 0.0;
         assert state.supplierCreditCap() == 1000.0 : "Very Poor cap should be 1000";
 
         state.creditScore = 500; // Poor
@@ -103,7 +104,14 @@ public class SupplierTrustTests {
         state.creditScore = 800; // Great
         assert state.supplierCreditCap() == 3000.0 : "Great cap should be 3000";
 
+        // Test that trust penalty affects cap
+        state.supplierTrustPenalty = 0.10; // 10% penalty
+        double expectedCap = 3000.0 * Math.max(0.6, 1.0 - (0.10 * 3.0)); // 3000 * 0.7 = 2100
+        assert Math.abs(state.supplierCreditCap() - expectedCap) < 1.0 
+            : "Cap with penalty should be reduced to " + expectedCap + ", got " + state.supplierCreditCap();
+
         // Test that cap override still works
+        state.supplierTrustPenalty = 0.0;
         state.supplierCreditCapOverride = 500.0;
         assert state.supplierCreditCap() == 500.0 : "Override should take precedence";
     }
