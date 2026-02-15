@@ -96,7 +96,9 @@ public class UpkeepCostTests {
         
         // Base maintenance is INN_MAINTENANCE_PER_ROOM per room booked
         // Without understaffing, multiplier is 1.0
-        double expectedMaintenance = roomsBooked * 3.9; // New value
+        // Note: Expected value is hardcoded to verify the exact implementation behavior
+        double expectedMaintenancePerRoom = 3.9; // Simulation.INN_MAINTENANCE_PER_ROOM (private constant)
+        double expectedMaintenance = roomsBooked * expectedMaintenancePerRoom;
         
         assert closeTo(state.innMaintenanceAccruedWeekly, expectedMaintenance)
             : "Inn maintenance should be accrued based on rooms booked. Expected: " 
@@ -133,7 +135,9 @@ public class UpkeepCostTests {
         int secondRoomsBooked = state.lastNightRoomsBooked;
         double secondRun = state.innMaintenanceAccruedWeekly;
         
-        double expectedTotal = (firstRoomsBooked + secondRoomsBooked) * 3.9; // New value
+        // Note: Expected value is hardcoded to verify the exact implementation behavior
+        double expectedMaintenancePerRoom = 3.9; // Simulation.INN_MAINTENANCE_PER_ROOM (private constant)
+        double expectedTotal = (firstRoomsBooked + secondRoomsBooked) * expectedMaintenancePerRoom;
         
         assert closeTo(secondRun, expectedTotal)
             : "Inn maintenance should accumulate correctly. Expected: " + expectedTotal 
@@ -189,8 +193,10 @@ public class UpkeepCostTests {
         sim.runInnNightly();
         
         int roomsBooked = state.lastNightRoomsBooked;
-        // With good staffing, multiplier is 1.0, so cost = rooms * 3.9
-        double expectedCost = roomsBooked * 3.9;
+        // With good staffing, multiplier is 1.0, so cost = rooms * maintenance rate
+        // Note: Expected value is hardcoded to verify the exact implementation behavior
+        double expectedMaintenancePerRoom = 3.9; // Simulation.INN_MAINTENANCE_PER_ROOM (private constant)
+        double expectedCost = roomsBooked * expectedMaintenancePerRoom;
         
         assert closeTo(state.innMaintenanceAccruedWeekly, expectedCost)
             : "Inn maintenance per room should be 3.9 (50% increase from 2.6). Expected: " 
