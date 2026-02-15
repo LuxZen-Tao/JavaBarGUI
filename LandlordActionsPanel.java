@@ -98,11 +98,14 @@ public class LandlordActionsPanel extends JPanel {
         meta.setOpaque(false);
         LandlordActionState actionState = state.landlordActionStates.get(def.getId());
         int cooldownRemaining = actionState == null ? 0 : actionState.getCooldownRemaining();
+        JLabel costLabel = new JLabel("Cost: GBP " + def.getBaseCost());
+        costLabel.setForeground(new Color(250, 200, 100));
         JLabel cooldown = new JLabel("Cooldown: " + cooldownRemaining + "r");
         cooldown.setForeground(new Color(180, 180, 180));
         double chance = sim.computeActionChance(def);
         JLabel chanceLabel = new JLabel("Chance: " + Math.round(chance * 100) + "%");
         chanceLabel.setForeground(new Color(180, 180, 180));
+        meta.add(costLabel);
         meta.add(cooldown);
         meta.add(chanceLabel);
 
