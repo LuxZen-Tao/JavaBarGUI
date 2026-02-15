@@ -2603,13 +2603,20 @@ public class Simulation {
         s.supplierWineCredit.clearLateFees();
         s.supplierFoodCredit.clearLateFees();
 
-        double raw = staff.wagesDueRaw();
-        double eff = upgrades.wageEfficiencyPct();
-        double wagesDue = staff.wagesDue();
+        StaffSystem.WageBreakdown wageBreakdown = staff.wageBreakdown();
+        double eff = wageBreakdown.wageEfficiencyPct();
+        double wagesDue = wageBreakdown.totalWagesDue();
+        if (wageBreakdown.managerDiscountPct() > 0.0001) {
+            double managerSaved = wageBreakdown.managerWagesRaw() - wageBreakdown.managerWagesDiscounted();
+            log.event(" Live-In Quarters: manager wages GBP " + String.format("%.2f", wageBreakdown.managerWagesRaw())
+                    + " -> GBP " + String.format("%.2f", wageBreakdown.managerWagesDiscounted())
+                    + " (saved GBP " + String.format("%.2f", managerSaved)
+                    + ", " + (int)Math.round(wageBreakdown.managerDiscountPct() * 100) + "%)");
+        }
         if (eff > 0.0001) {
-            double saved = raw - wagesDue;
-            log.event(" Wage efficiency: raw GBP " + String.format("%.2f", raw)
-                    + "  GBP " + String.format("%.2f", wagesDue)
+            double saved = wageBreakdown.subtotalBeforeWageEfficiency() - wagesDue;
+            log.event(" Wage efficiency: pre-efficiency GBP " + String.format("%.2f", wageBreakdown.subtotalBeforeWageEfficiency())
+                    + " -> GBP " + String.format("%.2f", wagesDue)
                     + " (saved GBP " + String.format("%.2f", saved)
                     + ", " + (int)Math.round(eff * 100) + "%)");
         }
@@ -4968,7 +4975,26 @@ public class Simulation {
                 .append(fmt2(totalDaily * daysElapsed)).append("\n");
         sb.append("  Rent accrued this week (actual): GBP ").append(fmt2(s.rentAccruedThisWeek)).append("\n");
 
-        sb.append("Last resolution: min ").append(s.metMinimumsLastWeek ? "MET" : "MISSED")
+        StaffSystem.WageBreakdown wageBreakdown = staff.wageBreakdown();
+        sb.append("\nWage breakdown:\n");
+        sb.append("  Non-manager wages: GBP ").append(fmt2(wageBreakdown.nonManagerWages())).append("\n");
+        sb.append("  Manager wages (raw): GBP ").append(fmt2(wageBreakdown.managerWagesRaw())).append("\n");
+        if (wageBreakdown.managerDiscountPct() > 0.0001) {
+            double managerSaved = wageBreakdown.managerWagesRaw() - wageBreakdown.managerWagesDiscounted();
+            sb.append("  Live-In Quarters discount (")
+                    .append((int)Math.round(wageBreakdown.managerDiscountPct() * 100))
+                    .append("%): -GBP ").append(fmt2(managerSaved)).append("\n");
+        }
+        sb.append("  Wages pre-efficiency: GBP ").append(fmt2(wageBreakdown.subtotalBeforeWageEfficiency())).append("\n");
+        if (wageBreakdown.wageEfficiencyPct() > 0.0001) {
+            double efficiencySaved = wageBreakdown.subtotalBeforeWageEfficiency() - wageBreakdown.totalWagesDue();
+            sb.append("  Wage efficiency discount (")
+                    .append((int)Math.round(wageBreakdown.wageEfficiencyPct() * 100))
+                    .append("%): -GBP ").append(fmt2(efficiencySaved)).append("\n");
+        }
+        sb.append("  Total wages due: GBP ").append(fmt2(wageBreakdown.totalWagesDue())).append("\n");
+
+        sb.append("\nLast resolution: min ").append(s.metMinimumsLastWeek ? "MET" : "MISSED")
                 .append(" | streak ").append(s.consecutiveWeeksUnpaidMin)
                 .append(" | tier ").append(s.debtSpiralTier)
                 .append(" | min due GBP ").append(fmt2(s.weeklyTotalMinDueLastResolution))

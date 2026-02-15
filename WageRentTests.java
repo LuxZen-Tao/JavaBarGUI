@@ -12,6 +12,7 @@ public class WageRentTests {
         testInnTierRentScaling();
         testCombinedRentStacking();
         testPaydayRentDueTracksDailyAccrual();
+        LiveInQuarters_ManagerWageDiscount();
         System.out.println("All WageRentTests passed.");
         System.exit(0);
     }
@@ -172,6 +173,44 @@ public class WageRentTests {
                 : "Rent accrual should equal effective daily rent × elapsed days.";
         assert closeTo(due.rent(), daily * 3.0)
                 : "Payday due rent should match accrued rent.";
+    }
+
+    private static void LiveInQuarters_ManagerWageDiscount() {
+        GameState baseline = GameFactory.newGame();
+        GameState withUpgrade = GameFactory.newGame();
+
+        Random r1 = new Random(19);
+        Random r2 = new Random(19);
+
+        baseline.fohStaff.add(StaffFactory.createStaff(baseline.nextStaffId++, "FOH", Staff.Type.EXPERIENCED, r1));
+        baseline.generalManagers.add(StaffFactory.createStaff(baseline.nextStaffId++, "GM", Staff.Type.MANAGER, r1));
+        baseline.generalManagers.add(StaffFactory.createStaff(baseline.nextStaffId++, "AM", Staff.Type.ASSISTANT_MANAGER, r1));
+
+        withUpgrade.fohStaff.add(StaffFactory.createStaff(withUpgrade.nextStaffId++, "FOH", Staff.Type.EXPERIENCED, r2));
+        withUpgrade.generalManagers.add(StaffFactory.createStaff(withUpgrade.nextStaffId++, "GM", Staff.Type.MANAGER, r2));
+        withUpgrade.generalManagers.add(StaffFactory.createStaff(withUpgrade.nextStaffId++, "AM", Staff.Type.ASSISTANT_MANAGER, r2));
+        withUpgrade.ownedUpgrades.add(PubUpgrade.LIVE_IN_QUARTERS);
+
+        StaffSystem baselineStaff = new StaffSystem(baseline, new EconomySystem(baseline, new UILogger(new JTextPane())), new UpgradeSystem(baseline));
+        StaffSystem upgradedStaff = new StaffSystem(withUpgrade, new EconomySystem(withUpgrade, new UILogger(new JTextPane())), new UpgradeSystem(withUpgrade));
+
+        for (int day = 0; day < 7; day++) {
+            baselineStaff.accrueDailyWages();
+            upgradedStaff.accrueDailyWages();
+        }
+
+        StaffSystem.WageBreakdown baseBreakdown = baselineStaff.wageBreakdown();
+        StaffSystem.WageBreakdown upgradedBreakdown = upgradedStaff.wageBreakdown();
+
+        assert closeTo(upgradedBreakdown.managerWagesDiscounted(), upgradedBreakdown.managerWagesRaw() * 0.85)
+                : "Live-In Quarters should reduce manager wage pool by exactly 15%.";
+        assert closeTo(baseBreakdown.nonManagerWages(), upgradedBreakdown.nonManagerWages())
+                : "Live-In Quarters must not change non-manager wages.";
+        double expectedTotal = baseBreakdown.nonManagerWages() + (baseBreakdown.managerWagesRaw() * 0.85);
+        assert closeTo(upgradedStaff.wagesDue(), expectedTotal)
+                : "Total wages should include full non-manager wages and discounted manager wages.";
+        assert closeTo(baseBreakdown.managerWagesRaw(), upgradedBreakdown.managerWagesRaw())
+                : "Upgrade should not alter raw manager accrual, only payable amount.";
     }
 
     private static boolean closeTo(double a, double b) {

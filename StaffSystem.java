@@ -8,6 +8,7 @@ public class StaffSystem {
     private static final double WORKLOAD_REFUND_SCALE = 0.60;
     private static final double WORKLOAD_CHAOS_SCALE = 7.5;
     private static final double WORKLOAD_INCIDENT_SCALE = 0.55;
+    private static final double LIVE_IN_QUARTERS_MANAGER_WAGE_MULT = 0.85;
 
     private final GameState s;
     private final EconomySystem eco;
@@ -38,6 +39,16 @@ public class StaffSystem {
             int effectiveCapacity,
             String serviceDriverLine,
             String stabilityDriverLine
+    ) {}
+
+    public record WageBreakdown(
+            double nonManagerWages,
+            double managerWagesRaw,
+            double managerWagesDiscounted,
+            double managerDiscountPct,
+            double subtotalBeforeWageEfficiency,
+            double wageEfficiencyPct,
+            double totalWagesDue
     ) {}
 
     public int baseServeCapacity() {
@@ -179,9 +190,24 @@ public class StaffSystem {
 
     /** Convenience alias (older code calls wagesDue()). */
     public double wagesDue() {
-        double raw = wagesDueRaw();
-        double eff = upgrades != null ? upgrades.wageEfficiencyPct() : 0.0;
-        return raw * (1.0 - Math.max(0.0, eff));
+        return wageBreakdown().totalWagesDue();
+    }
+
+    public WageBreakdown wageBreakdown() {
+        double nonManager = 0.0;
+        double managerRaw = 0.0;
+        for (Staff st : s.fohStaff) nonManager += st.getAccruedThisWeek();
+        for (Staff st : s.bohStaff) nonManager += st.getAccruedThisWeek();
+        for (Staff st : s.generalManagers) managerRaw += st.getAccruedThisWeek();
+
+        boolean liveInQuarters = s.ownedUpgrades.contains(PubUpgrade.LIVE_IN_QUARTERS);
+        double managerDiscountPct = liveInQuarters ? (1.0 - LIVE_IN_QUARTERS_MANAGER_WAGE_MULT) : 0.0;
+        double managerDiscounted = managerRaw * (liveInQuarters ? LIVE_IN_QUARTERS_MANAGER_WAGE_MULT : 1.0);
+        double subtotal = nonManager + managerDiscounted;
+
+        double wageEfficiencyPct = upgrades != null ? Math.max(0.0, upgrades.wageEfficiencyPct()) : 0.0;
+        double total = subtotal * (1.0 - wageEfficiencyPct);
+        return new WageBreakdown(nonManager, managerRaw, managerDiscounted, managerDiscountPct, subtotal, wageEfficiencyPct, total);
     }
 
     public void resetAccrual() {
