@@ -12,7 +12,7 @@ Implemented a dual-gate system for pub level progression that requires both mile
 ### 2. PubLevelSystem.java
 #### New Methods/Functions:
 - `weeksRequiredForLevel(int level)`: Returns minimum weeks required at each level
-  - Level 0: 2 weeks
+  - Level 0: 1 week (intro week)
   - Level 1: 3 weeks
   - Level 2: 4 weeks
   - Level 3: 5 weeks
@@ -39,7 +39,7 @@ Implemented a dual-gate system for pub level progression that requires both mile
 
 | Level | Milestones (Cumulative) | Weeks at Previous Level |
 |-------|------------------------|------------------------|
-| 0→1   | 2                      | 2 weeks                |
+| 0→1   | 2                      | 1 week (intro week)    |
 | 1→2   | 5                      | 3 weeks                |
 | 2→3   | 9                      | 4 weeks                |
 | 3→4   | 14                     | 5 weeks                |
