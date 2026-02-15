@@ -182,6 +182,7 @@ public class UpgradeSystem {
                     EXTENDED_BAR -> UpgradeCategory.THROUGHPUT;
             case STAFF_ROOM_I, STAFF_ROOM_II, STAFF_ROOM_III,
                     LEADERSHIP_PROGRAM_I, LEADERSHIP_PROGRAM_II,
+                    LIVE_IN_QUARTERS,
                     BETTER_GLASSWARE_I, BETTER_GLASSWARE_II, BETTER_GLASSWARE_III -> UpgradeCategory.FINANCE;
             default -> UpgradeCategory.IDENTITY;
         };
@@ -209,6 +210,7 @@ public class UpgradeSystem {
         append(sb, up.getRefundRiskReductionPct() > 0, "-" + pct(up.getRefundRiskReductionPct()) + " refund risk");
         append(sb, up.getStaffMisconductReductionPct() > 0, "-" + pct(up.getStaffMisconductReductionPct()) + " misconduct risk");
         append(sb, up.getWageEfficiencyPct() > 0, "-" + pct(up.getWageEfficiencyPct()) + " wages");
+        append(sb, up == PubUpgrade.LIVE_IN_QUARTERS, "-15% manager wages");
         append(sb, up.getTipBonusPct() > 0, "+" + pct(up.getTipBonusPct()) + " tips");
         append(sb, up.getEventDamageReductionPct() > 0, "-" + pct(up.getEventDamageReductionPct()) + " event loss severity");
         append(sb, up.getRiskReductionPct() > 0, "-" + pct(up.getRiskReductionPct()) + " chaos risk");

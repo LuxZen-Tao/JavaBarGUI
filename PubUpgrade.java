@@ -175,6 +175,10 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
             0.00, 0.00, 0.03, 0.00, 0.00, 0.00),
 
+    LIVE_IN_QUARTERS("Live-In Quarters", 460, 0.00, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
     // QoL & risk
     BETTER_GLASSWARE_I("Better Glassware I", 140, 0.00, 1, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
