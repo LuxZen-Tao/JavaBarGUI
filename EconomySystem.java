@@ -106,7 +106,7 @@ public class EconomySystem {
 
     /**
      * Cash-only payment method for security purchases.
-     * Bouncers don't accept credit - cash only.
+     * Security purchases (base security upgrades, bouncer hires) require cash - credit not accepted.
      * @return true if payment succeeded (sufficient cash), false otherwise
      */
     public boolean tryPayCashOnly(double amount, TransactionType type, String description, CostTag tag) {
