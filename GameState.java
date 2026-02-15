@@ -447,6 +447,7 @@ public class GameState implements java.io.Serializable {
     // night flags
     public boolean happyHourBacklashShown = false;
     public boolean happyHourCheatRepHitThisRound = false;
+    public boolean strikeRolledThisRound = false;
     public boolean overpricingRobberyPopupShown = false;
     public int foodDisappointmentThisRound = 0;
     public boolean foodDisappointmentPopupShown = false;
