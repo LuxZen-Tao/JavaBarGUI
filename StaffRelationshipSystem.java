@@ -308,12 +308,12 @@ public class StaffRelationshipSystem {
         String name2 = staff2.getName();
 
         return switch (rel.getState()) {
+            case NEUTRAL -> null;
             case WORKS_WELL -> name1 + " and " + name2 + " working like a well-oiled machine.";
             case DISLIKES -> "Tension between " + name1 + " and " + name2 + " tonight.";
             case DATING -> name1 + " and " + name2 + " seem extra cheerful tonight.";
             case BREAKUP -> name1 + " and " + name2 + " avoiding each other.";
             case MARRIED -> name1 + " and " + name2 + " keeping it professional.";
-            default -> null;
         };
     }
 }

@@ -321,7 +321,9 @@ public class ObservationEngine {
                 s.lastMarshallObservationDay = s.dayCounter;
                 yield pick(MARSHALL_LINES, s);
             }
-            case STAFF_RELATIONSHIP -> s.staffObservationLine != null ? s.staffObservationLine : pick(STAFF_RELATIONSHIP_LINES, s);
+            case STAFF_RELATIONSHIP -> (s.staffObservationLine != null && !s.staffObservationLine.isBlank()) 
+                ? s.staffObservationLine 
+                : pick(STAFF_RELATIONSHIP_LINES, s);
             case VIBE -> pick(VIBE_LINES, s);
         };
         return formatWithName(pickObservationName(s), line);
