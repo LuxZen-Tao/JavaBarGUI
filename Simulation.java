@@ -1451,8 +1451,9 @@ public class Simulation {
 
     int earlyClosePenaltyForRemaining(int roundsRemaining) {
         if (Math.max(0, roundsRemaining) == 0) return 0;
-        // Reputation is integer-backed, so early close uses a consistent rounded mapping.
-        return (int) Math.round(EARLY_CLOSE_REP_PENALTY);
+        // Reputation penalty is rounds remaining * 2.5, rounded up in magnitude (away from zero)
+        double penalty = roundsRemaining * EARLY_CLOSE_REP_PENALTY;
+        return (int) Math.floor(penalty);
     }
 
     void applyChaosClassificationForTest(boolean badRound) {
