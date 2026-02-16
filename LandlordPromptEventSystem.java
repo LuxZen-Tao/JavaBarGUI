@@ -120,7 +120,7 @@ public class LandlordPromptEventSystem {
         // Apply morale
         if (effects.getMoraleDelta() != 0) {
             if (hasEffects) effectSummary.append(", ");
-            s.morale = Math.max(0, Math.min(100, s.morale + effects.getMoraleDelta()));
+            s.teamMorale = Math.max(0.0, Math.min(100.0, s.teamMorale + effects.getMoraleDelta()));
             effectSummary.append("Morale ");
             if (effects.getMoraleDelta() > 0) {
                 effectSummary.append("+");
