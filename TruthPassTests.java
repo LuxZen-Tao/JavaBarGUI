@@ -18,8 +18,9 @@ public class TruthPassTests {
     private static void testEarlyClosePenaltyFormula() {
         GameState state = GameFactory.newGame();
         Simulation sim = newSimulation(state);
-        assert sim.earlyClosePenaltyForRemaining(20) == -3 : "R=20 should yield rounded -3 rep.";
-        assert sim.earlyClosePenaltyForRemaining(5) == -3 : "R=5 should yield rounded -3 rep.";
+        assert sim.earlyClosePenaltyForRemaining(20) == -50 : "R=20 should yield -50 rep (20 * 2.5).";
+        assert sim.earlyClosePenaltyForRemaining(10) == -25 : "R=10 should yield -25 rep (10 * 2.5).";
+        assert sim.earlyClosePenaltyForRemaining(5) == -13 : "R=5 should yield -13 rep (5 * 2.5 = -12.5, rounded up).";
         assert sim.earlyClosePenaltyForRemaining(0) == 0 : "R=0 should yield 0 rep.";
     }
 
