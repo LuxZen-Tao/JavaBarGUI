@@ -44,8 +44,8 @@ public class LandlordPromptEventSystem {
         // Roll for spawn
         if (random.nextDouble() < chance) {
             // Select random event
-            int eventIndex = random.nextInt(6);
             LandlordPromptEventId[] allIds = LandlordPromptEventId.values();
+            int eventIndex = random.nextInt(allIds.length);
             return LandlordPromptEventCatalog.getById(allIds[eventIndex]);
         }
 
@@ -62,7 +62,7 @@ public class LandlordPromptEventSystem {
         }
 
         // Cannot occur if event occurred within last 2 nights
-        if (s.nightCount - s.lastLandlordPromptEventNight <= COOLDOWN_NIGHTS) {
+        if (s.nightCount - s.lastLandlordPromptEventNight < COOLDOWN_NIGHTS) {
             return false;
         }
 

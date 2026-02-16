@@ -108,8 +108,8 @@ public class LandlordPromptEventDialog {
             });
 
             cancelButton.addActionListener(e -> {
-                // Random choice if cancelled
-                resultHolder[0] = new Result(options[0], true); // Default to A if cancelled
+                // Random choice if cancelled - actual randomization happens in WineBarGUI
+                resultHolder[0] = new Result(options[0], true); // Flag as cancelled for random selection
                 dialog.dispose();
                 latch.countDown();
             });

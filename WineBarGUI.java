@@ -1445,7 +1445,7 @@ public class WineBarGUI {
         
         // If cancelled, pick random option
         LandlordPromptOption choice = result.cancelled ? 
-                LandlordPromptOption.values()[state.random.nextInt(3)] : result.choice;
+                LandlordPromptOption.values()[state.random.nextInt(LandlordPromptOption.values().length)] : result.choice;
 
         // Roll for result type (GOOD/NEUTRAL/BAD)
         LandlordPromptResultType resultType = sim.rollLandlordPromptResult();
