@@ -124,8 +124,8 @@ public class PunterSystem {
             return;
         }
 
-        if (p.getWallet() < 3.0) {
-            log.neg("  - Wallet < 3. Leaves early.");
+        if (p.getWallet() < 1.0) {
+            log.neg("  - walled has <£1. Leaves early in a huff.");
             eco.applyRep(-1, "Broke punter leaves");
             s.punterLeftBecauseBroke++;
             p.leaveBar();
