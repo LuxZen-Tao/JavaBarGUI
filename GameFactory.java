@@ -5,6 +5,8 @@ public class GameFactory {
 
     public static GameState newGame() {
         List<Wine> supplier = List.of(
+                new Wine("Spanish Box Wine", 2026, "Thailand", 0.25, 1.0,
+                        WineCategory.CHEAP_HOUSE, 1.09, Punter.Tier.LOWLIFE, 1),
                 new Wine("Crisp & Fruity Blanco", 2024, "England", 0.9, 3.0,
                         WineCategory.CHEAP_HOUSE, 1.30, Punter.Tier.LOWLIFE, 2),
                 new Wine("House White", 2021, "Italy", 3.00, 7.00,
@@ -24,19 +26,26 @@ public class GameFactory {
                 new Wine("Chateau Margaux", 2015, "Bordeaux", 45.00, 120.00,
                         WineCategory.PREMIUM_BOTTLE, 0.65, Punter.Tier.BIG_SPENDER, 5),
                 new Wine("Screaming Eagle", 2012, "Napa Valley", 95.00, 250.00,
-                        WineCategory.PREMIUM_BOTTLE, 0.55, Punter.Tier.BIG_SPENDER, 5)
+                        WineCategory.PREMIUM_BOTTLE, 0.55, Punter.Tier.BIG_SPENDER, 5),
+                new Wine("Domaine de la Romanee-Conti", 2014, "Burgundy", 120.00, 300.00,
+                        WineCategory.PREMIUM_BOTTLE, 0.50, Punter.Tier.BIG_SPENDER, 5)
         );
 
         GameState s = new GameState(supplier);
         s.foodSupplier = List.of(
+                new Food("Bar Nuts", 0.20, 1.50, 1, FoodCategory.CHEAP_BAR_FOOD, 1.25, 1),
                 new Food("Pub Chips", 1.50, 4.50, 1, FoodCategory.CHEAP_BAR_FOOD, 1.25, 2),
                 new Food("Loaded Nachos", 2.10, 6.50, 1, FoodCategory.CHEAP_BAR_FOOD, 1.20, 2),
+                new Food("Ham, Egg & Chips", 2.75, 8.00, 1, FoodCategory.CHEAP_BAR_FOOD, 1.25, 1),
                 new Food("Fish & Chips", 3.50, 9.50, 2, FoodCategory.MID_QUALITY_MEAL, 0.95, 3),
-                new Food("Sunday Roast", 4.00, 12.00, 2, FoodCategory.MID_QUALITY_MEAL, 0.90, 3),
+                new Food("Pie & Mash", 4.00, 9.50, 2, FoodCategory.MID_QUALITY_MEAL, 0.95, 3),
+                new Food("Sunday Roast", 4.50, 12.00, 2, FoodCategory.MID_QUALITY_MEAL, 0.90, 3),
                 new Food("Steak Pie", 4.50, 13.00, 3, FoodCategory.MID_QUALITY_MEAL, 0.90, 3),
                 new Food("Veggie Curry", 3.20, 10.00, 2, FoodCategory.MID_QUALITY_MEAL, 0.95, 3),
                 new Food("Truffle Mac", 5.80, 16.00, 3, FoodCategory.PREMIUM_DISH, 0.70, 4),
-                new Food("Charred Lamb Plate", 7.20, 19.50, 4, FoodCategory.PREMIUM_DISH, 0.65, 4)
+                new Food("Charred Lamb Plate", 7.20, 19.50, 4, FoodCategory.PREMIUM_DISH, 0.65, 4),
+                new Food("Beef Wellington", 8.50, 21.00, 4, FoodCategory.PREMIUM_DISH, 0.60, 4),
+                new Food("Lobster Roll", 10.50, 25.00, 4, FoodCategory.PREMIUM_DISH, 0.60, 4)
         );
 
         // starting rack
@@ -48,14 +57,14 @@ public class GameFactory {
 
         // starting config
         s.cash = 100.00;
-        s.reputation = 10;
+        s.reputation = 5;
         s.baseStaffCap = 4;
         s.fohStaffCap = 4;
         s.baseManagerCap = 1;
         s.managerCap = 1;
         s.baseKitchenChefCap = 2;
         s.kitchenChefCap = 2;
-        s.priceMultiplier = 1.10;
+        s.priceMultiplier = 1.00;
 
         // mark report start (simple + robust)
         s.reportStartCash = s.cash;

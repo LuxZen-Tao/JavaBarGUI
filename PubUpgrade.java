@@ -19,11 +19,11 @@ public enum PubUpgrade {
 
     // Kitchen
     KITCHEN_SETUP("Kitchen Base", 450, 0.02, 0, 0,
-            0, 0, 10, 0, 0, 0, 0, 0, 1, 0,
+            0, 0, 10, 5, 0, 0, 0, 0, 1, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     KITCHEN("Kitchen Upgrade I", 600, 0.10, 1, 2,
-            2, 0, 10, 0, 1, 0, 0, 0, 0, 1,
+            2, 0, 10, 10, 1, 0, 0, 0, 0, 1,
             0.00, 0.00, 0.03, 0.00, 0.00, 0.00, 10),
 
     KITCHEN_EQUIPMENT("Kitchen Upgrade III", 360, 0.00, 0, 0,
@@ -47,19 +47,19 @@ public enum PubUpgrade {
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     FRIDGE_EXTENSION_1("Fridge Extension I", 220, 0.00, 0, 0,
-            0, 0, 0, 10, 0, 0, 0, 0, 0, 0,
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
-
-    FRIDGE_EXTENSION_2("Fridge Extension II", 360, 0.00, 0, 0,
             0, 0, 0, 15, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    FRIDGE_EXTENSION_3("Fridge Extension III", 520, 0.00, 0, 0,
+    FRIDGE_EXTENSION_2("Fridge Extension II", 360, 0.00, 0, 0,
             0, 0, 0, 20, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
+    FRIDGE_EXTENSION_3("Fridge Extension III", 520, 0.00, 0, 0,
+            0, 0, 0, 25, 0, 0, 0, 0, 0, 0,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+
     NEW_KITCHEN_PLAN("Kitchen Upgrade II", 480, 0.00, 0, 0,
-            0, 0, 0, 10, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 10, 0, 0, 0, 0, 0, 2,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 10),
 
     CHEF_TRAINING("Chef Training", 340, 0.00, 0, 0,
@@ -67,7 +67,7 @@ public enum PubUpgrade {
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
     // Infrastructure
-    EXTENDED_BAR("Extended Bar", 50, 0.06, 0, 1,
+    EXTENDED_BAR("Extended Bar", 500, 0.06, 0, 1,
             6, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
@@ -270,7 +270,7 @@ public enum PubUpgrade {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
 
-    LATE_NIGHT_LICENCE("Late Night Licence", 850, 0.00, 0, 0,
+    LATE_NIGHT_LICENCE("Late Night Licence", 1000, 0.03, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0, null, 0, 5);
             
