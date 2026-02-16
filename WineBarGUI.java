@@ -1332,8 +1332,14 @@ public class WineBarGUI {
 
         nextRoundBtn.addActionListener(e -> {
             if (!state.nightOpen) return;
+            boolean wasOpen = state.nightOpen;
             sim.playRound();
             refreshAll();
+
+            // Check if night just closed and trigger landlord prompt event if needed
+            if (wasOpen && !state.nightOpen) {
+                checkAndTriggerLandlordPromptEvent();
+            }
 
             if (!state.nightOpen) {
                 nextRoundBtn.setEnabled(false);
@@ -1347,6 +1353,10 @@ public class WineBarGUI {
             if (!state.nightOpen) return;
             sim.closeNight("Closed early by landlord.");
             refreshAll();
+            
+            // Check for landlord prompt event after manual close too
+            checkAndTriggerLandlordPromptEvent();
+            
             nextRoundBtn.setEnabled(false);
             closeBtn.setEnabled(false);
 
@@ -1415,6 +1425,96 @@ public class WineBarGUI {
         autoBtn.setSelected(false);
         if (autoTimer != null) { autoTimer.stop(); autoTimer = null; }
         if (reason != null && !reason.isBlank()) log.neg(reason);
+    }
+
+    // -----------------------
+    // Landlord Prompt Events
+    // -----------------------
+
+    private void checkAndTriggerLandlordPromptEvent() {
+        LandlordPromptEventDef event = sim.checkLandlordPromptEvent();
+        if (event == null) {
+            return; // No event triggered
+        }
+
+        // Record that event occurred
+        sim.recordLandlordPromptEventOccurred();
+
+        // Show the event dialog and get player's choice
+        LandlordPromptEventDialog.Result result = LandlordPromptEventDialog.showEventDialog(frame, event);
+        
+        // If cancelled, pick random option
+        LandlordPromptOption choice = result.cancelled ? 
+                LandlordPromptOption.values()[state.random.nextInt(3)] : result.choice;
+
+        // Roll for result type (GOOD/NEUTRAL/BAD)
+        LandlordPromptResultType resultType = sim.rollLandlordPromptResult();
+
+        // Get the outcome
+        LandlordPromptOutcome outcome = event.getOutcome(choice, resultType);
+        String narrativeText = outcome.getRandomText(state.random);
+
+        // Apply effects
+        sim.applyLandlordPromptEventEffects(outcome.getEffectPackage());
+
+        // Build effects summary for display
+        String effectsSummary = buildEffectsSummary(outcome.getEffectPackage());
+
+        // Show outcome dialog
+        LandlordPromptEventDialog.showOutcomeDialog(frame, event, choice, resultType, narrativeText, effectsSummary);
+
+        // Refresh UI after effects applied
+        refreshAll();
+    }
+
+    private String buildEffectsSummary(LandlordPromptEffectPackage effects) {
+        StringBuilder sb = new StringBuilder();
+        boolean hasEffects = false;
+
+        if (effects.getCashDelta() != 0) {
+            if (effects.getCashDelta() > 0) {
+                sb.append("+£");
+            } else {
+                sb.append("£");
+            }
+            sb.append(effects.getCashDelta());
+            hasEffects = true;
+        }
+
+        if (effects.getReputationDelta() != 0) {
+            if (hasEffects) sb.append(", ");
+            sb.append("Rep ");
+            if (effects.getReputationDelta() > 0) sb.append("+");
+            sb.append(effects.getReputationDelta());
+            hasEffects = true;
+        }
+
+        if (effects.getChaosDelta() != 0.0) {
+            if (hasEffects) sb.append(", ");
+            sb.append("Chaos ");
+            if (effects.getChaosDelta() > 0) sb.append("+");
+            sb.append(String.format("%.1f", effects.getChaosDelta()));
+            hasEffects = true;
+        }
+
+        if (effects.getMoraleDelta() != 0) {
+            if (hasEffects) sb.append(", ");
+            sb.append("Morale ");
+            if (effects.getMoraleDelta() > 0) sb.append("+");
+            sb.append(effects.getMoraleDelta());
+            hasEffects = true;
+        }
+
+        if (effects.getServiceEfficiencyDelta() != 0) {
+            if (hasEffects) sb.append(", ");
+            sb.append("Service ");
+            if (effects.getServiceEfficiencyDelta() > 0) sb.append("+");
+            sb.append(effects.getServiceEfficiencyDelta());
+            sb.append(" (next shift)");
+            hasEffects = true;
+        }
+
+        return hasEffects ? sb.toString() : "No effects";
     }
 
     // -----------------------

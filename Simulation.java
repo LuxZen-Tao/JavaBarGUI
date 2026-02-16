@@ -169,6 +169,7 @@ public class Simulation {
     private final MusicSystem musicSystem;
     private final AudioManager audioManager;
     private final VIPSystem vipSystem;
+    private final LandlordPromptEventSystem landlordPromptEvents;
     private java.util.function.IntConsumer weekStartHook;
 
     public Simulation(GameState state, UILogger log) {
@@ -196,6 +197,7 @@ public class Simulation {
         this.musicSystem = new MusicSystem(s);
         this.audioManager = new AudioManager();
         this.vipSystem = new VIPSystem();
+        this.landlordPromptEvents = new LandlordPromptEventSystem(s);
 
         markReportStartIfMissing();
         s.creditScoreAtWeekStart = s.creditScore;
@@ -1934,6 +1936,7 @@ public class Simulation {
         if (s.dayIndex == 0) {
             endOfWeek();
             s.weekCount++;
+            landlordPromptEvents.resetWeeklyCounters(); // Reset landlord prompt event counters
             recomputeActivityAvailability();
             if (weekStartHook != null) weekStartHook.accept(s.weekCount);
             milestones.onNewWeekStart();
@@ -6292,5 +6295,34 @@ public class Simulation {
 
     private static double clamp(double v, double lo, double hi) {
         return Math.max(lo, Math.min(hi, v));
+    }
+
+    /**
+     * Check if a landlord prompt event should spawn and return the event definition.
+     * Returns null if no event should spawn.
+     */
+    public LandlordPromptEventDef checkLandlordPromptEvent() {
+        return landlordPromptEvents.maybeSpawnEvent();
+    }
+
+    /**
+     * Apply the effects of a landlord prompt event resolution.
+     */
+    public void applyLandlordPromptEventEffects(LandlordPromptEffectPackage effects) {
+        landlordPromptEvents.applyEffects(effects, eco, log);
+    }
+
+    /**
+     * Record that a landlord prompt event occurred.
+     */
+    public void recordLandlordPromptEventOccurred() {
+        landlordPromptEvents.recordEventOccurred();
+    }
+
+    /**
+     * Roll for the result type (GOOD/NEUTRAL/BAD) for a landlord prompt event.
+     */
+    public LandlordPromptResultType rollLandlordPromptResult() {
+        return landlordPromptEvents.rollResultType();
     }
 }

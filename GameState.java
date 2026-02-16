@@ -381,6 +381,12 @@ public class GameState implements java.io.Serializable {
     public double landlordIdentityScore = 0.0;
     public double landlordTrafficBonusPct = 0.0;
     public int landlordTrafficBonusRounds = 0;
+    
+    // Landlord Prompt Events
+    public int lastLandlordPromptEventNight = -999;
+    public int landlordPromptEventsThisWeek = 0;
+    public int landlordPromptEventEfficiencyModifier = 0; // Temporary service efficiency modifier
+    
     public SecurityPolicy securityPolicy = SecurityPolicy.BALANCED_DOOR;
     public SecurityTask activeSecurityTask = null;
     public int activeSecurityTaskRound = -999;
