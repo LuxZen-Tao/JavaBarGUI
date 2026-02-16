@@ -3967,7 +3967,10 @@ public class Simulation {
                 + "\nSecurity task traffic: x" + fmt2(securityTaskTrafficMultiplier())
                 + "\nActivity traffic: x" + fmt2(activities.trafficMultiplier())
                 + "\nLegacy traffic: x" + fmt2(1.0 + s.legacy.trafficMultiplierBonus)
-                + "\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
+                + "\nRival traffic: x" + fmt2(s.rivalDemandTrafficMultiplier)
+                + "\n\nSeasonal Effects:\n" + buildSeasonalEffectsText()
+                + "\n\nVIP Status:\n" + buildVipStatusText()
+                + "\n\nPunters in bar: " + s.nightPunters.size() + "/" + s.maxBarOccupancy
                 + "\nNatural departures (night): " + s.nightNaturalDepartures
                 + "\nTier mix: " + punterTierBreakdown();
 
@@ -5979,6 +5982,55 @@ public class Simulation {
             }
         }
         return "Lowlife " + lowlife + " | Regular " + regular + " | Decent " + decent + " | Big " + big;
+    }
+
+    private String buildSeasonalEffectsText() {
+        if (!FeatureFlags.FEATURE_SEASONS) {
+            return "Seasons disabled.";
+        }
+        List<SeasonTag> activeTags = new SeasonCalendar(s).getActiveSeasonTags();
+        if (activeTags.isEmpty()) {
+            return "No active seasonal events.";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (SeasonTag tag : activeTags) {
+            sb.append("- ").append(tag.name().replace('_', ' ')).append("\n");
+            switch (tag) {
+                case TOURIST_WAVE -> sb.append("  Big Spenders +8%, Decent +5%, Lowlife -6%\n");
+                case EXAM_SEASON -> sb.append("  Decent +8%, Regular +4%, Big Spenders -4%\n");
+                case WINTER_SLUMP -> sb.append("  Big Spenders -8%, Decent -4%, Lowlife +8%\n");
+                case DERBY_WEEK -> sb.append("  Regular +5%, Lowlife +12%, Big Spenders -5%\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    private String buildVipStatusText() {
+        if (!FeatureFlags.FEATURE_VIPS) {
+            return "VIP system disabled.";
+        }
+        if (vipSystem.roster().isEmpty()) {
+            return "No VIP regulars yet.";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("VIP Regulars: ").append(vipSystem.roster().size()).append("\n");
+        for (VIPRegular vip : vipSystem.roster()) {
+            sb.append("- ").append(vip.getName())
+                    .append(" (").append(vip.getArchetype().name().replace('_', ' ')).append(")")
+                    .append(" - Loyalty: ").append(vip.getLoyalty())
+                    .append(" (").append(vip.getArcStage().name().replace('_', ' ')).append(")")
+                    .append("\n");
+        }
+        if (s.vipObservationSnippet != null && !s.vipObservationSnippet.isEmpty()) {
+            sb.append("\nLast VIP event: ").append(s.vipObservationSnippet).append("\n");
+        }
+        if (s.vipDemandBoostMultiplier != 1.0) {
+            sb.append("VIP traffic boost: x").append(fmt2(s.vipDemandBoostMultiplier)).append("\n");
+        }
+        if (s.vipRumorShield > 0) {
+            sb.append("VIP rumor shield: ").append(fmt2(s.vipRumorShield)).append("\n");
+        }
+        return sb.toString();
     }
 
     private double avgPriceMultiplier() {
