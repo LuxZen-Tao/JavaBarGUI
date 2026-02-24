@@ -1,0 +1,9 @@
+ext {
+    gdxVersion = '1.13.1'
+}
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx:${gdxVersion}"
+}
+
+sourceSets.main.java.srcDirs = ['src/main/java']
