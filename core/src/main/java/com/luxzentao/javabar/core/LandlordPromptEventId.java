@@ -1,0 +1,10 @@
+package com.luxzentao.javabar.core;
+
+public enum LandlordPromptEventId {
+    LOCAL_JOURNALIST,
+    STAFF_DISPUTE,
+    CORPORATE_BOOKING,
+    HEALTH_INSPECTOR,
+    REGULAR_COMPLAINT,
+    STAFF_REFERRAL
+}
