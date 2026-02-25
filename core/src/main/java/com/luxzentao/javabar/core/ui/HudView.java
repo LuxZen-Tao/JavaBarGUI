@@ -34,12 +34,49 @@ public class HudView implements SimListener {
     private final Label inventoryBody;
 
     private final MissionControlModal missionControlModal;
+
+    // Modals wired to bridge hooks
+    private final SupplierWindow supplierWindow;
+    private final FoodSupplierWindow foodSupplierWindow;
+    private final BankWindow bankWindow;
+    private final LoanSharkWindow loanSharkWindow;
+    private final StaffWindow staffWindow;
+    private final InnWindow innWindow;
+    private final UpgradesWindow upgradesWindow;
+    private final SecurityWindow securityWindow;
+    private final ActivitiesWindow activitiesWindow;
+    private final ActionsWindow actionsWindow;
+
     public HudView(Stage stage, Skin skin, Simulation sim, GameState state, SimEventBus eventBus) {
         this.stage = stage;
         this.eventBus = eventBus;
         this.toastManager = new ToastManager(stage, skin);
         this.bridge = new HudSimBridge(sim, state, eventBus);
         this.missionControlModal = new MissionControlModal(skin, bridge);
+
+        // Create windows
+        supplierWindow     = new SupplierWindow(skin, sim, state, eventBus);
+        foodSupplierWindow = new FoodSupplierWindow(skin, sim, state, eventBus);
+        bankWindow         = new BankWindow(skin, sim, state, eventBus);
+        loanSharkWindow    = new LoanSharkWindow(skin, sim, state, eventBus);
+        staffWindow        = new StaffWindow(skin, sim, state, eventBus);
+        innWindow          = new InnWindow(skin, sim, state, eventBus);
+        upgradesWindow     = new UpgradesWindow(skin, sim, state, eventBus);
+        securityWindow     = new SecurityWindow(skin, sim, state, eventBus);
+        activitiesWindow   = new ActivitiesWindow(skin, sim, state, eventBus);
+        actionsWindow      = new ActionsWindow(skin, sim, state, eventBus);
+
+        // Wire hooks
+        bridge.setSupplierHook(()      -> supplierWindow.show(stage));
+        bridge.setFoodSupplierHook(()  -> foodSupplierWindow.show(stage));
+        bridge.setBankHook(()          -> bankWindow.show(stage));
+        bridge.setLoanSharkHook(()     -> loanSharkWindow.show(stage));
+        bridge.setStaffHook(()         -> staffWindow.show(stage));
+        bridge.setInnHook(()           -> innWindow.show(stage));
+        bridge.setUpgradesHook(()      -> upgradesWindow.show(stage));
+        bridge.setSecurityHook(()      -> securityWindow.show(stage));
+        bridge.setActivitiesHook(()    -> activitiesWindow.show(stage));
+        bridge.setActionsHook(()       -> actionsWindow.show(stage));
 
         Table root = new Table(skin);
         root.setFillParent(true);

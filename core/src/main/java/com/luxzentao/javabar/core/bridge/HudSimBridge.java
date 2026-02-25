@@ -13,11 +13,33 @@ public class HudSimBridge {
     private final GameState state;
     private final SimEventBus eventBus;
 
+    private Runnable supplierHook;
+    private Runnable foodSupplierHook;
+    private Runnable bankHook;
+    private Runnable loanSharkHook;
+    private Runnable staffHook;
+    private Runnable innHook;
+    private Runnable upgradesHook;
+    private Runnable securityHook;
+    private Runnable activitiesHook;
+    private Runnable actionsHook;
+
     public HudSimBridge(Simulation sim, GameState state, SimEventBus eventBus) {
         this.sim = sim;
         this.state = state;
         this.eventBus = eventBus;
     }
+
+    public void setSupplierHook(Runnable r)      { this.supplierHook = r; }
+    public void setFoodSupplierHook(Runnable r)  { this.foodSupplierHook = r; }
+    public void setBankHook(Runnable r)           { this.bankHook = r; }
+    public void setLoanSharkHook(Runnable r)      { this.loanSharkHook = r; }
+    public void setStaffHook(Runnable r)          { this.staffHook = r; }
+    public void setInnHook(Runnable r)            { this.innHook = r; }
+    public void setUpgradesHook(Runnable r)       { this.upgradesHook = r; }
+    public void setSecurityHook(Runnable r)       { this.securityHook = r; }
+    public void setActivitiesHook(Runnable r)     { this.activitiesHook = r; }
+    public void setActionsHook(Runnable r)        { this.actionsHook = r; }
 
     public MetricsSnapshot metrics() { return sim.buildMetricsSnapshot(); }
 
@@ -124,16 +146,19 @@ public class HudSimBridge {
     public void commandSetPriceMultiplier(double multiplier) { sim.setPriceMultiplier(multiplier); }
 
     public void commandSupplier() {
+        if (supplierHook != null) { supplierHook.run(); return; }
         if (!state.supplier.isEmpty()) sim.buyFromSupplier(state.supplier.get(0), 1);
         else eventBus.fireLog("[TODO] Supplier purchase UI not available yet.");
     }
 
     public void commandFoodSupplier() {
+        if (foodSupplierHook != null) { foodSupplierHook.run(); return; }
         if (!state.foodSupplier.isEmpty()) sim.buyFoodFromSupplier(state.foodSupplier.get(0), 1);
         else eventBus.fireLog("[TODO] Food supplier purchase UI not available yet.");
     }
 
     public void commandPayDebt() {
+        if (bankHook != null) { bankHook.run(); return; }
         if (state.creditLines.getOpenLines().isEmpty()) {
             eventBus.fireLog("[TODO] No bank credit line to repay.");
             return;
@@ -142,16 +167,17 @@ public class HudSimBridge {
     }
 
     public void commandLoanShark() {
+        if (loanSharkHook != null) { loanSharkHook.run(); return; }
         if (state.loanShark.isOpen()) eventBus.fireLog("[TODO] Loan shark repayment flow not yet in HUD.");
         else sim.openSharkLine();
     }
 
-    public void commandStaff() { eventBus.fireLog("[TODO] Staff roster modal hook pending."); }
-    public void commandInn() { eventBus.fireLog("[TODO] Inn management modal hook pending."); }
-    public void commandUpgrades() { eventBus.fireLog("[TODO] Upgrade browser modal hook pending."); }
-    public void commandSecurity() { sim.setSecurityPolicy(SecurityPolicy.STRICT_DOOR); }
-    public void commandActivities() { eventBus.fireLog("[TODO] Activities picker modal hook pending."); }
-    public void commandActions() { eventBus.fireLog("[TODO] Landlord actions modal hook pending."); }
+    public void commandStaff()      { if (staffHook      != null) staffHook.run();      else eventBus.fireLog("[TODO] Staff roster modal hook pending."); }
+    public void commandInn()        { if (innHook        != null) innHook.run();        else eventBus.fireLog("[TODO] Inn management modal hook pending."); }
+    public void commandUpgrades()   { if (upgradesHook   != null) upgradesHook.run();   else eventBus.fireLog("[TODO] Upgrade browser modal hook pending."); }
+    public void commandSecurity()   { if (securityHook   != null) securityHook.run();   else sim.setSecurityPolicy(SecurityPolicy.STRICT_DOOR); }
+    public void commandActivities() { if (activitiesHook != null) activitiesHook.run(); else eventBus.fireLog("[TODO] Activities picker modal hook pending."); }
+    public void commandActions()    { if (actionsHook    != null) actionsHook.run();    else eventBus.fireLog("[TODO] Landlord actions modal hook pending."); }
     public void commandAuto(boolean enabled) { eventBus.fireLog("[TODO] Automation toggled: " + enabled); }
     public void commandOptions() { eventBus.fireLog("[TODO] Options modal hook pending."); }
 
