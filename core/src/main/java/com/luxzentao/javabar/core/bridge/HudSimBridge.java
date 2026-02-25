@@ -57,7 +57,7 @@ public class HudSimBridge {
     public String policyLine() {
         String task = state.activeSecurityTask == null ? "None" : state.activeSecurityTask.getLabel();
         return "Policy " + state.securityPolicy.getShortLabel() + " | Task " + task
-                + " | Sec " + sim.securityBreakdown().total()
+                + " | Sec " + sim.securityBreakdown().effectiveSecurity()
                 + " | Chaos " + String.format(Locale.US, "%.1f", state.chaos)
                 + " | TS " + state.tradingStandardsCounter;
     }
@@ -72,7 +72,7 @@ public class HudSimBridge {
     public String countsLine() {
         return "FOH " + state.fohStaffCount() + "/" + state.fohStaffCap
                 + " | HOH " + state.hohStaffCount() + "/" + state.hohStaffCap
-                + " | BOH " + state.bohStaff.size() + "/" + state.kitchenChefCap;
+                + " | BOH " + state.bohStaff.size() + "/" + state.bohStaffCap;
     }
 
     public String forecastLine() {
@@ -134,11 +134,11 @@ public class HudSimBridge {
     }
 
     public void commandPayDebt() {
-        if (state.creditLines.getOpenLines().isEmpty()) {
+        if (state.creditLines.all().isEmpty()) {
             eventBus.fireLog("[TODO] No bank credit line to repay.");
             return;
         }
-        sim.repayCreditLineInFull(state.creditLines.getOpenLines().get(0).getId());
+        sim.repayCreditLineInFull(state.creditLines.all().get(0).id());
     }
 
     public void commandLoanShark() {
