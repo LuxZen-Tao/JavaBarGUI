@@ -41,7 +41,7 @@ public class BarGame extends ApplicationAdapter {
         simEventBus = new SimEventBus();
         simulation = new Simulation(state, new BusUILogger(simEventBus));
         simAdapter = new SimAdapter(state, simEventBus);
-        hudView = new HudView(stage, skin, simEventBus);
+        hudView = new HudView(stage, skin, simulation, state, simEventBus);
 
         InputMultiplexer mux = new InputMultiplexer();
         mux.addProcessor(stage);
@@ -108,6 +108,22 @@ public class BarGame extends ApplicationAdapter {
         ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
         scrollPaneStyle.background = fallbackSkin.newDrawable("white", new Color(0.09f, 0.10f, 0.14f, 0.95f));
         fallbackSkin.add("default", scrollPaneStyle);
+
+        // Window style — required for any Scene2D Window subclass (modals, panels)
+        com.badlogic.gdx.scenes.scene2d.ui.Window.WindowStyle windowStyle =
+                new com.badlogic.gdx.scenes.scene2d.ui.Window.WindowStyle();
+        windowStyle.titleFont      = font;
+        windowStyle.titleFontColor = Color.WHITE;
+        windowStyle.background     = fallbackSkin.newDrawable("white", new Color(0.12f, 0.13f, 0.18f, 0.97f));
+        fallbackSkin.add("default", windowStyle);
+
+        // TextArea style (used by MissionWindow read-only stats)
+        com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle tfStyle =
+                new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle();
+        tfStyle.font      = font;
+        tfStyle.fontColor = Color.WHITE;
+        tfStyle.background = fallbackSkin.newDrawable("white", new Color(0.07f, 0.08f, 0.11f, 0.9f));
+        fallbackSkin.add("default", tfStyle);
 
         return fallbackSkin;
     }

@@ -39,3 +39,7 @@ MusicProfiles/*
 # External boot sequence art assets (download separately; see ASSETS.md)
 Art/BootSequence/*
 !Art/BootSequence/README.md
+.gradle/
+core/build/
+lwjgl3/build/
+legacy-swing/build/

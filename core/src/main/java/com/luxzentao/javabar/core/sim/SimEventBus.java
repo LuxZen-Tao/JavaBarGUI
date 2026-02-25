@@ -25,4 +25,20 @@ public class SimEventBus {
         if (message == null || message.isBlank()) return;
         for (SimListener listener : listeners) listener.onLog(message);
     }
+
+    public void fireNightStatus(boolean nightOpen) {
+        for (SimListener listener : listeners) listener.onNightStatusChanged(nightOpen);
+    }
+
+    public void fireRep(int rep) {
+        for (SimListener listener : listeners) listener.onRepChanged(rep);
+    }
+
+    public void fireStaff(int total) {
+        for (SimListener listener : listeners) listener.onStaffChanged(total);
+    }
+
+    public void firePunters(int count) {
+        for (SimListener listener : listeners) listener.onPuntersChanged(count);
+    }
 }
