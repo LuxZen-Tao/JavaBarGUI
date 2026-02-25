@@ -11,7 +11,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.function.Consumer;
 
-public class UILogger implements Logger {
+public class UILogger extends com.luxzentao.javabar.core.UILogger {
 
     public static final int LOG_SPEED_SETTING_MIN = 0;
     public static final int LOG_SPEED_SETTING_DEFAULT = 50;
@@ -188,7 +188,17 @@ public class UILogger implements Logger {
         queue.addLast(new Chunk(body, t));
     }
 
-    public void appendLogSegments(java.util.List<Segment> segments) {
+    @Override
+    public void appendLogSegments(java.util.List<com.luxzentao.javabar.core.UILogger.Segment> segments) {
+        if (segments == null || segments.isEmpty()) return;
+        java.util.List<Segment> converted = new java.util.ArrayList<>();
+        for (com.luxzentao.javabar.core.UILogger.Segment s : segments) {
+            if (s != null) converted.add(new Segment(s.text(), Tone.valueOf(s.tone().name())));
+        }
+        queueSwingSegments(converted);
+    }
+
+    private void queueSwingSegments(java.util.List<Segment> segments) {
         if (segments == null || segments.isEmpty()) return;
         java.util.List<Segment> out = new java.util.ArrayList<>();
         String firstText = segments.get(0).text();
@@ -282,7 +292,7 @@ public class UILogger implements Logger {
         if (suffix != null && !suffix.isEmpty()) {
             segments.add(new Segment(suffix, baseTone));
         }
-        appendLogSegments(segments);
+        queueSwingSegments(segments);
     }
 
     public void popupUpgrade(String title, String upgradeName, String bodySuffix, String effects) {
@@ -296,7 +306,7 @@ public class UILogger implements Logger {
         if (!suffix.isEmpty()) {
             segments.add(new Segment(suffix, Tone.EVENT));
         }
-        appendLogSegments(segments);
+        queueSwingSegments(segments);
         publishEvent(safeTitle + " - " + upgradeName + suffix);
         publishPopup(safeTitle, upgradeName + suffix, effects, UIPopup.PopupStyle.EVENT);
     }

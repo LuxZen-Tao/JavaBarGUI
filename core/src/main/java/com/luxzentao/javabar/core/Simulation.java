@@ -2411,7 +2411,7 @@ public class Simulation {
     
     // ==================== END INN EVENTS SYSTEM ====================
 
-    void installUpgradeForTest(PubUpgrade up) {
+    public void installUpgradeForTest(PubUpgrade up) {
         installUpgradeNow(up, false);
     }
 
