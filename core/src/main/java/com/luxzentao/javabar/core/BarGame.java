@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -103,6 +104,10 @@ public class BarGame extends ApplicationAdapter {
         buttonStyle.over = fallbackSkin.newDrawable("white", new Color(0.25f, 0.30f, 0.40f, 1f));
         buttonStyle.font = font;
         fallbackSkin.add("default", buttonStyle);
+
+        ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+        scrollPaneStyle.background = fallbackSkin.newDrawable("white", new Color(0.09f, 0.10f, 0.14f, 0.95f));
+        fallbackSkin.add("default", scrollPaneStyle);
 
         return fallbackSkin;
     }
