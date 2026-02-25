@@ -28,8 +28,11 @@ public class ToastManager {
         Container<Label> bubble = new Container<>(toastLabel);
         bubble.setBackground(skin.newDrawable("white", new Color(0.08f, 0.08f, 0.12f, 0.92f)));
         bubble.pad(8f);
-        bubble.setSize(Math.min(340f, stage.getWidth() * 0.5f), 56f);
-        bubble.setPosition(16f, 20f);
+        bubble.fill();
+        float bw = Math.min(440f, stage.getWidth() * 0.6f);
+        float bh = 60f;
+        bubble.setSize(bw, bh);
+        bubble.setPosition((stage.getWidth() - bw) / 2f, (stage.getHeight() - bh) / 2f);
         bubble.getColor().a = 0f;
 
         stage.addActor(bubble);
