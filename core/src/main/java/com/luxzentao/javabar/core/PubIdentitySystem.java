@@ -9,9 +9,9 @@ import java.util.Map;
 public class PubIdentitySystem {
 
     private final GameState s;
-    private final UILogger log;
+    private final Logger log;
 
-    public PubIdentitySystem(GameState s, UILogger log) {
+    public PubIdentitySystem(GameState s, Logger log) {
         this.s = s;
         this.log = log;
     }

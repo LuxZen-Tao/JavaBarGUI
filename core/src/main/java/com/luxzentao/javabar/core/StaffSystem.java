@@ -379,7 +379,7 @@ public class StaffSystem {
      * Weekly morale check: if fights were frequent, staff may quit.
      * This resets weekly (call at endOfWeek).
      */
-    public void weeklyMoraleCheck(int fightsThisWeek, Random r, UILogger log) {
+    public void weeklyMoraleCheck(int fightsThisWeek, Random r, Logger log) {
         int baseQuit = fightsThisWeek <= 0 ? 0 : Math.min(45, 6 + fightsThisWeek * 8);
         double moraleMult = moraleQuitMultiplier(s.teamMorale);
         int quitChance = (int)Math.round(baseQuit * moraleMult);
@@ -439,7 +439,7 @@ public class StaffSystem {
         updateTeamMorale();
     }
 
-    public void handleWeeklyLevelUps(Random r, UILogger log, double chaos) {
+    public void handleWeeklyLevelUps(Random r, Logger log, double chaos) {
         double volatility = Math.min(0.45, chaos / 200.0);
         for (Staff st : s.fohStaff) {
             st.incrementWeeksEmployed();
@@ -468,7 +468,7 @@ public class StaffSystem {
         handleStaffRelationships(log);
     }
 
-    private void handleStaffRelationships(UILogger log) {
+    private void handleStaffRelationships(Logger log) {
         StaffRelationshipSystem relSystem = new StaffRelationshipSystem(s);
         List<StaffNarrativeEvent> events = relSystem.weeklyRelationshipUpdate(log);
         

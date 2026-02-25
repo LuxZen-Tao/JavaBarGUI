@@ -10,9 +10,9 @@ import java.util.*;
 public class RumorSystem {
 
     private final GameState s;
-    private final UILogger log;
+    private final Logger log;
 
-    public RumorSystem(GameState s, UILogger log) {
+    public RumorSystem(GameState s, Logger log) {
         this.s = s;
         this.log = log;
     }

@@ -79,7 +79,7 @@ public class LandlordPromptEventSystem {
     /**
      * Apply the effect package to the game state.
      */
-    public void applyEffects(LandlordPromptEffectPackage effects, EconomySystem eco, UILogger log) {
+    public void applyEffects(LandlordPromptEffectPackage effects, EconomySystem eco, Logger log) {
         boolean hasEffects = false;
         StringBuilder effectSummary = new StringBuilder();
 
