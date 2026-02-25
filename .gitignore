@@ -31,3 +31,7 @@ README_OLD*.md
 # GDX template (not part of main project)
 /gdx-template/
 gradle/wrapper/gradle-wrapper.jar
+
+# External music pack assets (download separately; see ASSETS.md)
+MusicProfiles/*
+!MusicProfiles/README.md
