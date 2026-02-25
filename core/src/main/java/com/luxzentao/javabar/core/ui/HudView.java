@@ -1,339 +1,265 @@
 package com.luxzentao.javabar.core.ui;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.actions.Actions;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Align;
 import com.luxzentao.javabar.core.GameState;
 import com.luxzentao.javabar.core.Simulation;
+import com.luxzentao.javabar.core.bridge.HudSimBridge;
 import com.luxzentao.javabar.core.sim.SimEventBus;
 import com.luxzentao.javabar.core.sim.SimListener;
+import com.luxzentao.javabar.core.ui.hud.ActivityLogPanel;
+import com.luxzentao.javabar.core.ui.hud.MissionControlModal;
+import com.luxzentao.javabar.core.ui.hud.RightDrawer;
+import com.luxzentao.javabar.core.ui.hud.StatBarPanel;
 
 import java.util.Locale;
 
-/**
- * Primary HUD view for the LibGDX game window.
- *
- * Layout (top → bottom):
- *   [stat bubbles: Week | Cash | Rep | Staff | Punters | Status]
- *   [expandable centre – empty for now, game world will go here]
- *   [night row:    Open Bar | Next Round | Close Night]
- *   [bottom bar:   Supplier | Bank | Mission | Staff | Upgrades | Log]
- *   [right-side drawer (Activity Log) slides in/out]
- *
- * Lifecycle:
- *   create()  – new HudView(stage, skin, sim, state, eventBus)
- *   render()  – sim adapter calls sync(), HUD updates via SimListener callbacks
- *   resize()  – call hudView.resize(w, h)
- *   dispose() – hudView.dispose()
- */
 public class HudView implements SimListener {
     private final Stage stage;
-    private final Skin skin;
     private final SimEventBus eventBus;
     private final ToastManager toastManager;
+    private final HudSimBridge bridge;
 
-    // Stat bubble labels
-    private final Label weekValueLabel;
-    private final Label cashValueLabel;
-    private final Label repValueLabel;
-    private final Label staffValueLabel;
-    private final Label puntersValueLabel;
-    private final Label statusLabel;
+    private final StatBarPanel leftA, leftB, leftC, leftD;
+    private final StatBarPanel midA, midB, midC, midD;
+    private final StatBarPanel rightA, rightB, rightC, rightD;
+    private final ActivityLogPanel activityLogPanel;
 
-    // Night cycle buttons (enabled/disabled based on nightOpen)
-    private final TextButton openBarBtn;
-    private final TextButton nextRoundBtn;
-    private final TextButton closeNightBtn;
+    private final RightDrawer reportsDrawer;
+    private final RightDrawer inventoryDrawer;
+    private final Label reportsBody;
+    private final Label inventoryBody;
 
-    // Log drawer
-    private final Table logDrawer;
-    private final Table logLines;
-    private final ScrollPane logScrollPane;
-    private boolean drawerOpen;
-
-    // Windows (lazily created)
-    private SupplierWindow supplierWindow;
-    private BankWindow bankWindow;
-    private MissionWindow missionWindow;
-    private StaffWindow staffWindow;
-    private UpgradesWindow upgradesWindow;
-
-    // Simulation references
-    private final Simulation sim;
-    private final GameState state;
-
+    private final MissionControlModal missionControlModal;
     public HudView(Stage stage, Skin skin, Simulation sim, GameState state, SimEventBus eventBus) {
         this.stage = stage;
-        this.skin = skin;
-        this.sim = sim;
-        this.state = state;
         this.eventBus = eventBus;
         this.toastManager = new ToastManager(stage, skin);
+        this.bridge = new HudSimBridge(sim, state, eventBus);
+        this.missionControlModal = new MissionControlModal(skin, bridge);
 
-        // ── Root table fills the whole viewport ──────────────────────────────
-        Table root = new Table();
+        Table root = new Table(skin);
         root.setFillParent(true);
+        root.pad(8f);
         stage.addActor(root);
 
-        // ── Top stat bubbles ─────────────────────────────────────────────────
-        Table bubbles = new Table();
-        weekValueLabel    = createBubble(bubbles, "Week",    "W1");
-        cashValueLabel    = createBubble(bubbles, "Cash",    "£0.00");
-        repValueLabel     = createBubble(bubbles, "Rep",     "0");
-        staffValueLabel   = createBubble(bubbles, "Staff",   "0");
-        puntersValueLabel = createBubble(bubbles, "Punters", "0");
-        statusLabel       = createBubble(bubbles, "Bar",     "CLOSED");
-        statusLabel.setColor(Color.RED);
+        // Top stat bar area (3 columns x multi-row)
+        Table top = new Table(skin);
+        leftA = new StatBarPanel(skin, new Color(0.20f, 0.34f, 0.58f, 0.95f));
+        leftB = new StatBarPanel(skin, new Color(0.34f, 0.35f, 0.78f, 0.95f));
+        leftC = new StatBarPanel(skin, new Color(0.28f, 0.40f, 0.60f, 0.95f));
+        leftD = new StatBarPanel(skin, new Color(0.31f, 0.46f, 0.79f, 0.95f));
 
-        Table topRow = new Table();
-        topRow.add(bubbles).left().expandX().padTop(12f).padLeft(12f);
-        root.top().add(topRow).expandX().fillX().row();
+        midA = new StatBarPanel(skin, new Color(0.13f, 0.56f, 0.36f, 0.95f));
+        midB = new StatBarPanel(skin, new Color(0.30f, 0.32f, 0.42f, 0.95f));
+        midC = new StatBarPanel(skin, new Color(0.35f, 0.33f, 0.52f, 0.95f));
+        midD = new StatBarPanel(skin, new Color(0.38f, 0.43f, 0.52f, 0.95f));
 
-        // ── Expandable centre (future world view placeholder) ─────────────────
-        root.add().expand().fill().row();
+        rightA = new StatBarPanel(skin, new Color(0.65f, 0.20f, 0.25f, 0.95f));
+        rightB = new StatBarPanel(skin, new Color(0.75f, 0.54f, 0.19f, 0.95f));
+        rightC = new StatBarPanel(skin, new Color(0.33f, 0.50f, 0.50f, 0.95f));
+        rightD = new StatBarPanel(skin, new Color(0.26f, 0.37f, 0.55f, 0.95f));
 
-        // ── Night cycle control row ───────────────────────────────────────────
-        Table nightRow = new Table();
-        nightRow.setBackground(skin.newDrawable("white", new Color(0.05f, 0.12f, 0.08f, 0.88f)));
+        addColumn(top, leftA, leftB, leftC, leftD);
+        addColumn(top, midA, midB, midC, midD);
+        addColumn(top, rightA, rightB, rightC, rightD);
 
-        openBarBtn    = new TextButton("Open Bar",    skin);
-        nextRoundBtn  = new TextButton("Next Round",  skin);
-        closeNightBtn = new TextButton("Close Night", skin);
+        root.add(top).growX().top().row();
 
-        openBarBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+        // Main center with activity log
+        activityLogPanel = new ActivityLogPanel(skin);
+        root.add(activityLogPanel).grow().padTop(8f).row();
+
+        // Bottom grouped action bar
+        root.add(buildBottomBar(skin, state)).growX().padTop(8f);
+
+        // Drawers
+        reportsBody = new Label("--", skin);
+        reportsBody.setWrap(true);
+        reportsBody.setAlignment(Align.topLeft);
+
+        Table reportsTable = new Table(skin);
+        TextButton mcBtn = new TextButton("Mission Control", skin);
+        mcBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) { missionControlModal.show(stage); }
+        });
+        TextButton optionsBtn = new TextButton("Options", skin);
+        optionsBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
             @Override public void changed(ChangeEvent event, Actor actor) {
-                sim.openNight();
-                eventBus.fireLog("Bar opened.");
-                refreshWindowsIfOpen();
+                bridge.commandOptions();
+                eventBus.fireLog("Opened options placeholder.");
             }
         });
-        nextRoundBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) {
-                if (!state.nightOpen) return;
-                sim.playRound();
-                eventBus.fireLog("Round played.");
-                refreshWindowsIfOpen();
-            }
-        });
-        closeNightBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) {
-                if (!state.nightOpen) return;
-                sim.closeNight("Closed by landlord.");
-                eventBus.fireLog("Night closed.");
-                refreshWindowsIfOpen();
-            }
-        });
+        reportsTable.add(new Label("Reports (Live)", skin)).left().expandX();
+        reportsTable.add(mcBtn).padRight(6f);
+        reportsTable.add(optionsBtn).row();
+        reportsTable.add(new ScrollPane(reportsBody, skin)).grow().colspan(3).padTop(8f);
+        reportsDrawer = new RightDrawer(stage, skin, "Reports", 440f, this::closeDrawers);
+        reportsDrawer.setBody(reportsTable);
+        stage.addActor(reportsDrawer);
 
-        nightRow.add(openBarBtn).pad(6f).width(140f).height(40f);
-        nightRow.add(nextRoundBtn).pad(6f).width(140f).height(40f);
-        nightRow.add(closeNightBtn).pad(6f).width(140f).height(40f);
-        root.add(nightRow).fillX().row();
-
-        // ── Bottom navigation bar ─────────────────────────────────────────────
-        Table bottomBar = new Table();
-        bottomBar.setBackground(skin.newDrawable("white", new Color(0.08f, 0.08f, 0.1f, 0.9f)));
-
-        addNavButton(bottomBar, "Supplier", () -> getSupplierWindow().show(stage));
-        addNavButton(bottomBar, "Bank",     () -> getBankWindow().show(stage));
-        addNavButton(bottomBar, "Mission",  () -> getMissionWindow().show(stage));
-        addNavButton(bottomBar, "Staff",    () -> getStaffWindow().show(stage));
-        addNavButton(bottomBar, "Upgrades", () -> getUpgradesWindow().show(stage));
-
-        TextButton logButton = new TextButton("Log", skin);
-        logButton.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) { toggleDrawer(); }
-        });
-        bottomBar.add(logButton).pad(8f).width(120f).height(42f);
-
-        root.bottom().add(bottomBar).fillX();
-
-        // ── Activity Log drawer (slides from right) ───────────────────────────
-        logLines = new Table();
-        logLines.top().left();
-
-        logScrollPane = new ScrollPane(logLines, skin);
-        logScrollPane.setFadeScrollBars(false);
-        logScrollPane.setScrollingDisabled(true, false);
-
-        Label logTitle = new Label("Activity Log", skin);
-        logTitle.setAlignment(Align.left);
-
-        logDrawer = new Table();
-        logDrawer.setBackground(skin.newDrawable("white", new Color(0.03f, 0.03f, 0.06f, 0.95f)));
-        logDrawer.top().left().pad(10f);
-        logDrawer.setSize(320f, Math.max(220f, stage.getHeight()));
-        logDrawer.add(logTitle).left().padBottom(10f).row();
-        logDrawer.add(logScrollPane).expand().fill();
-
-        stage.addActor(logDrawer);
-        hideDrawerImmediate();
-
-        // Initial button states
-        updateNightButtons(false);
+        inventoryBody = new Label("--", skin);
+        inventoryBody.setWrap(true);
+        inventoryBody.setAlignment(Align.topLeft);
+        inventoryDrawer = new RightDrawer(stage, skin, "Inventory", 440f, this::closeDrawers);
+        inventoryDrawer.setBody(new ScrollPane(inventoryBody, skin));
+        stage.addActor(inventoryDrawer);
 
         eventBus.addListener(this);
+        refreshStats();
     }
 
-    // ── Lazy window accessors ─────────────────────────────────────────────────
-
-    private SupplierWindow getSupplierWindow() {
-        if (supplierWindow == null)
-            supplierWindow = new SupplierWindow(skin, sim, state, eventBus);
-        return supplierWindow;
+    private void addColumn(Table top, StatBarPanel a, StatBarPanel b, StatBarPanel c, StatBarPanel d) {
+        Table col = new Table();
+        col.add(a).growX().height(58f).row();
+        col.add(b).growX().height(58f).padTop(2f).row();
+        col.add(c).growX().height(58f).padTop(2f).row();
+        col.add(d).growX().height(58f).padTop(2f);
+        top.add(col).growX().uniformX().padRight(2f);
     }
 
-    private BankWindow getBankWindow() {
-        if (bankWindow == null)
-            bankWindow = new BankWindow(skin, sim, state, eventBus);
-        return bankWindow;
-    }
+    private Table buildBottomBar(Skin skin, GameState state) {
+        Table bottom = new Table(skin);
+        bottom.setBackground(skin.newDrawable("white", new Color(0.13f, 0.14f, 0.18f, 0.97f)));
+        bottom.pad(6f);
 
-    private MissionWindow getMissionWindow() {
-        if (missionWindow == null)
-            missionWindow = new MissionWindow(skin, sim, state);
-        return missionWindow;
-    }
+        Slider slider = new Slider(0.8f, 2.0f, 0.01f, false, skin);
+        slider.setValue((float) state.priceMultiplier);
 
-    private StaffWindow getStaffWindow() {
-        if (staffWindow == null)
-            staffWindow = new StaffWindow(skin, sim, state, eventBus);
-        return staffWindow;
-    }
+        bottom.add(group(skin, "Night", actionBtn(skin, "Open Pub", () -> bridge.commandOpenPub()),
+                actionBtn(skin, "Next Round", () -> bridge.commandNextRound()),
+                actionBtn(skin, "Close Night", () -> bridge.commandCloseNight()),
+                toggleBtn(skin, "Happy Hour", state.happyHour, bridge::commandSetHappyHour),
+                actionBtn(skin, "Reports", this::toggleReportsDrawer))).growX().padRight(4f);
 
-    private UpgradesWindow getUpgradesWindow() {
-        if (upgradesWindow == null)
-            upgradesWindow = new UpgradesWindow(skin, sim, state, eventBus);
-        return upgradesWindow;
-    }
+        bottom.add(group(skin, "Economy", new Label("Price", skin), slider,
+                actionBtn(skin, "Supplier", () -> bridge.commandSupplier()),
+                actionBtn(skin, "Food Supplier", () -> bridge.commandFoodSupplier()),
+                actionBtn(skin, "Pay Debt", () -> bridge.commandPayDebt()),
+                actionBtn(skin, "Loan Shark", () -> bridge.commandLoanShark()))).growX().padRight(4f);
 
-    /** Refresh any window that is currently visible (so it stays live). */
-    private void refreshWindowsIfOpen() {
-        if (supplierWindow != null && supplierWindow.isVisible()) supplierWindow.refresh();
-        if (bankWindow     != null && bankWindow.isVisible())     bankWindow.refresh();
-        if (missionWindow  != null && missionWindow.isVisible())  missionWindow.refresh();
-        if (staffWindow    != null && staffWindow.isVisible())    staffWindow.refresh();
-        if (upgradesWindow != null && upgradesWindow.isVisible()) upgradesWindow.refresh();
-    }
+        bottom.add(group(skin, "Management",
+                actionBtn(skin, "Staff", () -> bridge.commandStaff()),
+                actionBtn(skin, "Inn", () -> bridge.commandInn()),
+                actionBtn(skin, "Upgrades", () -> bridge.commandUpgrades()),
+                actionBtn(skin, "Inventory", this::toggleInventoryDrawer))).growX().padRight(4f);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+        bottom.add(group(skin, "Risk", actionBtn(skin, "Security", () -> bridge.commandSecurity()))).growX().padRight(4f);
+        bottom.add(group(skin, "Activities", actionBtn(skin, "Activities", () -> bridge.commandActivities()), actionBtn(skin, "Actions", () -> bridge.commandActions()))).growX().padRight(4f);
+        bottom.add(group(skin, "Automation", toggleBtn(skin, "Auto", false, bridge::commandAuto))).growX();
 
-    private Label createBubble(Table bubbles, String title, String value) {
-        Table bubble = new Table();
-        bubble.setBackground(skin.newDrawable("white", new Color(0.16f, 0.18f, 0.24f, 0.94f)));
-        bubble.pad(8f);
-
-        Label titleLabel = new Label(title, skin);
-        Label valueLabel = new Label(value, skin);
-
-        bubble.add(titleLabel).left().row();
-        bubble.add(valueLabel).left();
-
-        bubbles.add(bubble).padRight(10f).height(64f).minWidth(100f);
-        return valueLabel;
-    }
-
-    private void addNavButton(Table table, String text, Runnable action) {
-        TextButton button = new TextButton(text, skin);
-        button.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                eventBus.fireLog("Opened " + text + " menu.");
-                action.run();
+        slider.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                bridge.commandSetPriceMultiplier(slider.getValue());
+                eventBus.fireLog(String.format(Locale.US, "Price multiplier set to x%.2f", slider.getValue()));
             }
         });
-        table.add(button).pad(8f).width(120f).height(42f);
+        return bottom;
     }
 
-    private void updateNightButtons(boolean nightOpen) {
-        openBarBtn.setDisabled(nightOpen);
-        nextRoundBtn.setDisabled(!nightOpen);
-        closeNightBtn.setDisabled(!nightOpen);
+    private Table group(Skin skin, String title, Actor... actors) {
+        Table g = new Table(skin);
+        g.setBackground(skin.newDrawable("white", new Color(0.10f, 0.12f, 0.16f, 0.98f)));
+        g.pad(4f);
+        g.add(new Label(title, skin)).left().row();
+        Table body = new Table(skin);
+        for (Actor actor : actors) body.add(actor).pad(2f).height(34f);
+        g.add(body).left();
+        return g;
     }
 
-    private void toggleDrawer() {
-        float targetX = drawerOpen ? stage.getWidth() : stage.getWidth() - logDrawer.getWidth();
-        drawerOpen = !drawerOpen;
-        logDrawer.clearActions();
-        logDrawer.addAction(Actions.moveTo(targetX, 0, 0.22f));
+    private TextButton actionBtn(Skin skin, String text, Runnable action) {
+        TextButton btn = new TextButton(text, skin);
+        btn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                action.run();
+                toastManager.show(text);
+            }
+        });
+        return btn;
     }
 
-    private void hideDrawerImmediate() {
-        drawerOpen = false;
-        logDrawer.setPosition(stage.getWidth(), 0f);
+    private CheckBox toggleBtn(Skin skin, String text, boolean checked, java.util.function.Consumer<Boolean> action) {
+        CheckBox cb = new CheckBox(text, skin);
+        cb.setChecked(checked);
+        cb.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                action.accept(cb.isChecked());
+                eventBus.fireLog(text + ": " + (cb.isChecked() ? "ON" : "OFF"));
+            }
+        });
+        return cb;
     }
 
-    // ── Public lifecycle hooks ────────────────────────────────────────────────
+    private void refreshStats() {
+        var m = bridge.metrics();
+        leftA.setText(m.hudPubName + "\n" + bridge.weekLine());
+        leftB.setText(m.hudRep + "\nIdentity: " + bridge.metrics().reputationIdentity.split("\n")[0] + "\nRumor: " + bridge.metrics().rumors.split("\n")[0]);
+        leftC.setText(bridge.weekLine() + "\n" + bridge.calendarLine());
+        leftD.setText(bridge.serviceLine());
+
+        midA.setText(m.hudCash);
+        midB.setText("Weekly Costs\n" + bridge.costsSummaryLineA() + "\n" + bridge.costsSummaryLineB());
+        midC.setText(bridge.reportLine());
+        midD.setText(stateFlavor(m));
+
+        rightA.setText(m.hudDebt);
+        rightB.setText(bridge.policyLine());
+        rightC.setText(bridge.staffLine() + "\n" + bridge.countsLine());
+        rightD.setText(bridge.forecastLine() + "\n" + bridge.topSellerLine());
+
+        reportsBody.setText(bridge.reportsLiveText());
+        inventoryBody.setText(bridge.inventoryText());
+        missionControlModal.refresh();
+    }
+
+    private String stateFlavor(com.luxzentao.javabar.core.MetricsSnapshot m) {
+        return m.overviewLines.isEmpty() ? "NPC: Keeping the taps warm." : m.overviewLines.get(Math.min(3, m.overviewLines.size() - 1));
+    }
+
+    private void closeDrawers() {
+        reportsDrawer.close();
+        inventoryDrawer.close();
+    }
+
+    private void toggleReportsDrawer() {
+        if (reportsDrawer.isOpen()) reportsDrawer.close();
+        else {
+            inventoryDrawer.close();
+            reportsDrawer.open();
+        }
+    }
+
+    private void toggleInventoryDrawer() {
+        if (inventoryDrawer.isOpen()) inventoryDrawer.close();
+        else {
+            reportsDrawer.close();
+            inventoryDrawer.open();
+        }
+    }
 
     public void resize(int width, int height) {
-        logDrawer.setHeight(Math.max(220f, height));
-        float targetX = drawerOpen ? (width - logDrawer.getWidth()) : width;
-        logDrawer.setPosition(targetX, 0f);
+        reportsDrawer.onResize();
+        inventoryDrawer.onResize();
     }
 
-    public void dispose() {
-        eventBus.removeListener(this);
-    }
+    public void tick() { refreshStats(); }
 
-    // ── SimListener ───────────────────────────────────────────────────────────
+    public void dispose() { eventBus.removeListener(this); }
 
-    @Override
-    public void onWeekChanged(int week) {
-        weekValueLabel.setText("W" + Math.max(1, week));
-    }
-
-    @Override
-    public void onCashChanged(double cash) {
-        cashValueLabel.setText(String.format(Locale.US, "£%,.2f", cash));
-    }
-
-    @Override
-    public void onRepChanged(int rep) {
-        repValueLabel.setText("" + rep);
-    }
-
-    @Override
-    public void onStaffChanged(int total) {
-        staffValueLabel.setText("" + total);
-    }
-
-    @Override
-    public void onPuntersChanged(int count) {
-        puntersValueLabel.setText("" + count);
-    }
-
-    @Override
-    public void onNightStatusChanged(boolean nightOpen) {
-        statusLabel.setText(nightOpen ? "OPEN" : "CLOSED");
-        statusLabel.setColor(nightOpen ? Color.GREEN : Color.RED);
-        updateNightButtons(nightOpen);
-    }
+    @Override public void onWeekChanged(int week) { refreshStats(); }
+    @Override public void onCashChanged(double cash) { refreshStats(); }
+    @Override public void onRepChanged(int rep) { refreshStats(); }
+    @Override public void onStaffChanged(int total) { refreshStats(); }
+    @Override public void onPuntersChanged(int count) { refreshStats(); }
+    @Override public void onNightStatusChanged(boolean nightOpen) { refreshStats(); }
 
     @Override
     public void onLog(String message) {
-        Label line = new Label(message, skin);
-        line.setWrap(true);
-        line.setAlignment(Align.left);
-
-        logLines.add(line).left().growX().padBottom(6f).row();
+        activityLogPanel.append(message);
         toastManager.show(message);
-
-        Gdx.app.postRunnable(() -> {
-            if (logLines.getChildren().size > 200) {
-                logLines.getChildren().removeIndex(0);
-            }
-            logScrollPane.layout();
-            logScrollPane.setScrollPercentY(1f);
-        });
-
-        // Keep open windows updated whenever the sim produces a log event
-        refreshWindowsIfOpen();
     }
 }
