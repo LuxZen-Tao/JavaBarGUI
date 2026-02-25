@@ -27,7 +27,7 @@ public class StaffRelationshipSystem {
      * Updates all staff relationships and generates narrative events.
      * Called once per week during end-of-week processing.
      */
-    public List<StaffNarrativeEvent> weeklyRelationshipUpdate(UILogger log) {
+    public List<StaffNarrativeEvent> weeklyRelationshipUpdate(Logger log) {
         List<StaffNarrativeEvent> events = new ArrayList<>();
         
         // Get all staff
@@ -261,7 +261,7 @@ public class StaffRelationshipSystem {
         return null;
     }
 
-    private void logEvent(UILogger log, StaffNarrativeEvent event) {
+    private void logEvent(Logger log, StaffNarrativeEvent event) {
         if (log != null) {
             log.event(" [Staff] " + event.getDescription());
         }

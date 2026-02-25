@@ -45,7 +45,7 @@ public class MilestoneSystem {
     private static final int STORMPROOF_NEGATIVE_EVENTS = 3;
 
     private final GameState s;
-    private final UILogger log;
+    private final Logger log;
     private final EnumMap<PubActivity, Milestone> activityMilestoneRequirements = new EnumMap<>(PubActivity.class);
     private final EnumMap<PubActivity, ActivityAvailability> activityAvailability = new EnumMap<>(PubActivity.class);
     private final EnumMap<PubUpgrade, UpgradeAvailability> upgradeAvailability = new EnumMap<>(PubUpgrade.class);
@@ -80,7 +80,7 @@ public class MilestoneSystem {
         public List<String> missingRequirements() { return missingRequirements; }
     }
 
-    public MilestoneSystem(GameState s, UILogger log) {
+    public MilestoneSystem(GameState s, Logger log) {
         this.s = s;
         this.log = log;
         buildDefinitions();

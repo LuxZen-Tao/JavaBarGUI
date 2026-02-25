@@ -148,7 +148,7 @@ public class CreditLineManager  implements java.io.Serializable {
         return line;
     }
 
-    public void applyWeeklyInterest(GameState s, UILogger log) {
+    public void applyWeeklyInterest(GameState s, Logger log) {
         double totalLimit = 0.0;
         double totalBalance = 0.0;
         int openCount = 0;
@@ -205,7 +205,7 @@ public class CreditLineManager  implements java.io.Serializable {
         }
     }
 
-    public void repayInFull(GameState s, CreditLine line, UILogger log) {
+    public void repayInFull(GameState s, CreditLine line, Logger log) {
         if (line == null || s == null) return;
         double due = line.getBalance();
         if (due <= 0.0) return;

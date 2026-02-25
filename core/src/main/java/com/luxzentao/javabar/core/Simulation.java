@@ -150,7 +150,7 @@ public class Simulation {
     }
 
     private final GameState s;
-    private final UILogger log;
+    private final Logger log;
 
     private final EconomySystem eco;
     private final UpgradeSystem upgrades;
@@ -174,7 +174,7 @@ public class Simulation {
     private final LandlordPromptEventSystem landlordPromptEvents;
     private java.util.function.IntConsumer weekStartHook;
 
-    public Simulation(GameState state, UILogger log) {
+    public Simulation(GameState state, Logger log) {
 
         this.s = state;
         this.log = log;
@@ -999,7 +999,7 @@ public class Simulation {
         int nights = 1 + s.random.nextInt(4);
         s.pendingUpgradeInstalls.add(new PendingUpgradeInstall(up, nights, nights));
         milestones.recomputeUpgradeAvailability();
-        log.upgrade(" Upgrade ordered: ", up.getLabel(), " (ETA " + nights + " night(s)).", UILogger.Tone.POS);
+        log.action(" Upgrade ordered: " + up.getLabel() + " (ETA " + nights + " night(s)).");
         eco.applyRep(+2, "Upgrade hype");
 
         if (s.ownedUpgrades.size() == 3) log.event(" Milestone: 3 upgrades owned - your pub is becoming a 'place'.");
@@ -1252,11 +1252,7 @@ public class Simulation {
         s.cash += amount;
         s.creditScore = s.clampCreditScore(s.creditScore - 50);
         log.neg("Loan shark money taken. Credit score takes a hit.");
-        java.util.List<UILogger.Segment> loanSegments = new java.util.ArrayList<>();
-        loanSegments.add(new UILogger.Segment("Loan shark loan received | ", UILogger.Tone.POS));
-        loanSegments.add(new UILogger.Segment("GBP " + String.format("%.0f", amount), UILogger.Tone.MONEY));
-        loanSegments.add(new UILogger.Segment(" | APR " + String.format("%.2f", apr * 100) + "%", UILogger.Tone.POS));
-        log.appendLogSegments(loanSegments);
+        log.info("Loan shark loan received | GBP " + String.format("%.0f", amount) + " | APR " + String.format("%.2f", apr * 100) + "%");
     }
 
     public void repayCreditLineInFull(String lineId) {
@@ -2411,7 +2407,7 @@ public class Simulation {
     
     // ==================== END INN EVENTS SYSTEM ====================
 
-    void installUpgradeForTest(PubUpgrade up) {
+    public void installUpgradeForTest(PubUpgrade up) {
         installUpgradeNow(up, false);
     }
 
@@ -3805,15 +3801,7 @@ public class Simulation {
         if (headcount == 0) headcount = 1; // Avoid division by zero
         
         // Log the tip split
-        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
-        segments.add(new UILogger.Segment("Tips pot split: Staff ", UILogger.Tone.INFO));
-        segments.add(new UILogger.Segment(p + "%", UILogger.Tone.ACTION));
-        segments.add(new UILogger.Segment(" (", UILogger.Tone.INFO));
-        segments.add(new UILogger.Segment("GBP " + String.format("%.2f", tipsToStaff), UILogger.Tone.MONEY));
-        segments.add(new UILogger.Segment(") | House (", UILogger.Tone.INFO));
-        segments.add(new UILogger.Segment("GBP " + String.format("%.2f", tipsToHouse), UILogger.Tone.MONEY));
-        segments.add(new UILogger.Segment(")", UILogger.Tone.INFO));
-        log.appendLogSegments(segments);
+        log.info("Tips pot split: Staff " + p + "% (GBP " + String.format("%.2f", tipsToStaff) + ") | House (GBP " + String.format("%.2f", tipsToHouse) + ")");
         
         if (p <= 20) {
             // Tier A: Exploitative (0-20%)

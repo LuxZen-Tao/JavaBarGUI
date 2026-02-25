@@ -7,9 +7,9 @@ public class SecuritySystem {
 
     private final GameState s;
     private final EconomySystem eco;
-    private final UILogger log;
+    private final Logger log;
 
-    public SecuritySystem(GameState s, EconomySystem eco, UILogger log) {
+    public SecuritySystem(GameState s, EconomySystem eco, Logger log) {
         this.s = s;
         this.eco = eco;
         this.log = log;
@@ -96,14 +96,10 @@ public class SecuritySystem {
         s.bouncersHiredTonight++;
         s.bouncerQualitiesTonight.add(quality);
 
-        java.util.List<UILogger.Segment> segments = new java.util.ArrayList<>();
-        segments.add(new UILogger.Segment(" Bouncer hired (", UILogger.Tone.ACTION));
-        segments.add(new UILogger.Segment(s.bouncersHiredTonight + "/" + s.bouncerCap, UILogger.Tone.SECURITY));
-        segments.add(new UILogger.Segment(", " + qualityLabel(quality) + "): ", UILogger.Tone.ACTION));
-        segments.add(new UILogger.Segment("theft -" + pct(s.bouncerTheftReduction)
+        log.action(" Bouncer hired (" + s.bouncersHiredTonight + "/" + s.bouncerCap
+                + ", " + qualityLabel(quality) + "): theft -" + pct(s.bouncerTheftReduction)
                 + ", neg -" + pct(s.bouncerNegReduction)
-                + ", fights -" + pct(s.bouncerFightReduction), UILogger.Tone.SECURITY));
-        log.appendLogSegments(segments);
+                + ", fights -" + pct(s.bouncerFightReduction));
     }
 
     private BouncerQuality rollBouncerQuality() {

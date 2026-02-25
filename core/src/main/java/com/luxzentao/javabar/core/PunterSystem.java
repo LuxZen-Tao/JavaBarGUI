@@ -9,9 +9,9 @@ public class PunterSystem {
     private final InventorySystem inv;
     private final EventSystem events;
     private final RumorSystem rumors;
-    private final UILogger log;
+    private final Logger log;
 
-    public PunterSystem(GameState s, EconomySystem eco, InventorySystem inv, EventSystem events, RumorSystem rumors, UILogger log) {
+    public PunterSystem(GameState s, EconomySystem eco, InventorySystem inv, EventSystem events, RumorSystem rumors, Logger log) {
         this.s = s;
         this.eco = eco;
         this.inv = inv;

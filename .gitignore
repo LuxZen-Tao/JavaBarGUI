@@ -43,3 +43,8 @@ Art/BootSequence/*
 core/build/
 lwjgl3/build/
 legacy-swing/build/
+.gradle/
+core/build/
+legacy-swing/build/
+lwjgl3/build/
+build/

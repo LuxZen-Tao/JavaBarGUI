@@ -51,10 +51,10 @@ public class EventSystem {
 
     private final GameState s;
     private final EconomySystem eco;
-    private final UILogger log;
+    private final Logger log;
     private double chaosFactor = 0.0;
 
-    public EventSystem(GameState s, EconomySystem eco, UILogger log) {
+    public EventSystem(GameState s, EconomySystem eco, Logger log) {
         this.s = s;
         this.eco = eco;
         this.log = log;
