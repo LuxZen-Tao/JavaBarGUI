@@ -40,12 +40,12 @@ public class HudSimBridge {
 
     public String costsSummaryLineA() {
         Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
-        return String.format(Locale.US, "Supplier £%.2f | Wages £%.2f | Rent £%.2f", due.supplierDue(), due.wagesDue(), due.rentDue());
+        return String.format(Locale.US, "Supplier £%.2f | Wages £%.2f | Rent £%.2f", due.supplier(), due.wages(), due.rent());
     }
 
     public String costsSummaryLineB() {
         Simulation.WeeklyDueBreakdown due = sim.weeklyMinDueBreakdown();
-        return String.format(Locale.US, "Security £%.2f | Credit £%.2f | Shark £%.2f", due.securityDue(), due.creditDue(), due.sharkDue());
+        return String.format(Locale.US, "Security £%.2f | Credit £%.2f | Shark £%.2f", due.security(), due.creditLines(), due.loanShark());
     }
 
     public String reportLine() {
