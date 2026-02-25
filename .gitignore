@@ -35,3 +35,7 @@ gradle/wrapper/gradle-wrapper.jar
 # External music pack assets (download separately; see ASSETS.md)
 MusicProfiles/*
 !MusicProfiles/README.md
+
+# External boot sequence art assets (download separately; see ASSETS.md)
+Art/BootSequence/*
+!Art/BootSequence/README.md
